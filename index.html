@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Elixir W&B & Performance (Unofficial)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Chart.js for graphs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg: #020617;
+      --bg-card: #020617;
+      --bg-card-alt: #02081c;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.1);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --danger: #f97373;
+      --ok: #22c55e;
+      --border: #1f2937;
+      --radius: 10px;
+      --shadow: 0 16px 35px rgba(15, 23, 42, 0.75);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #020617 0, #020617 45%, #000 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 1.4rem 1rem 0.6rem;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.5rem, 4vw, 2rem);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    header p {
+      margin: 0.35rem 0 0;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    header p strong {
+      color: #facc15;
+      font-weight: 600;
+    }
+
+    main {
+      width: 100%;
+      max-width: 1180px;
+      margin: 0 auto 2.5rem;
+      padding: 0 1rem 2rem;
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.4fr);
+      gap: 1.25rem;
+      align-items: flex-start;
+    }
+
+    @media (max-width: 980px) {
+      main {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .card {
+      background: radial-gradient(circle at top left, var(--bg-card-alt), var(--bg-card));
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 1.15rem 1.3rem 1.35rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.14), transparent 55%);
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    .card h2 {
+      margin-top: 0;
+      margin-bottom: 0.4rem;
+      font-size: 1rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #f9fafb;
+    }
+
+    .card small {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-bottom: 0.7rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .grid,
+    .grid-3 {
+      display: grid;
+      gap: 0.7rem 0.9rem;
+    }
+
+    .grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    @media (max-width: 640px) {
+      .grid,
+      .grid-3 {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+    }
+
+    input,
+    select {
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      padding: 0.42rem 0.7rem;
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+      width: 100%;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35);
+      background: rgba(15, 23, 42, 1);
+    }
+
+    input[readonly] {
+      opacity: 0.7;
+    }
+
+    .inline-note {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.3rem;
+    }
+
+    .button-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.6rem;
+      margin-top: 0.9rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    button {
+      border-radius: 999px;
+      border: 1px solid rgba(56, 189, 248, 0.8);
+      padding: 0.45rem 1.1rem;
+      font-size: 0.85rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: radial-gradient(circle at top, rgba(56, 189, 248, 0.25), rgba(15, 23, 42, 1));
+      color: var(--text);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    button span {
+      font-size: 1rem;
+    }
+
+    button:hover {
+      background: radial-gradient(circle at top, rgba(56, 189, 248, 0.35), rgba(15, 23, 42, 1));
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.16rem 0.55rem;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      font-size: 0.73rem;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: radial-gradient(circle at left, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.8));
+    }
+
+    .pill.ok {
+      border-color: rgba(34, 197, 94, 0.7);
+      color: #bbf7d0;
+    }
+
+    .pill.bad {
+      border-color: rgba(248, 113, 113, 0.8);
+      color: #fecaca;
+    }
+
+    .results-block {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.7rem;
+      margin-top: 0.4rem;
+      font-size: 0.83rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    @media (max-width: 640px) {
+      .results-block {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .res-card {
+      padding: 0.55rem 0.7rem;
+      border-radius: 0.75rem;
+      background: radial-gradient(circle at top left, var(--accent-soft), rgba(15, 23, 42, 0.95));
+      border: 1px solid rgba(148, 163, 184, 0.35);
+    }
+
+    .res-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin-bottom: 0.2rem;
+    }
+
+    .res-main {
+      font-size: 0.92rem;
+    }
+
+    .res-main strong {
+      font-size: 1rem;
+    }
+
+    .res-sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+
+    canvas {
+      max-width: 100%;
+      margin-top: 0.3rem;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.9rem;
+      margin-top: 0.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .charts-grid h3 {
+      margin: 0.4rem 0 0.2rem;
+      font-size: 0.85rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 0.75rem;
+      margin-top: 0.4rem;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 1.1rem;
+      font-size: 0.8rem;
+      margin-top: 0.25rem;
+      align-items: center;
+    }
+
+    .row strong {
+      font-size: 0.86rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Elixir W&amp;B + Performance</h1>
+    <p>
+      Unofficial helper based on your AFM. <strong>AFM is always the authority.</strong>
+    </p>
+  </header>
+
+  <main>
+    <!-- LEFT COLUMN: INPUTS -->
+    <section class="card">
+      <h2>Atmosphere &amp; Field</h2>
+      <small>Uses ISA: 15&nbsp;°C at MSL, −2&nbsp;°C / 1000&nbsp;ft</small>
+
+      <div class="grid">
+        <div class="field">
+          <label for="fieldElev">Field elevation (ft)</label>
+          <input id="fieldElev" type="number" inputmode="decimal" value="0" />
+        </div>
+        <div class="field">
+          <label for="oat">OAT at field (°C)</label>
+          <input id="oat" type="number" inputmode="decimal" value="15" />
+        </div>
+        <!-- If you later want QNH, you can add another field and update PA logic -->
+      </div>
+
+      <div class="grid" style="margin-top:0.6rem">
+        <div class="field">
+          <label>Pressure altitude (ft)</label>
+          <input id="pa" type="number" readonly />
+        </div>
+        <div class="field">
+          <label>ISA deviation (°C)</label>
+          <input id="isaDev" type="number" readonly />
+        </div>
+      </div>
+
+      <p class="inline-note">
+        For now, pressure altitude is assumed equal to field elevation (QNH ≈ 1013&nbsp;hPa).
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Weight &amp; Balance</h2>
+      <small>Uses AFM arms (mm from firewall) &amp; fuel density 0.72&nbsp;kg/L</small>
+
+      <div class="grid">
+        <div class="field">
+          <label for="emptyWeight">Empty weight (kg)</label>
+          <input id="emptyWeight" type="number" inputmode="decimal" value="360" />
+        </div>
+        <div class="field">
+          <label for="emptyArm">Empty arm (mm)</label>
+          <input id="emptyArm" type="number" inputmode="decimal" value="673" />
+        </div>
+      </div>
+
+      <div class="grid-3" style="margin-top:0.75rem">
+        <div class="field">
+          <label for="pilotWt">Pilot (kg)</label>
+          <input id="pilotWt" type="number" inputmode="decimal" value="80" />
+        </div>
+        <div class="field">
+          <label for="pilotArm">Pilot arm (mm)</label>
+          <select id="pilotArm">
+            <option value="1050">Fwd seat (1050)</option>
+            <option value="1150" selected>Aft seat (1150)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="paxWt">Passenger (kg)</label>
+          <input id="paxWt" type="number" inputmode="decimal" value="70" />
+        </div>
+        <div class="field">
+          <label for="paxArm">Passenger arm (mm)</label>
+          <select id="paxArm">
+            <option value="1050" selected>Fwd seat (1050)</option>
+            <option value="1150">Aft seat (1150)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="bagWt">Baggage (kg)</label>
+          <input id="bagWt" type="number" inputmode="decimal" value="0" />
+        </div>
+        <div class="field">
+          <label>Baggage arm (mm)</label>
+          <input type="number" value="1580" readonly />
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:0.75rem">
+        <div class="field">
+          <label for="fuelL">Fuel (L usable)</label>
+          <input id="fuelL" type="number" inputmode="decimal" value="60" />
+        </div>
+        <div class="field">
+          <label>Fuel weight (kg)</label>
+          <input id="fuelKg" type="number" readonly />
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="pill" id="cgStatusPill">CG: awaiting calculation</span>
+      </div>
+
+      <div class="results-block">
+        <div class="res-card">
+          <div class="res-title">Take-off</div>
+          <div class="res-main">
+            <strong><span id="tow"></span> kg</strong> at CG
+            <strong><span id="cg"></span> mm</strong>
+          </div>
+          <div class="res-sub">
+            MTOW 630&nbsp;kg, CG limits 720–860&nbsp;mm.
+          </div>
+        </div>
+        <div class="res-card">
+          <div class="res-title">Landing (fuel burned)</div>
+          <div class="res-main">
+            <strong><span id="lw"></span> kg</strong> at CG
+            <strong><span id="cgArr"></span> mm</strong>
+          </div>
+          <div class="res-sub">
+            Approx. landing weight with fuel = 0&nbsp;kg.
+          </div>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button id="calcBtn">
+          <span>⟲</span> Calculate &amp; update graphs
+        </button>
+      </div>
+    </section>
+
+    <!-- RIGHT COLUMN: PERFORMANCE + GRAPHS -->
+    <section class="card">
+      <h2>Runway &amp; Performance</h2>
+      <small>AFM data: 630&nbsp;kg, no wind, level hard runway + grass factors</small>
+
+      <div class="grid">
+        <div class="field">
+          <label for="surface">Surface</label>
+          <select id="surface">
+            <option value="hard">Hard / paved</option>
+            <option value="grass_dry">Grass – dry</option>
+            <option value="grass_wet">Grass – wet</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="results-block">
+        <div class="res-card">
+          <div class="res-title">Take-off (AFM-based)</div>
+          <div class="res-main">
+            Run:
+            <strong><span id="toRun"></span> m</strong>,
+            15&nbsp;m:
+            <strong><span id="toDist"></span> m</strong>
+          </div>
+          <div class="res-sub">
+            Grass factors applied to ground roll where selected.
+          </div>
+        </div>
+        <div class="res-card">
+          <div class="res-title">Landing (AFM-based)</div>
+          <div class="res-main">
+            Run:
+            <strong><span id="ldgRun"></span> m</strong>,
+            15&nbsp;m:
+            <strong><span id="ldgDist"></span> m</strong>
+          </div>
+          <div class="res-sub">
+            AFM: flaps LDG, −3° approach slope, normal braking.
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div><strong>Rate of climb</strong> (max continuous, 140&nbsp;km/h):</div>
+        <div>Vz ≈ <strong><span id="roc"></span> ft/min</strong></div>
+      </div>
+
+      <p class="muted">
+        <strong>Warning:</strong> This tool interpolates within AFM tables and clamps
+        outside their range. Always cross-check against the official AFM.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Graphs</h2>
+      <small>Curves generated from AFM tables (630&nbsp;kg, no wind)</small>
+
+      <div class="charts-grid">
+        <div>
+          <h3>Take-off distances vs pressure altitude</h3>
+          <canvas id="toChart"></canvas>
+        </div>
+        <div>
+          <h3>Landing distances vs pressure altitude</h3>
+          <canvas id="ldgChart"></canvas>
+        </div>
+        <div>
+          <h3>Rate of climb vs pressure altitude</h3>
+          <canvas id="rocChart"></canvas>
+        </div>
+      </div>
+
+      <p class="muted">
+        The highlighted markers show your current calculated condition (PA &amp; ISA
+        deviation). Curves correspond to ISA, ISA+10&nbsp;°C and ISA+20&nbsp;°C.
+      </p>
+    </section>
+  </main>
+
+  <script>
+    // -----------------------------
+    // AFM DATA (630 kg, no wind, level hard runway)
+    // -----------------------------
+
+    // Pressure altitude grid (ft)
+    const ALT_GRID_TOLD = [0, 2000, 4000, 6000];
+
+    // Temperature deviation grid (°C) from ISA
+    const TEMP_DEV_GRID = [0, 10, 20];
+
+    // Take-off: for each altitude: [run_ISA, dist_ISA, run_ISA+10, dist_ISA+10, run_ISA+20, dist_ISA+20] in meters
+    // From AFM 5.3 :contentReference[oaicite:2]{index=2}
+    const TO_TABLE = {
+      0:   [250, 445, 270, 480, 290, 517],
+      2000:[292, 522, 315, 564, 339, 607],
+      4000:[339, 608, 366, 657, 394, 708],
+      6000:[398, 716, 430, 774, 464, 836],
+    };
+
+    // Landing: for each altitude: [run_ISA, dist_ISA, run_ISA+10, dist_ISA+10, run_ISA+20, dist_ISA+20] in meters
+    // From AFM 5.4 :contentReference[oaicite:3]{index=3}
+    const LDG_TABLE = {
+      0:   [225, 575, 233, 583, 241, 591],
+      2000:[239, 589, 247, 597, 255, 605],
+      4000:[253, 603, 262, 612, 271, 621],
+      6000:[269, 619, 279, 629, 289, 639],
+    };
+
+    // Grass factors (AFM 5.5) :contentReference[oaicite:4]{index=4}
+    const GRASS_FACTORS = {
+      hard:      { to: 1.0, ldg: 1.0 },
+      grass_dry: { to: 1.2, ldg: 1.2 },
+      grass_wet: { to: 1.3, ldg: 1.6 },
+    };
+
+    // Rate of climb table: PA (ft) -> [Vz_ISA, Vz_ISA+10, Vz_ISA+20] ft/min
+    // From AFM 5.6 :contentReference[oaicite:5]{index=5}
+    const ALT_GRID_ROC = [0, 2000, 4000, 6000, 8000, 10000, 12000, 14000, 16000];
+    const ROC_TABLE = {
+      0:     [1040, 990, 950],
+      2000:  [930, 880, 840],
+      4000:  [820, 780, 740],
+      6000:  [710, 670, 630],
+      8000:  [600, 570, 530],
+      10000: [500, 460, 430],
+      12000: [390, 350, 320],
+      14000: [280, 250, 220],
+      16000: [170, 140, 110],
+    };
+
+    // -----------------------------
+    // Helper functions
+    // -----------------------------
+
+    function clamp(x, min, max) {
+      return Math.max(min, Math.min(max, x));
+    }
+
+    // Linear interpolation between (x0,y0) and (x1,y1)
+    function lerp(x, x0, x1, y0, y1) {
+      if (x1 === x0) return y0;
+      const t = (x - x0) / (x1 - x0);
+      return y0 + t * (y1 - y0);
+    }
+
+    // Interpolate AFM distance table for a given PA and ISA deviation
+    function interpTakeoffLanding(pa, isaDev, table) {
+      // Clamp PA to AFM range
+      const paClamped = clamp(pa, ALT_GRID_TOLD[0], ALT_GRID_TOLD[ALT_GRID_TOLD.length - 1]);
+      // Clamp ISA deviation to [0, 20] because AFM only provides 0, +10, +20
+      const devClamped = clamp(isaDev, TEMP_DEV_GRID[0], TEMP_DEV_GRID[TEMP_DEV_GRID.length - 1]);
+
+      // Find surrounding temp indices
+      let tIdx0 = 0;
+      for (let i = 0; i < TEMP_DEV_GRID.length - 1; i++) {
+        if (devClamped >= TEMP_DEV_GRID[i] && devClamped <= TEMP_DEV_GRID[i + 1]) {
+          tIdx0 = i;
+          break;
+        }
+      }
+      const tIdx1 = tIdx0 + 1;
+      const t0 = TEMP_DEV_GRID[tIdx0];
+      const t1 = TEMP_DEV_GRID[tIdx1];
+
+      // Find surrounding altitude indices
+      let aIdx0 = 0;
+      for (let i = 0; i < ALT_GRID_TOLD.length - 1; i++) {
+        if (paClamped >= ALT_GRID_TOLD[i] && paClamped <= ALT_GRID_TOLD[i + 1]) {
+          aIdx0 = i;
+          break;
+        }
+      }
+      const aIdx1 = aIdx0 + 1;
+      const a0 = ALT_GRID_TOLD[aIdx0];
+      const a1 = ALT_GRID_TOLD[aIdx1];
+
+      // Helper: at given alt & temp index -> {run, dist}
+      function valAt(alt, tempIdx) {
+        const row = table[alt];
+        const run = row[tempIdx * 2 + 0];
+        const dist = row[tempIdx * 2 + 1];
+        return { run, dist };
+      }
+
+      // Temperature interpolation at each altitude
+      const v_a0_t0 = valAt(a0, tIdx0);
+      const v_a0_t1 = valAt(a0, tIdx1);
+      const v_a1_t0 = valAt(a1, tIdx0);
+      const v_a1_t1 = valAt(a1, tIdx1);
+
+      const run_a0 = lerp(devClamped, t0, t1, v_a0_t0.run, v_a0_t1.run);
+      const dist_a0 = lerp(devClamped, t0, t1, v_a0_t0.dist, v_a0_t1.dist);
+      const run_a1 = lerp(devClamped, t0, t1, v_a1_t0.run, v_a1_t1.run);
+      const dist_a1 = lerp(devClamped, t0, t1, v_a1_t0.dist, v_a1_t1.dist);
+
+      // Altitude interpolation
+      const run = lerp(paClamped, a0, a1, run_a0, run_a1);
+      const dist = lerp(paClamped, a0, a1, dist_a0, dist_a1);
+
+      return { run, dist };
+    }
+
+    // Interpolate ROC table
+    function interpRoc(pa, isaDev) {
+      const paClamped = clamp(pa, ALT_GRID_ROC[0], ALT_GRID_ROC[ALT_GRID_ROC.length - 1]);
+      const devClamped = clamp(isaDev, TEMP_DEV_GRID[0], TEMP_DEV_GRID[TEMP_DEV_GRID.length - 1]);
+
+      // Surrounding temp
+      let tIdx0 = 0;
+      for (let i = 0; i < TEMP_DEV_GRID.length - 1; i++) {
+        if (devClamped >= TEMP_DEV_GRID[i] && devClamped <= TEMP_DEV_GRID[i + 1]) {
+          tIdx0 = i;
+          break;
+        }
+      }
+      const tIdx1 = tIdx0 + 1;
+      const t0 = TEMP_DEV_GRID[tIdx0];
+      const t1 = TEMP_DEV_GRID[tIdx1];
+
+      // Surrounding altitude
+      let aIdx0 = 0;
+      for (let i = 0; i < ALT_GRID_ROC.length - 1; i++) {
+        if (paClamped >= ALT_GRID_ROC[i] && paClamped <= ALT_GRID_ROC[i + 1]) {
+          aIdx0 = i;
+          break;
+        }
+      }
+      const aIdx1 = aIdx0 + 1;
+      const a0 = ALT_GRID_ROC[aIdx0];
+      const a1 = ALT_GRID_ROC[aIdx1];
+
+      function rocAt(alt, tempIdx) {
+        const row = ROC_TABLE[alt];
+        return row[tempIdx];
+      }
+
+      const v_a0_t0 = rocAt(a0, tIdx0);
+      const v_a0_t1 = rocAt(a0, tIdx1);
+      const v_a1_t0 = rocAt(a1, tIdx0);
+      const v_a1_t1 = rocAt(a1, tIdx1);
+
+      const roc_a0 = lerp(devClamped, t0, t1, v_a0_t0, v_a0_t1);
+      const roc_a1 = lerp(devClamped, t0, t1, v_a1_t0, v_a1_t1);
+
+      const roc = lerp(paClamped, a0, a1, roc_a0, roc_a1);
+      return roc;
+    }
+
+    // Round helper with sensible decimals
+    function round(x, decimals = 0) {
+      const f = Math.pow(10, decimals);
+      return Math.round(x * f) / f;
+    }
+
+    // -----------------------------
+    // Charts setup
+    // -----------------------------
+
+    let toChart, ldgChart, rocChart;
+    let toPointDataset, ldgPointDataset, rocPointDataset;
+
+    function buildCharts() {
+      const ctxTo = document.getElementById("toChart").getContext("2d");
+      const ctxLdg = document.getElementById("ldgChart").getContext("2d");
+      const ctxRoc = document.getElementById("rocChart").getContext("2d");
+
+      // Build arrays for each temp offset from AFM data
+      const toISA_run = [], toISA_dist = [];
+      const toISA10_run = [], toISA10_dist = [];
+      const toISA20_run = [], toISA20_dist = [];
+      ALT_GRID_TOLD.forEach(alt => {
+        const row = TO_TABLE[alt];
+        toISA_run.push({ x: alt, y: row[0] });
+        toISA_dist.push({ x: alt, y: row[1] });
+        toISA10_run.push({ x: alt, y: row[2] });
+        toISA10_dist.push({ x: alt, y: row[3] });
+        toISA20_run.push({ x: alt, y: row[4] });
+        toISA20_dist.push({ x: alt, y: row[5] });
+      });
+
+      const ldgISA_run = [], ldgISA_dist = [];
+      const ldgISA10_run = [], ldgISA10_dist = [];
+      const ldgISA20_run = [], ldgISA20_dist = [];
+      ALT_GRID_TOLD.forEach(alt => {
+        const row = LDG_TABLE[alt];
+        ldgISA_run.push({ x: alt, y: row[0] });
+        ldgISA_dist.push({ x: alt, y: row[1] });
+        ldgISA10_run.push({ x: alt, y: row[2] });
+        ldgISA10_dist.push({ x: alt, y: row[3] });
+        ldgISA20_run.push({ x: alt, y: row[4] });
+        ldgISA20_dist.push({ x: alt, y: row[5] });
+      });
+
+      const rocISA = [], rocISA10 = [], rocISA20 = [];
+      ALT_GRID_ROC.forEach(alt => {
+        const row = ROC_TABLE[alt];
+        rocISA.push({ x: alt, y: row[0] });
+        rocISA10.push({ x: alt, y: row[1] });
+        rocISA20.push({ x: alt, y: row[2] });
+      });
+
+      // Take-off chart: two Y-axes (Run and Distance)
+      toPointDataset = {
+        type: "scatter",
+        label: "Your condition",
+        data: [],
+        yAxisID: "y1",
+        pointRadius: 5,
+        pointHoverRadius: 6,
+      };
+
+      toChart = new Chart(ctxTo, {
+        type: "line",
+        data: {
+          datasets: [
+            {
+              label: "Run ISA",
+              data: toISA_run,
+              borderWidth: 1,
+              tension: 0.2,
+              yAxisID: "y1",
+            },
+            {
+              label: "Run ISA+10",
+              data: toISA10_run,
+              borderWidth: 1,
+              tension: 0.2,
+              yAxisID: "y1",
+            },
+            {
+              label: "Run ISA+20",
+              data: toISA20_run,
+              borderWidth: 1,
+              tension: 0.2,
+              yAxisID: "y1",
+            },
+            {
+              label: "15 m dist ISA",
+              data: toISA_dist,
+              borderWidth: 1,
+              borderDash: [4, 3],
+              tension: 0.2,
+              yAxisID: "y2",
+            },
+            {
+              label: "15 m dist ISA+10",
+              data: toISA10_dist,
+              borderWidth: 1,
+              borderDash: [4, 3],
+              tension: 0.2,
+              yAxisID: "y2",
+            },
+            {
+              label: "15 m dist ISA+20",
+              data: toISA20_dist,
+              borderWidth: 1,
+              borderDash: [4, 3],
+              tension: 0.2,
+              yAxisID: "y2",
+            },
+            toPointDataset,
+          ],
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: {
+              type: "linear",
+              title: {
+                display: true,
+                text: "Pressure altitude (ft)",
+              },
+            },
+            y1: {
+              position: "left",
+              title: { display: true, text: "Ground run (m)" },
+            },
+            y2: {
+              position: "right",
+              title: { display: true, text: "Distance to 15 m (m)" },
+              grid: { drawOnChartArea: false },
+            },
+          },
+          plugins: {
+            legend: { labels: { boxWidth: 10 } },
+          },
+        },
+      });
+
+      // Landing chart
+      ldgPointDataset = {
+        type: "scatter",
+        label: "Your condition",
+        data: [],
+        yAxisID: "y1",
+        pointRadius: 5,
+        pointHoverRadius: 6,
+      };
+
+      ldgChart = new Chart(ctxLdg, {
+        type: "line",
+        data: {
+          datasets: [
+            {
+              label: "Run ISA",
+              data: ldgISA_run,
+              borderWidth: 1,
+              tension: 0.2,
+              yAxisID: "y1",
+            },
+            {
+              label: "Run ISA+10",
+              data: ldgISA10_run,
+              borderWidth: 1,
+              tension: 0.2,
+              yAxisID: "y1",
+            },
+            {
+              label: "Run ISA+20",
+              data: ldgISA20_run,
+              borderWidth: 1,
+              tension: 0.2,
+              yAxisID: "y1",
+            },
+            {
+              label: "15 m dist ISA",
+              data: ldgISA_dist,
+              borderWidth: 1,
+              borderDash: [4, 3],
+              tension: 0.2,
+              yAxisID: "y2",
+            },
+            {
+              label: "15 m dist ISA+10",
+              data: ldgISA10_dist,
+              borderWidth: 1,
+              borderDash: [4, 3],
+              tension: 0.2,
+              yAxisID: "y2",
+            },
+            {
+              label: "15 m dist ISA+20",
+              data: ldgISA20_dist,
+              borderWidth: 1,
+              borderDash: [4, 3],
+              tension: 0.2,
+              yAxisID: "y2",
+            },
+            ldgPointDataset,
+          ],
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: {
+              type: "linear",
+              title: {
+                display: true,
+                text: "Pressure altitude (ft)",
+              },
+            },
+            y1: {
+              position: "left",
+              title: { display: true, text: "Landing run (m)" },
+            },
+            y2: {
+              position: "right",
+              title: { display: true, text: "Landing distance 15 m (m)" },
+              grid: { drawOnChartArea: false },
+            },
+          },
+          plugins: {
+            legend: { labels: { boxWidth: 10 } },
+          },
+        },
+      });
+
+      // ROC chart
+      rocPointDataset = {
+        type: "scatter",
+        label: "Your condition",
+        data: [],
+        pointRadius: 5,
+        pointHoverRadius: 6,
+      };
+
+      rocChart = new Chart(ctxRoc, {
+        type: "line",
+        data: {
+          datasets: [
+            {
+              label: "Vz ISA",
+              data: rocISA,
+              borderWidth: 1,
+              tension: 0.2,
+            },
+            {
+              label: "Vz ISA+10",
+              data: rocISA10,
+              borderWidth: 1,
+              tension: 0.2,
+            },
+            {
+              label: "Vz ISA+20",
+              data: rocISA20,
+              borderWidth: 1,
+              tension: 0.2,
+            },
+            rocPointDataset,
+          ],
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: {
+              type: "linear",
+              title: { display: true, text: "Pressure altitude (ft)" },
+            },
+            y: {
+              title: { display: true, text: "Rate of climb (ft/min)" },
+            },
+          },
+          plugins: {
+            legend: { labels: { boxWidth: 10 } },
+          },
+        },
+      });
+    }
+
+    // -----------------------------
+    // Main calculation
+    // -----------------------------
+
+    function calculateAll() {
+      // Inputs
+      const fieldElev = parseFloat(document.getElementById("fieldElev").value) || 0;
+      const oat = parseFloat(document.getElementById("oat").value) || 0;
+
+      const emptyWeight = parseFloat(document.getElementById("emptyWeight").value) || 0;
+      const emptyArm = parseFloat(document.getElementById("emptyArm").value) || 0;
+
+      const pilotWt = parseFloat(document.getElementById("pilotWt").value) || 0;
+      const pilotArm = parseFloat(document.getElementById("pilotArm").value) || 0;
+
+      const paxWt = parseFloat(document.getElementById("paxWt").value) || 0;
+      const paxArm = parseFloat(document.getElementById("paxArm").value) || 0;
+
+      const bagWt = parseFloat(document.getElementById("bagWt").value) || 0;
+      const bagArm = 1580; // AFM baggage arm
+
+      const fuelL = parseFloat(document.getElementById("fuelL").value) || 0;
+      const fuelDensity = 0.72; // kg/L from AFM
+      const fuelKg = fuelL * fuelDensity;
+      document.getElementById("fuelKg").value = round(fuelKg, 1);
+
+      const surface = document.getElementById("surface").value;
+
+      // Atmospherics
+      const pa = fieldElev; // simplified assumption (QNH ~ 1013)
+      const isaTemp = 15 - 2 * (pa / 1000);
+      const isaDev = oat - isaTemp;
+
+      document.getElementById("pa").value = round(pa, 0);
+      document.getElementById("isaDev").value = round(isaDev, 1);
+
+      // Weight & balance
+      function moment(mass, arm) {
+        return mass * arm; // kg * mm (AFM convention)
+      }
+
+      const mEmpty = emptyWeight;
+      const mPilot = pilotWt;
+      const mPax = paxWt;
+      const mBag = bagWt;
+      const mFuel = fuelKg;
+
+      const momEmpty = moment(mEmpty, emptyArm);
+      const momPilot = moment(mPilot, pilotArm);
+      const momPax = moment(mPax, paxArm);
+      const momBag = moment(mBag, bagArm);
+      const momFuel = moment(mFuel, 774); // AFM fuel arm 774 mm
+
+      const totalMassTO = mEmpty + mPilot + mPax + mBag + mFuel;
+      const totalMomentTO = momEmpty + momPilot + momPax + momBag + momFuel;
+      const cgTO = totalMomentTO / (totalMassTO || 1);
+
+      const totalMassLW = mEmpty + mPilot + mPax + mBag; // fuel burned
+      const totalMomentLW = momEmpty + momPilot + momPax + momBag;
+      const cgLW = totalMomentLW / (totalMassLW || 1);
+
+      const cgSpanMin = 720;
+      const cgSpanMax = 860;
+      const withinTO =
+        totalMassTO <= 630 && cgTO >= cgSpanMin && cgTO <= cgSpanMax;
+      const withinLW =
+        totalMassLW <= 630 && cgLW >= cgSpanMin && cgLW <= cgSpanMax;
+
+      document.getElementById("tow").textContent = round(totalMassTO, 1);
+      document.getElementById("cg").textContent = round(cgTO, 0);
+      document.getElementById("lw").textContent = round(totalMassLW, 1);
+      document.getElementById("cgArr").textContent = round(cgLW, 0);
+
+      const cgStatusPill = document.getElementById("cgStatusPill");
+      if (withinTO && withinLW) {
+        cgStatusPill.textContent = "CG & masses within AFM envelope";
+        cgStatusPill.classList.remove("bad");
+        cgStatusPill.classList.add("ok");
+      } else {
+        cgStatusPill.textContent = "Outside AFM envelope (check W&B)";
+        cgStatusPill.classList.remove("ok");
+        cgStatusPill.classList.add("bad");
+      }
+
+      // Performance interpolation (AFM 5.3 & 5.4)
+      const baseTO = interpTakeoffLanding(pa, isaDev, TO_TABLE);
+      const baseLDG = interpTakeoffLanding(pa, isaDev, LDG_TABLE);
+
+      const grass = GRASS_FACTORS[surface] || GRASS_FACTORS.hard;
+      const toRunAdj = baseTO.run * grass.to;
+      const toDistAdj = baseTO.dist; // AFM says factors apply to ground run; keep 15 m distance unchanged
+      const ldgRunAdj = baseLDG.run * grass.ldg;
+      const ldgDistAdj = baseLDG.dist; // same assumption as above
+
+      document.getElementById("toRun").textContent = round(toRunAdj, 0);
+      document.getElementById("toDist").textContent = round(toDistAdj, 0);
+      document.getElementById("ldgRun").textContent = round(ldgRunAdj, 0);
+      document.getElementById("ldgDist").textContent = round(ldgDistAdj, 0);
+
+      const roc = interpRoc(pa, isaDev);
+      document.getElementById("roc").textContent = round(roc, 0);
+
+      // Update chart markers
+      if (toPointDataset && ldgPointDataset && rocPointDataset) {
+        toPointDataset.data = [{ x: pa, y: baseTO.run }];
+        ldgPointDataset.data = [{ x: pa, y: baseLDG.run }];
+        rocPointDataset.data = [{ x: pa, y: roc }];
+
+        toChart.update();
+        ldgChart.update();
+        rocChart.update();
+      }
+    }
+
+    // -----------------------------
+    // Init
+    // -----------------------------
+    window.addEventListener("DOMContentLoaded", () => {
+      buildCharts();
+      document.getElementById("calcBtn").addEventListener("click", calculateAll);
+      // Initial calculation
+      calculateAll();
+    });
+  </script>
+</body>
+</html>
