@@ -537,9 +537,24 @@
       background: rgba(34, 197, 94, 0.55);
     }
 
-    .runway-tick.tick-req {
-      background: rgba(250, 204, 21, 0.70);
+    /* Runway end */
+    .runway-tick.tick-end {
+      background: rgba(226, 237, 246, 0.65);
+      width: 3px;
     }
+
+    /* Required take-off distance (TORA) */
+    .runway-tick.tick-tora {
+      background: #a855f7;
+      /* same purple as take-off distance bar */
+    }
+
+    /* Required landing distance (LDA) */
+    .runway-tick.tick-lda {
+      background: rgba(250, 204, 21, 0.85);
+      /* amber */
+    }
+
 
     /* amber */
 
@@ -1044,13 +1059,12 @@
               <div class="runway-marker" id="barLdgDist" style="background:#f97316;"></div>
               <!-- Marker ticks -->
               <div class="runway-tick" id="tickRunwayEnd" title="Runway end"></div>
-              <div class="runway-tick tick-req" id="tickReqTora125" title="Required TORA (AFM 15 m × 1.25)">
+              <div class="runway-tick tick-tora" id="tickReqTora125">
                 <span class="tick-label">REQ TORA</span>
               </div>
-              <div class="runway-tick tick-req" id="tickReqLda" title="Required LDA (dry/wet)">
+              <div class="runway-tick tick-lda" id="tickReqLda">
                 <span class="tick-label">REQ LDA</span>
               </div>
-
             </div>
             <div class="runway-legend">
               <span><span class="leg-swatch sw-to-run"></span>Take-off run</span>
