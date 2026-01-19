@@ -478,6 +478,15 @@
     }
 
     /* Runway diagram */
+    .runway-bar {
+      position: relative;
+      height: 52px;
+      /* was 22px */
+      border-radius: 10px;
+      background: #070b10;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
 
     .runway-bar::before {
       content: "";
@@ -489,16 +498,7 @@
           rgba(255, 255, 255, 0.06) 8px,
           transparent 9px);
       pointer-events: none;
-    }
-
-    .runway-bar {
-      position: relative;
-      height: 52px;
-      /* was 22px */
-      border-radius: 10px;
-      background: #070b10;
-      border: 1px solid var(--border);
-      overflow: hidden;
+      z-index: 0;
     }
 
     /* Each marker is now a thin lane */
@@ -508,6 +508,7 @@
       height: 7px;
       border-radius: 999px;
       opacity: 1;
+      z-index: 1;
     }
 
     .runway-marker::after {
@@ -525,6 +526,7 @@
       background: rgba(226, 237, 246, 0.35);
       transform: translateX(-1px);
       pointer-events: none;
+      z-index: 2;
     }
 
     .runway-tick.tick-to {
