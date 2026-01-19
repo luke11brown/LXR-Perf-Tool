@@ -172,13 +172,6 @@
       z-index: 1;
     }
 
-    label {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: var(--muted);
-    }
-
     input,
     select {
       background: #0b1118;
@@ -285,6 +278,39 @@
 
     .collapse-body {
       margin-top: 0.6rem;
+    }
+
+    /* Collapsible block (for graphs) */
+    .collapse-block {
+      margin-top: 0.8rem;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 10px;
+      padding: 0.65rem 0.75rem;
+      background: rgba(11, 17, 24, 0.35);
+    }
+
+    .collapse-block summary {
+      cursor: pointer;
+      list-style: none;
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+    }
+
+    .collapse-block summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .collapse-hint {
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: none;
+      opacity: 0.75;
     }
 
     .wb-table {
@@ -396,7 +422,7 @@
       margin-bottom: 0.2rem;
     }
 
-    .res-main strong{
+    .res-main strong {
       font-size: 0.92rem;
     }
 
@@ -490,6 +516,31 @@
       inset: 0;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
+
+    .runway-tick {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: rgba(226, 237, 246, 0.35);
+      transform: translateX(-1px);
+      pointer-events: none;
+    }
+
+    .runway-tick.tick-to {
+      background: rgba(56, 189, 248, 0.55);
+    }
+
+    .runway-tick.tick-ldg {
+      background: rgba(34, 197, 94, 0.55);
+    }
+
+    .runway-tick.tick-req {
+      background: rgba(250, 204, 21, 0.70);
+    }
+
+    /* amber */
+
 
     /* lane positions (top offsets) */
     #barToRun {
@@ -917,6 +968,15 @@
               <div class="runway-marker" id="barToDist" style="background:#a855f7;"></div>
               <div class="runway-marker" id="barLdgRun" style="background:#22c55e;"></div>
               <div class="runway-marker" id="barLdgDist" style="background:#f97316;"></div>
+              <!-- Marker ticks -->
+              <div class="runway-tick" id="tickRunwayEnd" title="Runway end"></div>
+              <div class="runway-tick tick-to" id="tickToRun" title="Take-off run"></div>
+              <div class="runway-tick tick-to" id="tickToDist" title="Take-off distance to 15 m"></div>
+              <div class="runway-tick tick-ldg" id="tickLdgRun" title="Landing run"></div>
+              <div class="runway-tick tick-ldg" id="tickLdgDist" title="Landing distance from 15 m"></div>
+              <div class="runway-tick tick-req" id="tickReqTora125" title="Required TORA (AFM 15 m × 1.25)"></div>
+              <div class="runway-tick tick-req" id="tickReqLda" title="Required LDA (dry/wet)"></div>
+
             </div>
             <div class="runway-legend">
               <span><span class="leg-swatch sw-to-run"></span>Take-off run</span>
@@ -926,25 +986,35 @@
             </div>
           </div>
 
-          <div class="charts-grid">
-            <div>
-              <h3>Take-off vs pressure altitude</h3>
-              <canvas id="toChart"></canvas>
-            </div>
-            <div>
-              <h3>Landing vs pressure altitude</h3>
-              <canvas id="ldgChart"></canvas>
-            </div>
-            <div>
-              <h3>Rate of climb vs pressure altitude</h3>
-              <canvas id="rocChart"></canvas>
-            </div>
-          </div>
+          <details class="collapse-block" id="graphsBlock">
+            <summary>
+              Performance graphs
+              <span class="collapse-hint">show</span>
+            </summary>
 
-          <p class="muted">
-            Markers show current PA / ISA deviation. Curves from AFM tables at ISA, ISA+10&nbsp;°C, ISA+20&nbsp;°C
-            (630&nbsp;kg).
-          </p>
+            <div class="collapse-body">
+              <div class="charts-grid">
+                <div>
+                  <h3>Take-off vs pressure altitude</h3>
+                  <canvas id="toChart"></canvas>
+                </div>
+                <div>
+                  <h3>Landing vs pressure altitude</h3>
+                  <canvas id="ldgChart"></canvas>
+                </div>
+                <div>
+                  <h3>Rate of climb vs pressure altitude</h3>
+                  <canvas id="rocChart"></canvas>
+                </div>
+              </div>
+
+              <p class="muted">
+                Markers show current PA / ISA deviation. Curves from AFM tables at ISA, ISA+10&nbsp;°C, ISA+20&nbsp;°C
+                (630&nbsp;kg).
+              </p>
+            </div>
+          </details>
+
         </section>
       </div>
     </section>
@@ -1416,6 +1486,19 @@
           plugins: { legend: { labels: { boxWidth: 10 } } },
         },
       });
+      const graphsBlock = document.getElementById("graphsBlock");
+      if (graphsBlock) {
+        graphsBlock.addEventListener("toggle", () => {
+          if (graphsBlock.open) {
+            // Let layout settle, then resize charts
+            requestAnimationFrame(() => {
+              try { toChart && toChart.resize(); } catch (e) { }
+              try { ldgChart && ldgChart.resize(); } catch (e) { }
+              try { rocChart && rocChart.resize(); } catch (e) { }
+            });
+          }
+        });
+      }
     }
 
     // Helper to set summary line text & colour
@@ -1653,6 +1736,28 @@
       setMarker("barToDist", toDist);
       setMarker("barLdgRun", ldgRun);
       setMarker("barLdgDist", ldgDist);
+
+      function setTick(id, dist) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const ratio = dist / runwayLen;
+        const xPx = clamp(ratio, 0, 1) * barWidth;
+        el.style.left = xPx + "px";
+      }
+
+      // Ticks
+      setTick("tickRunwayEnd", runwayLen);
+      setTick("tickToRun", toRun);
+      setTick("tickToDist", toDist);
+      setTick("tickLdgRun", ldgRun);
+      setTick("tickLdgDist", ldgDist);
+      setTick("tickReqTora125", reqTora125);
+
+      // active LDA tick uses wet/dry selection
+      const usingWetForTick = (surface === "grass_wet");
+      const activeReqLda = usingWetForTick ? reqLdaWet : reqLdaDry;
+      setTick("tickReqLda", activeReqLda);
+
 
       // ------- Operational summary -------
       const sumWbText = wbOk
