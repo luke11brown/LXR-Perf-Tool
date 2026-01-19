@@ -438,32 +438,46 @@
     }
 
     /* Runway diagram */
-    .runway-wrapper {
-      margin-top: 0.7rem;
-      position: relative;
-      z-index: 1;
-    }
-
     .runway-bar {
       position: relative;
-      height: 22px;
-      border-radius: 999px;
+      height: 56px;
+      /* was 22px */
+      border-radius: 14px;
       background: #020617;
       border: 1px solid #4b5563;
       overflow: hidden;
     }
 
+    /* Each marker is now a thin lane */
     .runway-marker {
       position: absolute;
-      top: 3px;
-      bottom: 3px;
+      left: 0;
+      height: 10px;
       border-radius: 999px;
-      opacity: 0.85;
+      opacity: 0.95;
+    }
+
+    /* lane positions (top offsets) */
+    #barToRun {
+      top: 6px;
+    }
+
+    #barToDist {
+      top: 20px;
+    }
+
+    #barLdgRun {
+      top: 34px;
+    }
+
+    #barLdgDist {
+      top: 48px;
     }
 
     .runway-marker.overrun {
-      background: linear-gradient(90deg, #7f1d1d, #b91c1c);
+      background: linear-gradient(90deg, #7f1d1d, #b91c1c) !important;
     }
+
 
     .runway-legend {
       display: flex;
@@ -1595,8 +1609,8 @@
         const el = document.getElementById(id);
         const ratio = dist / runwayLen;
         const widthPx = Math.min(barWidth, Math.max(0, ratio * barWidth));
-        el.style.left = "0px";
         el.style.width = widthPx + "px";
+
         if (dist > runwayLen) el.classList.add("overrun");
         else el.classList.remove("overrun");
       }
