@@ -218,6 +218,84 @@
       z-index: 1;
     }
 
+    .action-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.8rem;
+      margin-top: 0.9rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    @media (max-width: 640px) {
+      .action-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+
+    .collapse-inline {
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(2, 6, 23, 0.35);
+      border-radius: 999px;
+      padding: 0.35rem 0.65rem;
+    }
+
+    .collapse-inline summary {
+      cursor: pointer;
+      list-style: none;
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .collapse-inline summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .collapse-inline[open] {
+      border-radius: 0.9rem;
+    }
+
+    .collapse-body {
+      margin-top: 0.6rem;
+    }
+
+    .wb-table {
+      width: 100%;
+      min-width: 420px;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+    }
+
+    .wb-table th,
+    .wb-table td {
+      padding: 0.4rem 0.45rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+    }
+
+    .wb-table th {
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .wb-table .num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .wb-table tfoot td {
+      border-top: 1px solid rgba(148, 163, 184, 0.25);
+      border-bottom: none;
+    }
+
     button {
       border-radius: 999px;
       border: 1px solid rgba(56, 189, 248, 0.8);
@@ -569,7 +647,46 @@
             </div>
           </div>
 
-          <div class="button-row">
+          <div class="action-row">
+            <details class="collapse-inline">
+              <summary>
+                Moment breakdown
+                <span class="collapse-hint">view</span>
+              </summary>
+
+              <div class="collapse-body">
+                <div style="overflow-x:auto;">
+                  <table class="wb-table">
+                    <thead>
+                      <tr>
+                        <th>Item</th>
+                        <th class="num">Mass</th>
+                        <th class="num">Arm</th>
+                        <th class="num">Moment</th>
+                      </tr>
+                    </thead>
+                    <tbody id="momentTable"></tbody>
+                    <tfoot>
+                      <tr>
+                        <td><strong>Total (with fuel)</strong></td>
+                        <td class="num" id="mtMassTO"></td>
+                        <td></td>
+                        <td class="num" id="mtMomTO"></td>
+                      </tr>
+                      <tr>
+                        <td><strong>Total (no fuel)</strong></td>
+                        <td class="num" id="mtMassLW"></td>
+                        <td></td>
+                        <td class="num" id="mtMomLW"></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                <div class="muted" style="margin-top:0.3rem;">
+                  CG = Σ moment / Σ mass (kg·mm)
+                </div>
+              </div>
+            </details>
             <button id="calcBtn"><span>⟲</span> Calculate &amp; update</button>
           </div>
         </section>
@@ -1533,6 +1650,34 @@
         pill.textContent = "Decision: NO-GO – " + reasons.join("; ");
         pill.classList.remove("ok");
         pill.classList.add("bad");
+      }
+      const rows = [
+        ["Empty aircraft", mEmpty, emptyArm, momEmpty],
+        ["Pilot", mPilot, pilotArm, momPilot],
+        ["Passenger", mPax, paxArm, momPax],
+        ["Baggage", mBag, bagArm, momBag],
+        ["Fuel", mFuel, 774, momFuel],
+      ];
+
+      const tbody = document.getElementById("momentTable");
+      if (tbody) {
+        tbody.innerHTML = "";
+        rows.forEach(([label, mass, arm, moment]) => {
+          if (!mass || mass <= 0) return;
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+      <td>${label}</td>
+      <td class="num">${round(mass, 1)}</td>
+      <td class="num">${round(arm, 0)}</td>
+      <td class="num">${Math.round(moment).toLocaleString()}</td>
+    `;
+          tbody.appendChild(tr);
+        });
+
+        document.getElementById("mtMassTO").textContent = round(massTO, 1);
+        document.getElementById("mtMomTO").textContent = Math.round(momTO).toLocaleString();
+        document.getElementById("mtMassLW").textContent = round(massLW, 1);
+        document.getElementById("mtMomLW").textContent = Math.round(momLW).toLocaleString();
       }
     }
 
