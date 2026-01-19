@@ -11,19 +11,28 @@
 
   <style>
     :root {
-      --bg: #020617;
-      --bg-card: #020617;
-      --bg-card-alt: #02081c;
-      --accent: #38bdf8;
-      --accent-soft: rgba(56, 189, 248, 0.1);
-      --text: #e5e7eb;
-      --muted: #9ca3af;
-      --danger: #f97373;
-      --ok: #22c55e;
-      --border: #1f2937;
+      --bg: #0b0f14;
+      --panel: #131a22;
+      --panel2: #0f151d;
+      --border: #243244;
+      --text: #e6edf6;
+      --muted: #9fb0c3;
+
+      --data: #2ee58a;
+      /* OPT green */
+      --data-dim: #1fb56d;
+      --warn: #f6c453;
+      --bad: #ff5c5c;
+
+      --shadow: none;
+      /* OPT is flatter */
       --radius: 10px;
-      --shadow: 0 16px 35px rgba(15, 23, 42, 0.75);
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.10);
+      --ok: var(--data);
+      --danger: var(--bad);
     }
+
 
     * {
       box-sizing: border-box;
@@ -33,7 +42,7 @@
       margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
         "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, #020617 0, #020617 45%, #000 100%);
+      background: linear-gradient(180deg, #05070b, #0b0f14 40%, #0b0f14);
       color: var(--text);
       min-height: 100vh;
       display: flex;
@@ -100,32 +109,27 @@
     }
 
     .card {
-      background: radial-gradient(circle at top left, var(--bg-card-alt), var(--bg-card));
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
       border-radius: var(--radius);
       border: 1px solid var(--border);
-      box-shadow: var(--shadow);
+      box-shadow: none;
       padding: 1.15rem 1.3rem 1.35rem;
       position: relative;
-      overflow: hidden;
+      overflow-x: hidden;
       overflow-y: visible;
     }
 
     .card::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.14), transparent 55%);
-      opacity: 0.4;
-      pointer-events: none;
+      display: none;
     }
 
     .card h2 {
       margin-top: 0;
       margin-bottom: 0.4rem;
-      font-size: 1rem;
-      letter-spacing: 0.14em;
+      font-size: 0.95rem;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
-      color: #f9fafb;
+      color: #f1f5f9;
     }
 
     .card small {
@@ -135,6 +139,7 @@
       margin-bottom: 0.7rem;
       position: relative;
       z-index: 1;
+      opacity: 0.9;
     }
 
     .grid,
@@ -176,16 +181,21 @@
 
     input,
     select {
-      background: rgba(15, 23, 42, 0.9);
-      border-radius: 999px;
-      border: 1px solid #1f2937;
-      padding: 0.42rem 0.7rem;
-      color: var(--text);
-      font-size: 0.9rem;
-      outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
-      width: 100%;
+      background: #0b1118;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 0.65rem;
+      color: var(--data);
+      /* values in green */
+      font-variant-numeric: tabular-nums;
     }
+
+    label {
+      color: var(--muted);
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+    }
+
 
     input:focus,
     select:focus {
@@ -227,6 +237,7 @@
       margin-top: 0.9rem;
       position: relative;
       z-index: 1;
+      align-items: stretch;
 
       flex-wrap: wrap;
       /* <-- key */
@@ -236,6 +247,7 @@
       flex: 1 1 16rem;
       /* <-- key: can shrink/grow */
       min-width: 16rem;
+      overflow: visible;
     }
 
     .action-row button {
@@ -251,6 +263,7 @@
       flex-basis: 100%;
       /* <-- key */
       border-radius: 0.9rem;
+      padding-bottom: 0.6rem;
     }
 
 
@@ -276,7 +289,7 @@
 
     .wb-table {
       width: 100%;
-      min-width: 420px;
+      min-width: 360px;
       border-collapse: collapse;
       font-size: 0.78rem;
     }
@@ -305,26 +318,27 @@
     }
 
     button {
-      border-radius: 999px;
-      border: 1px solid rgba(56, 189, 248, 0.8);
-      padding: 0.45rem 1.1rem;
-      font-size: 0.85rem;
-      letter-spacing: 0.12em;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      padding: 0.45rem 1.05rem;
+      font-size: 0.8rem;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
-      background: radial-gradient(circle at top, rgba(56, 189, 248, 0.25), rgba(15, 23, 42, 1));
-      color: var(--text);
+      background: #0b1118;
+      color: var(--accent);
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 0.35rem;
     }
 
-    button span {
-      font-size: 1rem;
+    button:hover {
+      background: #101826;
     }
 
-    button:hover {
-      background: radial-gradient(circle at top, rgba(56, 189, 248, 0.35), rgba(15, 23, 42, 1));
+
+    button span {
+      font-size: 1rem;
     }
 
     .pill {
@@ -332,7 +346,7 @@
       align-items: center;
       gap: 0.3rem;
       padding: 0.16rem 0.55rem;
-      border-radius: 999px;
+      border-radius: 8px;
       border: 1px solid rgba(148, 163, 184, 0.45);
       font-size: 0.73rem;
       letter-spacing: 0.11em;
@@ -382,7 +396,7 @@
       margin-bottom: 0.2rem;
     }
 
-    .res-main {
+    .res-main strong{
       font-size: 0.92rem;
     }
 
@@ -438,13 +452,26 @@
     }
 
     /* Runway diagram */
+
+    .runway-bar::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(to bottom,
+          transparent 7px,
+          rgba(255, 255, 255, 0.06) 8px,
+          transparent 9px);
+      pointer-events: none;
+    }
+
     .runway-bar {
       position: relative;
-      height: 56px;
+      height: 52px;
       /* was 22px */
-      border-radius: 14px;
-      background: #020617;
-      border: 1px solid #4b5563;
+      border-radius: 10px;
+      background: #070b10;
+      border: 1px solid var(--border);
       overflow: hidden;
     }
 
@@ -452,9 +479,16 @@
     .runway-marker {
       position: absolute;
       left: 0;
-      height: 10px;
+      height: 7px;
       border-radius: 999px;
-      opacity: 0.95;
+      opacity: 1;
+    }
+
+    .runway-marker::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     /* lane positions (top offsets) */
