@@ -107,6 +107,7 @@
       padding: 1.15rem 1.3rem 1.35rem;
       position: relative;
       overflow: hidden;
+      overflow-y: visible;
     }
 
     .card::before {
@@ -226,21 +227,32 @@
       margin-top: 0.9rem;
       position: relative;
       z-index: 1;
-    }
 
-    @media (max-width: 640px) {
-      .action-row {
-        flex-direction: column;
-        align-items: stretch;
-      }
+      flex-wrap: wrap;
+      /* <-- key */
     }
 
     .collapse-inline {
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      background: rgba(2, 6, 23, 0.35);
-      border-radius: 999px;
-      padding: 0.35rem 0.65rem;
+      flex: 1 1 16rem;
+      /* <-- key: can shrink/grow */
+      min-width: 16rem;
     }
+
+    .action-row button {
+      flex: 0 0 auto;
+      /* <-- key */
+      white-space: nowrap;
+      margin-left: auto;
+      /* keeps it to the right on same line */
+    }
+
+    /* When opened, let the breakdown become a full-width row above the button */
+    .collapse-inline[open] {
+      flex-basis: 100%;
+      /* <-- key */
+      border-radius: 0.9rem;
+    }
+
 
     .collapse-inline summary {
       cursor: pointer;
@@ -256,10 +268,6 @@
 
     .collapse-inline summary::-webkit-details-marker {
       display: none;
-    }
-
-    .collapse-inline[open] {
-      border-radius: 0.9rem;
     }
 
     .collapse-body {
@@ -670,13 +678,13 @@
                       <tr>
                         <td><strong>Total (with fuel)</strong></td>
                         <td class="num" id="mtMassTO"></td>
-                        <td></td>
+                        <td class="num" id="mtArmTO"></td>
                         <td class="num" id="mtMomTO"></td>
                       </tr>
                       <tr>
                         <td><strong>Total (no fuel)</strong></td>
                         <td class="num" id="mtMassLW"></td>
-                        <td></td>
+                        <td class="num" id="mtArmLW"></td>
                         <td class="num" id="mtMomLW"></td>
                       </tr>
                     </tfoot>
@@ -1678,6 +1686,9 @@
         document.getElementById("mtMomTO").textContent = Math.round(momTO).toLocaleString();
         document.getElementById("mtMassLW").textContent = round(massLW, 1);
         document.getElementById("mtMomLW").textContent = Math.round(momLW).toLocaleString();
+        document.getElementById("mtArmTO").textContent = isFinite(cgTO) ? round(cgTO, 0) : "–";
+        document.getElementById("mtArmLW").textContent = isFinite(cgLW) ? round(cgLW, 0) : "–";
+
       }
     }
 
