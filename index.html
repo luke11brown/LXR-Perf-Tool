@@ -524,7 +524,7 @@
       bottom: 0;
       width: 2px;
       background: rgba(226, 237, 246, 0.35);
-      transform: translateX(-1px);
+      transform: translateX(-50%);
       pointer-events: none;
       z-index: 2;
     }
@@ -613,6 +613,64 @@
 
     .summary-line-bad {
       color: var(--danger);
+    }
+
+    .declared-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 1rem;
+      align-items: center;
+      margin: 0.15rem 0 0.55rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .declared-row .k {
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    .declared-row .v {
+      color: var(--data);
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
+
+    .limiter-strip {
+      margin-top: 0.5rem;
+      padding: 0.45rem 0.6rem;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 10px;
+      background: rgba(11, 17, 24, 0.35);
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .limiter-strip strong {
+      color: var(--text);
+    }
+
+    .limiter-strip.ok {
+      border-color: rgba(46, 229, 138, 0.35);
+    }
+
+    .limiter-strip.bad {
+      border-color: rgba(255, 92, 92, 0.35);
+    }
+
+    .tick-label {
+      position: absolute;
+      top: -1.05rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.65rem;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      color: rgba(250, 204, 21, 0.95);
+      text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
     }
   </style>
 </head>
@@ -964,6 +1022,20 @@
           <h2>Runway Diagram &amp; Graphs</h2>
           <small>Visual comparison of AFM distances vs declared runway plus AFM-style graphs.</small>
 
+          <div class="declared-row" id="declaredRow">
+            <span class="k">RWY</span> <span class="v" id="declRwy">—</span>
+            <span class="k">TORA</span> <span class="v" id="declTora">—</span>
+            <span class="k">TODA</span> <span class="v" id="declToda">—</span>
+            <span class="k">ASDA</span> <span class="v" id="declAsda">—</span>
+            <span class="k">LDA</span> <span class="v" id="declLda">—</span>
+            <span class="k">Surface</span> <span class="v" id="declSurface">—</span>
+          </div>
+
+          <div class="limiter-strip" id="limiterStrip">
+            <strong>Status:</strong> <span id="limiterText">Awaiting calculation</span>
+          </div>
+
+
           <div class="runway-wrapper">
             <div class="runway-bar" id="runwayBar">
               <div class="runway-marker" id="barToRun" style="background:#38bdf8;"></div>
@@ -972,12 +1044,12 @@
               <div class="runway-marker" id="barLdgDist" style="background:#f97316;"></div>
               <!-- Marker ticks -->
               <div class="runway-tick" id="tickRunwayEnd" title="Runway end"></div>
-              <div class="runway-tick tick-to" id="tickToRun" title="Take-off run"></div>
-              <div class="runway-tick tick-to" id="tickToDist" title="Take-off distance to 15 m"></div>
-              <div class="runway-tick tick-ldg" id="tickLdgRun" title="Landing run"></div>
-              <div class="runway-tick tick-ldg" id="tickLdgDist" title="Landing distance from 15 m"></div>
-              <div class="runway-tick tick-req" id="tickReqTora125" title="Required TORA (AFM 15 m × 1.25)"></div>
-              <div class="runway-tick tick-req" id="tickReqLda" title="Required LDA (dry/wet)"></div>
+              <div class="runway-tick tick-req" id="tickReqTora125" title="Required TORA (AFM 15 m × 1.25)">
+                <span class="tick-label">REQ TORA</span>
+              </div>
+              <div class="runway-tick tick-req" id="tickReqLda" title="Required LDA (dry/wet)">
+                <span class="tick-label">REQ LDA</span>
+              </div>
 
             </div>
             <div class="runway-legend">
@@ -986,6 +1058,15 @@
               <span><span class="leg-swatch sw-ldg-run"></span>Landing run</span>
               <span><span class="leg-swatch sw-ldg-dist"></span>Landing distance from 15&nbsp;m</span>
             </div>
+            <div class="runway-legend">
+              <span><span class="leg-swatch"
+                  style="width:12px;height:2px;border-radius:2px;background:rgba(226,237,246,0.55)"></span>Runway
+                end</span>
+              <span><span class="leg-swatch"
+                  style="width:12px;height:2px;border-radius:2px;background:rgba(250,204,21,0.85)"></span>Required
+                distance</span>
+            </div>
+
           </div>
 
           <details class="collapse-block" id="graphsBlock">
@@ -1749,16 +1830,48 @@
 
       // Ticks
       setTick("tickRunwayEnd", runwayLen);
-      setTick("tickToRun", toRun);
-      setTick("tickToDist", toDist);
-      setTick("tickLdgRun", ldgRun);
-      setTick("tickLdgDist", ldgDist);
       setTick("tickReqTora125", reqTora125);
 
       // active LDA tick uses wet/dry selection
       const usingWetForTick = (surface === "grass_wet");
       const activeReqLda = usingWetForTick ? reqLdaWet : reqLdaDry;
       setTick("tickReqLda", activeReqLda);
+
+      // --- Declared distances row (for now, all equal to runwayLen) ---
+      document.getElementById("declRwy").textContent = `HDG ${round(rwHeading, 0)}°`;
+      document.getElementById("declTora").textContent = `${round(runwayLen, 0)} m`;
+      document.getElementById("declToda").textContent = `${round(runwayLen, 0)} m`;
+      document.getElementById("declAsda").textContent = `${round(runwayLen, 0)} m`;
+      document.getElementById("declLda").textContent = `${round(runwayLen, 0)} m`;
+
+      const surfaceLabel =
+        surface === "hard" ? "HARD" :
+          surface === "grass_dry" ? "GRASS DRY" : "GRASS WET";
+      document.getElementById("declSurface").textContent = surfaceLabel;
+
+      // --- Limiter strip (one-line OPT style) ---
+      const limiterStrip = document.getElementById("limiterStrip");
+      const limiterText = document.getElementById("limiterText");
+
+      // Determine active landing requirement used
+      const usingWet = (surface === "grass_wet");
+      const activeReqLdaVal = usingWet ? reqLdaWet : reqLdaDry;
+      const activeLdaOk = usingWet ? ldaWetOk : ldaDryOk;
+
+      let limiting = [];
+      if (!tora125Ok) limiting.push(`Take-off: REQ TORA ${round(reqTora125, 0)} > AVAIL ${round(runwayLen, 0)} m`);
+      if (!activeLdaOk) limiting.push(`Landing: REQ LDA ${round(activeReqLdaVal, 0)} > AVAIL ${round(runwayLen, 0)} m`);
+
+      if (limiting.length === 0) {
+        limiterText.textContent = `OK — required distances within available runway.`;
+        limiterStrip.classList.add("ok");
+        limiterStrip.classList.remove("bad");
+      } else {
+        limiterText.textContent = `LIMITED — ` + limiting.join(" | ");
+        limiterStrip.classList.add("bad");
+        limiterStrip.classList.remove("ok");
+      }
+
 
 
       // ------- Operational summary -------
