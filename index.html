@@ -1833,8 +1833,7 @@
       setTick("tickReqTora125", reqTora125);
 
       // active LDA tick uses wet/dry selection
-      const usingWetForTick = (surface === "grass_wet");
-      const activeReqLda = usingWetForTick ? reqLdaWet : reqLdaDry;
+      const activeReqLda = usingWet ? reqLdaWet : reqLdaDry;
       setTick("tickReqLda", activeReqLda);
 
       // --- Declared distances row (for now, all equal to runwayLen) ---
@@ -1887,7 +1886,6 @@
       setSummaryLine("sumPerfTo", sumPerfToText, toOk);
 
       // Decide which landing requirement to emphasise: dry vs wet
-      const usingWet = (surface === "grass_wet");
       const ldgCriterionOk = usingWet ? ldaWetOk : ldaDryOk;
       const sumPerfLdgText = usingWet
         ? (ldgCriterionOk
