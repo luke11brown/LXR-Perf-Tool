@@ -1688,6 +1688,7 @@
       const fieldElev = parseFloat(document.getElementById("fieldElev").value) || 0;
       const oat = parseFloat(document.getElementById("oat").value) || 0;
       const surface = document.getElementById("surface").value;
+      const usingWet = (surface === "grass_wet");
       const runwayLen = parseFloat(document.getElementById("runwayLen").value) || 1;
 
       const pa = fieldElev; // approx PA
@@ -1853,7 +1854,6 @@
       const limiterText = document.getElementById("limiterText");
 
       // Determine active landing requirement used
-      const usingWet = (surface === "grass_wet");
       const activeReqLdaVal = usingWet ? reqLdaWet : reqLdaDry;
       const activeLdaOk = usingWet ? ldaWetOk : ldaDryOk;
 
