@@ -31,5 +31,38 @@
     "lda": 3000,
     "heading": 49,
     "surface": "hard"
+  },
+    {
+    "id": "LGKV_23",
+    "label": "LGKV 23",
+    "elev": 18,
+    "tora": 3000,
+    "toda": 3000,
+    "asda": 3000,
+    "lda": 3000,
+    "heading": 229,
+    "surface": "hard"
+  },
+    {
+    "id": "LGAL_07",
+    "label": "LGAL 07",
+    "elev": 10,
+    "tora": 2582,
+    "toda": 2582,
+    "asda": 2582,
+    "lda": 2582,
+    "heading": 67,
+    "surface": "hard"
+  },
+    {
+    "id": "LGAL_25",
+    "label": "LGAL 25",
+    "elev": 24,
+    "tora": 2582,
+    "toda": 2582,
+    "asda": 2582,
+    "lda": 2582,
+    "heading": 247,
+    "surface": "hard"
   }
 ]
