@@ -921,12 +921,40 @@
 
           <div class="grid" style="margin-top:0.75rem">
             <div class="field">
-              <label for="runwayLen">Runway length TORA/TODA/ASDA/LDA (m)</label>
-              <input id="runwayLen" type="number" inputmode="decimal" value="1330" />
-              <div class="inline-note">
-                Default: RWY 13/31 full length declared distances 1330&nbsp;m.
-              </div>
+              <label for="savedRunwaySelect">Runway preset / saved</label>
+              <select id="savedRunwaySelect">
+                <option value="none" selected>None</option>
+              </select>
             </div>
+          </div>
+          <div class="button-row">
+            <button id="saveRunwayBtn">Save current runway</button>
+            <button id="deleteRunwayBtn">Delete saved runway</button>
+          </div>
+          <div class="grid" style="margin-top:0.75rem">
+            <div class="field">
+              <label for="runwayTora">TORA (m)</label>
+              <input id="runwayTora" type="number" inputmode="decimal" value="1330" />
+            </div>
+            <div class="field">
+              <label for="runwayToda">TODA (m)</label>
+              <input id="runwayToda" type="number" inputmode="decimal" value="1330" />
+            </div>
+            <div class="field">
+              <label for="runwayAsda">ASDA (m)</label>
+              <input id="runwayAsda" type="number" inputmode="decimal" value="1330" />
+            </div>
+            <div class="field">
+              <label for="runwayLda">LDA (m)</label>
+              <input id="runwayLda" type="number" inputmode="decimal" value="1330" />
+            </div>
+          </div>
+          <div class="field" style="margin-top:0.35rem;">
+            <div class="inline-note">
+              Enter declared runway distances separately; they may differ for stopway/clearway and landing.
+            </div>
+          </div>
+          <div class="grid" style="margin-top:0.75rem">
             <div class="field">
               <label for="surface">Surface</label>
               <select id="surface">
@@ -1166,6 +1194,106 @@
       "F-HTGH": { weight: 414.9, cg: 710 },
       "F-HXCD": { weight: 415.0, cg: 693 },
     };
+
+    const RUNWAY_SAVE_KEY = "lxrPerfTool.savedRunways";
+    let PRESET_RUNWAYS = {};
+
+    let activeRunwayLabel = null;
+
+    function getSavedRunways() {
+      try {
+        return JSON.parse(localStorage.getItem(RUNWAY_SAVE_KEY) || "[]");
+      } catch (err) {
+        return [];
+      }
+    }
+
+    function saveRunways(list) {
+      localStorage.setItem(RUNWAY_SAVE_KEY, JSON.stringify(list));
+    }
+
+    async function loadRunwayPresets() {
+      try {
+        const jsonUrl = new URL("runways.json", window.location.href).href;
+        console.info("Loading runway presets from", jsonUrl);
+        const response = await fetch(jsonUrl, { cache: "no-store" });
+        if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+        const presets = await response.json();
+        PRESET_RUNWAYS = {};
+        presets.forEach((item) => {
+          if (item.id) PRESET_RUNWAYS[item.id] = item;
+        });
+      } catch (err) {
+        PRESET_RUNWAYS = {};
+        console.warn("Could not load runway presets:", err);
+      }
+    }
+
+    function populateSavedRunwayOptions() {
+      const savedSelect = document.getElementById("savedRunwaySelect");
+      savedSelect.innerHTML = `<option value="none">None</option>`;
+
+      const presetIds = Object.keys(PRESET_RUNWAYS);
+      if (presetIds.length > 0) {
+        const presetGroup = document.createElement("optgroup");
+        presetGroup.label = "Presets";
+        presetIds.forEach((id) => {
+          const item = PRESET_RUNWAYS[id];
+          const opt = document.createElement("option");
+          opt.value = id;
+          opt.textContent = item.label || id;
+          presetGroup.appendChild(opt);
+        });
+        savedSelect.appendChild(presetGroup);
+      }
+
+      const runways = getSavedRunways();
+      const savedGroup = document.createElement("optgroup");
+      savedGroup.label = "Saved";
+      if (runways.length === 0) {
+        const emptyOpt = document.createElement("option");
+        emptyOpt.value = "none";
+        emptyOpt.textContent = "No saved runways yet";
+        emptyOpt.disabled = true;
+        savedGroup.appendChild(emptyOpt);
+      } else {
+        runways.forEach((item) => {
+          const opt = document.createElement("option");
+          opt.value = item.id || item.label;
+          opt.textContent = item.label || `Saved runway`;
+          savedGroup.appendChild(opt);
+        });
+      }
+      savedSelect.appendChild(savedGroup);
+    }
+
+    function setRunwayFields(data, label) {
+      if (!data) return;
+      document.getElementById("fieldElev").value = data.elev ?? document.getElementById("fieldElev").value;
+      document.getElementById("runwayTora").value = data.tora ?? document.getElementById("runwayTora").value;
+      document.getElementById("runwayToda").value = data.toda ?? document.getElementById("runwayToda").value;
+      document.getElementById("runwayAsda").value = data.asda ?? document.getElementById("runwayAsda").value;
+      document.getElementById("runwayLda").value = data.lda ?? document.getElementById("runwayLda").value;
+      document.getElementById("rwHeading").value = data.heading ?? document.getElementById("rwHeading").value;
+      document.getElementById("surface").value = data.surface ?? document.getElementById("surface").value;
+      activeRunwayLabel = label || data.label || "Custom runway";
+    }
+
+    function getCurrentRunwayData() {
+      return {
+        elev: parseFloat(document.getElementById("fieldElev").value) || 0,
+        tora: parseFloat(document.getElementById("runwayTora").value) || 0,
+        toda: parseFloat(document.getElementById("runwayToda").value) || 0,
+        asda: parseFloat(document.getElementById("runwayAsda").value) || 0,
+        lda: parseFloat(document.getElementById("runwayLda").value) || 0,
+        heading: parseFloat(document.getElementById("rwHeading").value) || 0,
+        surface: document.getElementById("surface").value,
+      };
+    }
+
+    function formatRunwayLabel() {
+      return activeRunwayLabel || "Custom runway";
+    }
 
     // ------- AFM DATA (630 kg, no wind, hard) -------
     const ALT_GRID_TOLD = [0, 2000, 4000, 6000]; // ft
@@ -1703,7 +1831,11 @@
       const oat = parseFloat(document.getElementById("oat").value) || 0;
       const surface = document.getElementById("surface").value;
       const usingWet = (surface === "grass_wet");
-      const runwayLen = parseFloat(document.getElementById("runwayLen").value) || 1;
+      const runwayTora = parseFloat(document.getElementById("runwayTora").value) || 1;
+      const runwayToda = parseFloat(document.getElementById("runwayToda").value) || 1;
+      const runwayAsda = parseFloat(document.getElementById("runwayAsda").value) || 1;
+      const runwayLda = parseFloat(document.getElementById("runwayLda").value) || 1;
+      const declaredRunwayLength = Math.max(runwayTora, runwayToda, runwayAsda, runwayLda, 1);
 
       const pa = fieldElev; // approx PA
       const isaTemp = 15 - 2 * (pa / 1000);
@@ -1792,14 +1924,14 @@
         el.className = ok ? "fact-status-ok" : "fact-status-bad";
       }
 
-      const tora125Ok = reqTora125 <= runwayLen;
-      const toraRunOk = reqToraRun <= runwayLen;
-      const toda115Ok = reqToda115 <= runwayLen;
-      const asda130Ok = reqAsda130 <= runwayLen;
+      const tora125Ok = reqTora125 <= runwayTora;
+      const toraRunOk = reqToraRun <= runwayTora;
+      const toda115Ok = reqToda115 <= runwayToda;
+      const asda130Ok = reqAsda130 <= runwayAsda;
       const stopwayOk = toraRunOk && toda115Ok && asda130Ok;
 
-      const ldaDryOk = reqLdaDry <= runwayLen;
-      const ldaWetOk = reqLdaWet <= runwayLen;
+      const ldaDryOk = reqLdaDry <= runwayLda;
+      const ldaWetOk = reqLdaWet <= runwayLda;
 
       statusSpan("reqTora125Status", tora125Ok);
       statusSpan("reqStopwayStatus", stopwayOk);
@@ -1822,11 +1954,11 @@
 
       function setMarker(id, dist) {
         const el = document.getElementById(id);
-        const ratio = dist / runwayLen;
+        const ratio = dist / declaredRunwayLength;
         const widthPx = Math.min(barWidth, Math.max(0, ratio * barWidth));
         el.style.width = widthPx + "px";
 
-        if (dist > runwayLen) el.classList.add("overrun");
+        if (dist > declaredRunwayLength) el.classList.add("overrun");
         else el.classList.remove("overrun");
       }
 
@@ -1838,25 +1970,25 @@
       function setTick(id, dist) {
         const el = document.getElementById(id);
         if (!el) return;
-        const ratio = dist / runwayLen;
+        const ratio = dist / declaredRunwayLength;
         const xPx = clamp(ratio, 0, 1) * barWidth;
         el.style.left = xPx + "px";
       }
 
       // Ticks
-      setTick("tickRunwayEnd", runwayLen);
+      setTick("tickRunwayEnd", runwayTora);
       setTick("tickReqTora125", reqTora125);
 
       // active LDA tick uses wet/dry selection
       const activeReqLda = usingWet ? reqLdaWet : reqLdaDry;
       setTick("tickReqLda", activeReqLda);
 
-      // --- Declared distances row (for now, all equal to runwayLen) ---
-      document.getElementById("declRwy").textContent = `HDG ${round(rwHeading, 0)}°`;
-      document.getElementById("declTora").textContent = `${round(runwayLen, 0)} m`;
-      document.getElementById("declToda").textContent = `${round(runwayLen, 0)} m`;
-      document.getElementById("declAsda").textContent = `${round(runwayLen, 0)} m`;
-      document.getElementById("declLda").textContent = `${round(runwayLen, 0)} m`;
+      // --- Declared distances row ---
+      document.getElementById("declRwy").textContent = `${formatRunwayLabel()} (${round(rwHeading, 0)}°)`;
+      document.getElementById("declTora").textContent = `${round(runwayTora, 0)} m`;
+      document.getElementById("declToda").textContent = `${round(runwayToda, 0)} m`;
+      document.getElementById("declAsda").textContent = `${round(runwayAsda, 0)} m`;
+      document.getElementById("declLda").textContent = `${round(runwayLda, 0)} m`;
 
       const surfaceLabel =
         surface === "hard" ? "HARD" :
@@ -1872,8 +2004,8 @@
       const activeLdaOk = usingWet ? ldaWetOk : ldaDryOk;
 
       let limiting = [];
-      if (!tora125Ok) limiting.push(`Take-off: REQ TORA ${round(reqTora125, 0)} > AVAIL ${round(runwayLen, 0)} m`);
-      if (!activeLdaOk) limiting.push(`Landing: REQ LDA ${round(activeReqLdaVal, 0)} > AVAIL ${round(runwayLen, 0)} m`);
+      if (!tora125Ok) limiting.push(`Take-off: REQ TORA ${round(reqTora125, 0)} > AVAIL ${round(runwayTora, 0)} m`);
+      if (!activeLdaOk) limiting.push(`Landing: REQ LDA ${round(activeReqLdaVal, 0)} > AVAIL ${round(runwayLda, 0)} m`);
 
       if (limiting.length === 0) {
         limiterText.textContent = `OK — required distances within available runway.`;
@@ -1895,19 +2027,19 @@
 
       const toOk = tora125Ok; // main criterion for no-stopway case
       const sumPerfToText = toOk
-        ? `OK – AFM T/O distance to 15 m = ${round(toDist, 0)} m; required TORA (×1.25) = ${round(reqTora125, 0)} m ≤ available ${round(runwayLen, 0)} m.`
-        : `NOT OK – required TORA (AFM 15 m ×1.25 = ${round(reqTora125, 0)} m) exceeds available ${round(runwayLen, 0)} m.`;
+        ? `OK – AFM T/O distance to 15 m = ${round(toDist, 0)} m; required TORA (×1.25) = ${round(reqTora125, 0)} m ≤ available ${round(runwayTora, 0)} m.`
+        : `NOT OK – required TORA (AFM 15 m ×1.25 = ${round(reqTora125, 0)} m) exceeds available ${round(runwayTora, 0)} m.`;
       setSummaryLine("sumPerfTo", sumPerfToText, toOk);
 
       // Decide which landing requirement to emphasise: dry vs wet
       const ldgCriterionOk = usingWet ? ldaWetOk : ldaDryOk;
       const sumPerfLdgText = usingWet
         ? (ldgCriterionOk
-          ? `OK – AFM landing distance = ${round(ldgDist, 0)} m; required LDA wet (×1.15 ÷0.7) = ${round(reqLdaWet, 0)} m ≤ available ${round(runwayLen, 0)} m.`
-          : `NOT OK – required LDA wet (AFM ×1.15 ÷0.7 = ${round(reqLdaWet, 0)} m) exceeds available ${round(runwayLen, 0)} m.`)
+          ? `OK – AFM landing distance = ${round(ldgDist, 0)} m; required LDA wet (×1.15 ÷0.7) = ${round(reqLdaWet, 0)} m ≤ available ${round(runwayLda, 0)} m.`
+          : `NOT OK – required LDA wet (AFM ×1.15 ÷0.7 = ${round(reqLdaWet, 0)} m) exceeds available ${round(runwayLda, 0)} m.`)
         : (ldgCriterionOk
-          ? `OK – AFM landing distance = ${round(ldgDist, 0)} m; required LDA dry (÷0.7) = ${round(reqLdaDry, 0)} m ≤ available ${round(runwayLen, 0)} m.`
-          : `NOT OK – required LDA dry (AFM ÷0.7 = ${round(reqLdaDry, 0)} m) exceeds available ${round(runwayLen, 0)} m.`);
+          ? `OK – AFM landing distance = ${round(ldgDist, 0)} m; required LDA dry (÷0.7) = ${round(reqLdaDry, 0)} m ≤ available ${round(runwayLda, 0)} m.`
+          : `NOT OK – required LDA dry (AFM ÷0.7 = ${round(reqLdaDry, 0)} m) exceeds available ${round(runwayLda, 0)} m.`);
       setSummaryLine("sumPerfLdg", sumPerfLdgText, ldgCriterionOk);
 
       const sumWindText = windOk
@@ -1916,9 +2048,10 @@
       setSummaryLine("sumWind", sumWindText, windOk);
 
       const runwayOk = toOk && ldgCriterionOk;
+      const runwayLabelForSummary = formatRunwayLabel();
       const sumRunwayText = runwayOk
-        ? `Runway 13/31 full length (1330 m) sufficient for both take-off and landing under the current factors.`
-        : `Runway distance limiting – one or more required distances exceed the 1330 m available.`;
+        ? `${runwayLabelForSummary} available TORA ${round(runwayTora, 0)} m, TODA ${round(runwayToda, 0)} m, ASDA ${round(runwayAsda, 0)} m, LDA ${round(runwayLda, 0)} m is sufficient for current requirements.`
+        : `${runwayLabelForSummary} declared distances (TORA ${round(runwayTora, 0)} m, TODA ${round(runwayToda, 0)} m, ASDA ${round(runwayAsda, 0)} m, LDA ${round(runwayLda, 0)} m) are insufficient for current requirements.`;
       setSummaryLine("sumRunway", sumRunwayText, runwayOk);
 
       // Overall decision
@@ -1972,7 +2105,7 @@
       }
     }
 
-    window.addEventListener("DOMContentLoaded", () => {
+    window.addEventListener("DOMContentLoaded", async () => {
       buildCGChart();
       buildPerfCharts();
 
@@ -1992,6 +2125,72 @@
         } else {
           regInfo.textContent = "Custom/manual – enter empty mass and CG from the aircraft documents.";
         }
+        calculateAll();
+      });
+
+      await loadRunwayPresets();
+      populateSavedRunwayOptions();
+
+      const savedRunwaySelect = document.getElementById("savedRunwaySelect");
+      const saveRunwayBtn = document.getElementById("saveRunwayBtn");
+      const deleteRunwayBtn = document.getElementById("deleteRunwayBtn");
+
+      savedRunwaySelect.addEventListener("change", () => {
+        const selectedId = savedRunwaySelect.value;
+        if (selectedId === "none") {
+          activeRunwayLabel = null;
+          calculateAll();
+          return;
+        }
+
+        const preset = PRESET_RUNWAYS[selectedId];
+        if (preset) {
+          setRunwayFields(preset, preset.label);
+          calculateAll();
+          return;
+        }
+
+        const saved = getSavedRunways().find(item => item.id === selectedId);
+        if (saved) {
+          setRunwayFields(saved, saved.label);
+          calculateAll();
+        }
+      });
+
+      saveRunwayBtn.addEventListener("click", () => {
+        const label = prompt("Save this runway as:", activeRunwayLabel || "My runway");
+        if (!label) return;
+        const runways = getSavedRunways();
+        const newRunway = {
+          id: `${Date.now()}`,
+          label: label.trim(),
+          ...getCurrentRunwayData(),
+        };
+        const existingIndex = runways.findIndex(item => item.label === newRunway.label);
+        if (existingIndex >= 0) {
+          runways[existingIndex] = newRunway;
+        } else {
+          runways.push(newRunway);
+        }
+        saveRunways(runways);
+        populateSavedRunwayOptions();
+        savedRunwaySelect.value = newRunway.id;
+        activeRunwayLabel = newRunway.label;
+        alert(`Runway saved: ${newRunway.label}`);
+      });
+
+      deleteRunwayBtn.addEventListener("click", () => {
+        const selectedId = savedRunwaySelect.value;
+        if (selectedId === "none") {
+          alert("Choose a saved runway first.");
+          return;
+        }
+        let runways = getSavedRunways().filter(item => item.id !== selectedId);
+        saveRunways(runways);
+        populateSavedRunwayOptions();
+        savedRunwaySelect.value = "none";
+        activeRunwayLabel = null;
+        alert("Saved runway deleted.");
         calculateAll();
       });
 

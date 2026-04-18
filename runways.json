@@ -1,0 +1,35 @@
+[
+  {
+    "id": "LGKM_13",
+    "label": "LGKM 13",
+    "elev": 199,
+    "tora": 1330,
+    "toda": 1330,
+    "asda": 1330,
+    "lda": 1330,
+    "heading": 131,
+    "surface": "hard"
+  },
+  {
+    "id": "LGKM_31",
+    "label": "LGKM 31",
+    "elev": 198,
+    "tora": 1330,
+    "toda": 1330,
+    "asda": 1330,
+    "lda": 1330,
+    "heading": 311,
+    "surface": "hard"
+  },
+  {
+    "id": "LGKV_05",
+    "label": "LGKV 05",
+    "elev": 10,
+    "tora": 3000,
+    "toda": 3000,
+    "asda": 3000,
+    "lda": 3000,
+    "heading": 49,
+    "surface": "hard"
+  }
+]
