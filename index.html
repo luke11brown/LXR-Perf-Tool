@@ -251,7 +251,7 @@
               <input id="qnh" type="number" inputmode="decimal" value="1013" />
             </div>
             <div class="field">
-              <label for="oat">OAT at field (°C)</label>
+              <label for="oat">OAT (°C)</label>
               <input id="oat" type="number" inputmode="decimal" value="15" />
             </div>
           </div>
@@ -438,6 +438,14 @@
             <div class="field" id="arrivalWindSpeedField">
               <label for="arrWindSpd">Wind speed (kt)</label>
               <input id="arrWindSpd" type="number" inputmode="decimal" value="0" />
+            </div>
+            <div class="field">
+              <label>Wind components</label>
+              <div class="inline-note" id="windComponents">
+                Headwind 0 kt, crosswind 0 kt (max demonstrated 18 kt).
+              </div>
+              <div class="inline-note">VRB is treated as full tailwind for performance; crosswind is not assessed.</div>
+              <div class="inline-warning" id="windLimitWarn" style="display:none;"></div>
             </div>
           </div>
 
