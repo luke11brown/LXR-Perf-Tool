@@ -706,6 +706,27 @@
       text-transform: uppercase;
     }
 
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      color: var(--muted);
+      font-size: 0.75rem;
+      margin-top: 0.55rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .check-row input[type="checkbox"] {
+      width: auto;
+      accent-color: var(--accent);
+    }
+
+    .field-disabled {
+      opacity: 0.55;
+    }
+
     .sticky-calc-footer {
       position: fixed;
       left: 0;
@@ -1135,7 +1156,7 @@
             <div class="field">
               <label for="arrHeading">Arrival runway heading (°T)</label>
               <input id="arrHeading" type="number" inputmode="decimal" value="137" />
-              <div class="inline-note">Uses the same wind input, resolved against the arrival runway heading.</div>
+              <div class="inline-note">Use true heading; arrival wind is resolved against this runway.</div>
             </div>
             <div class="field">
               <label for="arrSurface">Arrival surface</label>
@@ -1145,6 +1166,35 @@
                 <option value="grass_dry">Grass – dry</option>
                 <option value="grass_wet">Grass – wet</option>
               </select>
+            </div>
+          </div>
+
+          <div class="check-row">
+            <input id="arrUseDepWeather" type="checkbox" checked />
+            <label for="arrUseDepWeather">Use departure QNH, OAT and wind for arrival</label>
+          </div>
+          <div class="grid-3" id="arrivalWeatherFields" style="margin-top:0.55rem">
+            <div class="field">
+              <label for="arrQnh">Arrival QNH (hPa)</label>
+              <input id="arrQnh" type="number" inputmode="decimal" value="1013" />
+            </div>
+            <div class="field">
+              <label for="arrOat">Arrival OAT (°C)</label>
+              <input id="arrOat" type="number" inputmode="decimal" value="15" />
+            </div>
+            <div class="field">
+              <label for="arrWindDir">Arrival wind direction (°T / from, or VRB)</label>
+              <input id="arrWindDir" type="text" inputmode="text" value="137" />
+            </div>
+          </div>
+          <div class="grid" style="margin-top:0.55rem">
+            <div class="field" id="arrivalWindSpeedField">
+              <label for="arrWindSpd">Arrival wind speed (kt)</label>
+              <input id="arrWindSpd" type="number" inputmode="decimal" value="0" />
+            </div>
+            <div class="field">
+              <label>Arrival weather note</label>
+              <div class="inline-note">Use separate arrival weather for land-aways. VRB is treated as full tailwind for performance.</div>
             </div>
           </div>
           <div class="grid" style="margin-top:0.6rem">
@@ -1477,6 +1527,7 @@
       document.getElementById("surface").value = data.surface ?? document.getElementById("surface").value;
       activeRunwayLabel = label || data.label || "Custom runway";
       if (arrivalUsesDepartureRunway) copyDepartureToArrival();
+      updateArrivalWeatherControls();
     }
 
     function copyDepartureToArrival() {
@@ -1488,6 +1539,35 @@
       activeArrivalRunwayLabel = activeRunwayLabel;
     }
 
+    function copyDepartureWeatherToArrival() {
+      if (!document.getElementById("arrQnh")) return;
+      document.getElementById("arrQnh").value = document.getElementById("qnh").value;
+      document.getElementById("arrOat").value = document.getElementById("oat").value;
+      document.getElementById("arrWindDir").value = document.getElementById("windDir").value;
+      document.getElementById("arrWindSpd").value = document.getElementById("windSpd").value;
+    }
+
+    function updateArrivalWeatherControls() {
+      const useDep = document.getElementById("arrUseDepWeather");
+      if (!useDep) return;
+      if (arrivalUsesDepartureRunway) {
+        useDep.checked = true;
+        useDep.disabled = true;
+      } else {
+        useDep.disabled = false;
+      }
+      const disabled = useDep.checked;
+      ["arrQnh", "arrOat", "arrWindDir", "arrWindSpd"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = disabled;
+      });
+      const fields = document.getElementById("arrivalWeatherFields");
+      const speedField = document.getElementById("arrivalWindSpeedField");
+      if (fields) fields.classList.toggle("field-disabled", disabled);
+      if (speedField) speedField.classList.toggle("field-disabled", disabled);
+      if (disabled) copyDepartureWeatherToArrival();
+    }
+
     function setArrivalRunwayFields(data, label) {
       if (!data) return;
       document.getElementById("arrFieldElev").value = data.elev ?? document.getElementById("arrFieldElev").value;
@@ -1496,6 +1576,9 @@
       document.getElementById("arrSurface").value = data.surface ?? document.getElementById("arrSurface").value;
       activeArrivalRunwayLabel = label || data.label || "Custom arrival runway";
       arrivalUsesDepartureRunway = false;
+      const useDepWeather = document.getElementById("arrUseDepWeather");
+      if (useDepWeather) useDepWeather.checked = false;
+      updateArrivalWeatherControls();
     }
 
     function getCurrentRunwayData() {
@@ -2138,6 +2221,9 @@
       const qnh = parseFloat(document.getElementById("qnh").value) || 1013.25;
       const oat = parseFloat(document.getElementById("oat").value) || 0;
       if (arrivalUsesDepartureRunway) copyDepartureToArrival();
+      updateArrivalWeatherControls();
+      const arrivalWeatherUsesDeparture = arrivalUsesDepartureRunway || !!document.getElementById("arrUseDepWeather")?.checked;
+      if (arrivalWeatherUsesDeparture) copyDepartureWeatherToArrival();
       const surface = document.getElementById("surface").value;
       const surfaceCfg = GRASS_FACTORS[surface] || GRASS_FACTORS.hard_dry;
       const arrSurface = document.getElementById("arrSurface").value;
@@ -2157,9 +2243,11 @@
       document.getElementById("isaDev").value = round(isaDev, 1);
 
       const arrFieldElev = parseFloat(document.getElementById("arrFieldElev").value) || fieldElev;
-      const arrPa = arrFieldElev + (1013.25 - qnh) * 30;
+      const arrQnh = parseFloat(document.getElementById("arrQnh").value) || qnh;
+      const arrOat = parseFloat(document.getElementById("arrOat").value) || oat;
+      const arrPa = arrFieldElev + (1013.25 - arrQnh) * 30;
       const arrIsaTemp = 15 - 2 * (arrPa / 1000);
-      const arrIsaDev = oat - arrIsaTemp;
+      const arrIsaDev = arrOat - arrIsaTemp;
       document.getElementById("arrPa").value = round(arrPa, 0);
       document.getElementById("arrIsaDev").value = round(arrIsaDev, 1);
 
@@ -2167,24 +2255,18 @@
       const rwHeading = parseFloat(document.getElementById("rwHeading").value) || 0;
       const arrHeading = parseFloat(document.getElementById("arrHeading").value) || rwHeading;
       const windDirRaw = String(document.getElementById("windDir").value || "").trim().toUpperCase();
-      const windIsVRB = windDirRaw === "VRB";
       const parsedWindDir = parseFloat(windDirRaw);
-      const windDir = Number.isFinite(parsedWindDir) ? parsedWindDir : 0;
       const windSpd = parseFloat(document.getElementById("windSpd").value) || 0;
-
-      let headwind;
-      let crosswind;
-      if (windIsVRB) {
-        // Conservative performance assumption: variable direction could be a full tailwind.
-        headwind = -windSpd;
-        crosswind = 0;
-      } else {
-        const angleRad = ((windDir - rwHeading) * Math.PI) / 180;
-        headwind = windSpd * Math.cos(angleRad);
-        crosswind = windSpd * Math.sin(angleRad);
-      }
+      const depWind = computeWindComponentsForHeading(windDirRaw, windSpd, rwHeading);
+      const windIsVRB = depWind.windIsVRB;
+      const headwind = depWind.headwind;
+      const crosswind = depWind.crosswind;
       const tailwind = headwind < 0 ? -headwind : 0;
-      const arrWind = computeWindComponentsForHeading(windDirRaw, windSpd, arrHeading);
+
+      const arrWindDirRaw = String(document.getElementById("arrWindDir").value || "").trim().toUpperCase();
+      const arrWindSpd = parseFloat(document.getElementById("arrWindSpd").value) || 0;
+      const arrWind = computeWindComponentsForHeading(arrWindDirRaw, arrWindSpd, arrHeading);
+      const arrWindIsVRB = arrWind.windIsVRB;
       const arrHeadwind = arrWind.headwind;
       const arrCrosswind = arrWind.crosswind;
       const arrTailwind = arrHeadwind < 0 ? -arrHeadwind : 0;
@@ -2201,8 +2283,8 @@
         : `Crosswind ${round(Math.abs(crosswind), 1)} kt`;
 
       let xwWarn = "";
-      if (windIsVRB) {
-        xwWarn = " – variable wind treated as full tailwind for performance";
+      if (windIsVRB || arrWindIsVRB) {
+        xwWarn = " – VRB treated as full tailwind for performance where entered";
       } else if (Math.max(Math.abs(crosswind), Math.abs(arrCrosswind)) > MAX_XWIND) {
         xwWarn = " – ABOVE max demonstrated 18 kt";
       } else {
@@ -2210,17 +2292,21 @@
       }
 
       const arrHeadStr = arrHeadwind >= 0 ? `Arr headwind ${round(arrHeadwind, 1)} kt` : `Arr tailwind ${round(arrTailwind, 1)} kt`;
-      const arrXwStr = windIsVRB ? "arrival crosswind not assessed (VRB)" : `arrival crosswind ${round(Math.abs(arrCrosswind), 1)} kt`;
-      windComponentsEl.textContent = `${headStr}, ${xwStr}; ${arrHeadStr}, ${arrXwStr}${xwWarn}`;
+      const arrXwStr = arrWindIsVRB ? "arrival crosswind not assessed (VRB)" : `arrival crosswind ${round(Math.abs(arrCrosswind), 1)} kt`;
+      const arrWeatherNote = arrivalWeatherUsesDeparture ? "same weather" : "separate arrival weather";
+      windComponentsEl.textContent = `${headStr}, ${xwStr}; ${arrHeadStr}, ${arrXwStr} (${arrWeatherNote})${xwWarn}`;
 
       const tailwindOk = tailwind <= MAX_RECOMMENDED_TAILWIND && arrTailwind <= MAX_RECOMMENDED_TAILWIND;
-      const crosswindOk = windIsVRB ? true : Math.max(Math.abs(crosswind), Math.abs(arrCrosswind)) <= MAX_XWIND;
-      const windOk = windSpd <= MAX_WIND && crosswindOk && tailwindOk;
+      const crosswindOk = (windIsVRB || arrWindIsVRB) ? true : Math.max(Math.abs(crosswind), Math.abs(arrCrosswind)) <= MAX_XWIND;
+      const windOk = windSpd <= MAX_WIND && arrWindSpd <= MAX_WIND && crosswindOk && tailwindOk;
 
       const windWarnings = [];
-      if (windIsVRB && windSpd > 0) windWarnings.push(`VRB wind treated as full ${round(windSpd, 1)} kt tailwind for departure and arrival performance. Crosswind is not assessed.`);
-      if (!windIsVRB && windSpd > 0 && !Number.isFinite(parsedWindDir)) windWarnings.push("Wind direction should be degrees true or VRB.");
-      if (windSpd > MAX_WIND) windWarnings.push(`Departure not permitted – total wind speed ${round(windSpd, 1)} kt exceeds 40 kt limit.`);
+      if (windIsVRB && windSpd > 0) windWarnings.push(`Departure VRB wind treated as full ${round(windSpd, 1)} kt tailwind for performance. Crosswind is not assessed.`);
+      if (arrWindIsVRB && arrWindSpd > 0) windWarnings.push(`Arrival VRB wind treated as full ${round(arrWindSpd, 1)} kt tailwind for performance. Crosswind is not assessed.`);
+      if (!windIsVRB && windSpd > 0 && !Number.isFinite(parsedWindDir)) windWarnings.push("Departure wind direction should be degrees true or VRB.");
+      if (!arrWindIsVRB && arrWindSpd > 0 && !Number.isFinite(arrWind.parsedWindDir)) windWarnings.push("Arrival wind direction should be degrees true or VRB.");
+      if (windSpd > MAX_WIND) windWarnings.push(`Departure not permitted – departure wind speed ${round(windSpd, 1)} kt exceeds 40 kt limit.`);
+      if (arrWindSpd > MAX_WIND) windWarnings.push(`Arrival wind speed ${round(arrWindSpd, 1)} kt exceeds 40 kt limit.`);
       if (tailwind > MAX_RECOMMENDED_TAILWIND) windWarnings.push(`Departure tailwind ${round(tailwind, 1)} kt exceeds AFM recommended maximum ${MAX_RECOMMENDED_TAILWIND} kt.`);
       if (arrTailwind > MAX_RECOMMENDED_TAILWIND) windWarnings.push(`Arrival tailwind ${round(arrTailwind, 1)} kt exceeds AFM recommended maximum ${MAX_RECOMMENDED_TAILWIND} kt.`);
       if (tailwind > WIND_FACTOR_LIMIT_TAIL || arrTailwind > WIND_FACTOR_LIMIT_TAIL) windWarnings.push(`Tailwind correction is capped at ${WIND_FACTOR_LIMIT_TAIL} kt for chart validity.`);
@@ -2426,12 +2512,8 @@
       setSummaryLine("sumPerfLdg", sumPerfLdgText, ldgCriterionOk);
 
       const sumWindText = windOk
-        ? (windIsVRB
-          ? `OK – VRB treated as ${round(windSpd, 1)} kt tailwind for performance; total wind ≤ 40 kt and tailwind within ${MAX_RECOMMENDED_TAILWIND} kt recommendation. Crosswind not assessed.`
-          : `OK – ${headStr}, ${xwStr}; total wind ${round(windSpd, 1)} kt ≤ 40 kt, crosswind within 18 kt demonstrated, tailwind within ${MAX_RECOMMENDED_TAILWIND} kt recommendation.`)
-        : (windIsVRB
-          ? `NOT OK – VRB treated as ${round(windSpd, 1)} kt tailwind for performance; tailwind/total-wind limits exceeded or recommendation exceeded. Crosswind not assessed.`
-          : `NOT OK – wind limits exceeded/recommendation exceeded (total ${round(windSpd, 1)} kt, crosswind ${round(Math.abs(crosswind), 1)} kt, tailwind ${round(tailwind, 1)} kt).`);
+        ? `${arrivalWeatherUsesDeparture ? "OK" : "OK – separate arrival weather used"} – departure ${headStr.toLowerCase()}, ${xwStr.toLowerCase()}; arrival ${arrHeadStr.toLowerCase()}, ${arrXwStr.toLowerCase()}. Wind speeds ≤ 40 kt, crosswind within 18 kt demonstrated where assessed, tailwind within ${MAX_RECOMMENDED_TAILWIND} kt recommendation.`
+        : `NOT OK – wind limits/recommendations exceeded (departure wind ${round(windSpd, 1)} kt, tailwind ${round(tailwind, 1)} kt; arrival wind ${round(arrWindSpd, 1)} kt, tailwind ${round(arrTailwind, 1)} kt).`;
       setSummaryLine("sumWind", sumWindText, windOk);
 
       const runwayOk = toOk && ldgCriterionOk;
@@ -2765,6 +2847,9 @@
           arrivalUsesDepartureRunway = true;
           activeArrivalRunwayLabel = activeRunwayLabel;
           copyDepartureToArrival();
+          const useDepWeather = document.getElementById("arrUseDepWeather");
+          if (useDepWeather) useDepWeather.checked = true;
+          updateArrivalWeatherControls();
           calculateAll();
           return;
         }
@@ -2803,6 +2888,7 @@
         arrivalRunwaySelect.value = newRunway.id;
         activeArrivalRunwayLabel = newRunway.label;
         arrivalUsesDepartureRunway = false;
+        updateArrivalWeatherControls();
         alert(`Arrival runway saved: ${newRunway.label}`);
         calculateAll();
       });
@@ -2820,10 +2906,25 @@
         arrivalUsesDepartureRunway = true;
         activeArrivalRunwayLabel = activeRunwayLabel;
         copyDepartureToArrival();
+        const useDepWeather = document.getElementById("arrUseDepWeather");
+        if (useDepWeather) useDepWeather.checked = true;
+        updateArrivalWeatherControls();
         alert("Saved runway deleted.");
         calculateAll();
       });
 
+      document.getElementById("arrUseDepWeather").addEventListener("change", () => {
+        updateArrivalWeatherControls();
+        calculateAll();
+      });
+
+      ["qnh", "oat", "windDir", "windSpd"].forEach(id => {
+        document.getElementById(id).addEventListener("input", () => {
+          if (document.getElementById("arrUseDepWeather")?.checked) copyDepartureWeatherToArrival();
+        });
+      });
+
+      updateArrivalWeatherControls();
       calculateAll();
       window.addEventListener("resize", calculateAll);
     });
