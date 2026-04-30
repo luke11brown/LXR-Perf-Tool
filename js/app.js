@@ -1274,6 +1274,8 @@
     h2 { background: #e0f2fe; border-left: 4px solid #0284c7; color: #075985; font-size: 11px; margin: 10px 0 5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 7px; }
     .report-header { align-items: start; border-bottom: 2px solid #bae6fd; display: grid; grid-template-columns: 1fr auto; gap: 12px; margin-bottom: 6px; padding-bottom: 5px; }
     .report-meta { color: #475569; font-size: 8.5px; line-height: 1.3; text-align: right; }
+    .report-actions { display: flex; justify-content: flex-end; margin-top: 5px; }
+    .report-button { background: #0284c7; border: 0; border-radius: 5px; color: #fff; cursor: pointer; font: inherit; font-size: 9px; padding: 4px 9px; text-decoration: none; text-transform: uppercase; }
     .muted { color: #475569; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; }
     .box { background: #ffffff; border: 1px solid #bfdbfe; border-top: 3px solid #38bdf8; border-radius: 6px; padding: 7px; break-inside: avoid; }
@@ -1298,7 +1300,7 @@
     .ok { color: #047857; font-weight: 700; }
     .bad { color: #b91c1c; font-weight: 700; }
     .footer { margin-top: 14px; font-size: 9px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 6px; }
-    @media print { button { display:none; } }
+    @media print { .report-actions { display:none; } }
   </style>
 </head>
 <body>
@@ -1307,6 +1309,9 @@
     <div class="report-meta">
       <div>Generated ${escHtml(now.toLocaleString())}</div>
       <div>Unofficial helper. AFM and Ops Manual remain authoritative.</div>
+      <div class="report-actions">
+        <button class="report-button" onclick="window.print()">Print / save PDF</button>
+      </div>
     </div>
   </div>
 
@@ -1328,7 +1333,6 @@
     </div>
   </div>
 
-  <h2>Moment breakdown</h2>
   <div class="grid">
     <div class="box wb">
       <table class="moment-table">
@@ -1348,7 +1352,7 @@
     </div>
   </div>
 
-  <h2>Conditions and runway</h2>
+  <h2>Conditions, runway and performance</h2>
   <div class="grid">
     <div class="box perf kv">
       <div class="k">Departure runway</div><div class="v">${escHtml(getText("declRwy"))}</div>
@@ -1375,7 +1379,6 @@
     </div>
   </div>
 
-  <h2>Performance</h2>
   <div class="grid">
     <div class="box perf kv">
       <div class="k">T/O run</div><div class="v">${escHtml(getText("toRun"))} m</div>
@@ -1403,7 +1406,6 @@
   </div>
 
   <div class="footer">This PDF is a snapshot of the app data. It is not an AFM replacement.</div>
-  <script>window.onload = () => { window.print(); };<\/script>
 </body>
 </html>`;
 
