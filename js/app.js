@@ -489,7 +489,7 @@
     }
 
     let cgChart;
-    let cgDepDataset, cgArrDataset;
+    let cgDepDataset, cgArrDataset, cgFuelLineDataset;
 
     function buildCGChart() {
       const ctx = document.getElementById("cgChart").getContext("2d");
@@ -511,6 +511,18 @@
         pointHoverRadius: 6,
       };
 
+      cgFuelLineDataset = {
+        type: "line",
+        label: "Fuel burn",
+        data: [],
+        borderColor: "#facc15",
+        borderDash: [6, 5],
+        borderWidth: 2,
+        fill: false,
+        pointRadius: 0,
+        tension: 0,
+      };
+
       cgChart = new Chart(ctx, {
         type: "line",
         data: {
@@ -521,6 +533,7 @@
               tension: 0,
               fill: true,
             },
+            cgFuelLineDataset,
             cgDepDataset,
             cgArrDataset,
           ],
@@ -541,6 +554,7 @@
             },
           },
           plugins: { legend: { labels: { boxWidth: 10 } } },
+          animation: false,
         },
       });
     }
@@ -658,9 +672,15 @@
         wbStatusPill.classList.add("bad");
       }
 
-      if (cgDepDataset && cgArrDataset) {
+      if (cgDepDataset && cgArrDataset && cgFuelLineDataset) {
         cgDepDataset.data = (isFinite(cgTO) && isFinite(massTO)) ? [{ x: cgTO, y: massTO }] : [];
         cgArrDataset.data = (isFinite(cgLW) && isFinite(massLW)) ? [{ x: cgLW, y: massLW }] : [];
+        cgDepDataset.backgroundColor = (massOkTO && cgBasicTO && insidePolyTO) ? "#38bdf8" : "#ef4444";
+        cgArrDataset.backgroundColor = (massOkLW && cgBasicLW && insidePolyLW) ? "#22c55e" : "#ef4444";
+        cgFuelLineDataset.data =
+          (isFinite(cgTO) && isFinite(massTO) && isFinite(cgLW) && isFinite(massLW))
+            ? [{ x: cgTO, y: massTO }, { x: cgLW, y: massLW }]
+            : [];
         cgChart.update();
       }
 
@@ -1088,6 +1108,31 @@
       const depWindComponentsText = formatWindComponentsForExport("windDir", "windSpd", "rwHeading");
       const arrWindComponentsText = formatWindComponentsForExport("arrWindDir", "arrWindSpd", "arrHeading");
       const complianceText = getText("complianceAlert");
+      const classIfBad = (bad) => bad ? " bad-value" : "";
+      const startsNotOk = (id) => /^NOT OK/i.test(getText(id));
+      const hasLimitWarning = (id) => /exceeds|not permitted|capped/i.test(getText(id));
+      const numValue = (id) => parseFloat(getValue(id));
+      const textNum = (id) => parseFloat(getText(id));
+      const tow = textNum("tow");
+      const lw = textNum("lw");
+      const cgTo = textNum("cg");
+      const cgLw = textNum("cgArr");
+      const fuelKgReport = numValue("fuelKg");
+      const fuelLReport = numValue("fuelL");
+      const bagKgReport = numValue("bagWt");
+      const towBad = !(tow >= CG_MIN_MASS && tow <= MAX_MASS && cgTo >= CG_MIN && cgTo <= CG_MAX && pointInPoly(cgTo, tow, CG_POLY));
+      const lwBad = !(lw >= CG_MIN_MASS && lw <= MAX_MASS && cgLw >= CG_MIN && cgLw <= CG_MAX && pointInPoly(cgLw, lw, CG_POLY));
+      const fuelBad = fuelKgReport > MAX_FUEL_KG || fuelLReport > MAX_FUEL_L;
+      const bagBad = bagKgReport > MAX_BAG_KG;
+      const wbBad = /check|outside/i.test(getText("wbStatusPill"));
+      const depWindBad = hasLimitWarning("depWindLimitWarn");
+      const arrWindBad = hasLimitWarning("arrWindLimitWarn");
+      const declaredStopwayOrClearwayReport = numValue("runwayToda") > numValue("runwayTora") || numValue("runwayAsda") > numValue("runwayTora");
+      const reqToraBad = declaredStopwayOrClearwayReport ? startsNotOk("reqStopwayStatus") : startsNotOk("reqTora125Status");
+      const todaAsdaBad = declaredStopwayOrClearwayReport && startsNotOk("reqStopwayStatus");
+      const ldaDryBad = startsNotOk("reqLdaDryStatus");
+      const ldaWetBad = startsNotOk("reqLdaWetStatus");
+      const requiredToraReport = declaredStopwayOrClearwayReport ? getText("reqToraRun") : getText("reqTora125");
 
       const html = `<!doctype html>
 <html>
@@ -1127,6 +1172,7 @@
     .moment-table tfoot td { background: #ecfdf5; color: #166534; font-weight: 700; }
     .ok { color: #047857; font-weight: 700; }
     .bad { color: #b91c1c; font-weight: 700; }
+    .bad-value { color: #b91c1c; font-weight: 800; }
     .footer { margin-top: 14px; font-size: 9px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 6px; }
     @media print { .report-actions { display:none; } }
   </style>
@@ -1151,13 +1197,13 @@
       <div class="k">Upholstery</div><div class="v">${escHtml(getValue("upholsteryWt"))} kg @ ${escHtml(getValue("upholsteryArm"))} mm</div>
       <div class="k">Pilot</div><div class="v">${escHtml(getValue("pilotWt"))} kg @ ${escHtml(getValue("pilotArm"))} mm</div>
       <div class="k">Passenger</div><div class="v">${escHtml(getValue("paxWt"))} kg @ ${escHtml(getValue("paxArm"))} mm</div>
-      <div class="k">Baggage</div><div class="v">${escHtml(getValue("bagWt"))} kg @ 1580 mm</div>
-      <div class="k">Fuel</div><div class="v">${escHtml(getValue("fuelL"))} L / ${escHtml(getText("fuelKg")) || escHtml(getValue("fuelKg"))} kg (${escHtml(getSelectedText("fuelType"))})</div>
+      <div class="k">Baggage</div><div class="v${classIfBad(bagBad)}">${escHtml(getValue("bagWt"))} kg @ 1580 mm</div>
+      <div class="k">Fuel</div><div class="v${classIfBad(fuelBad)}">${escHtml(getValue("fuelL"))} L / ${escHtml(getText("fuelKg")) || escHtml(getValue("fuelKg"))} kg (${escHtml(getSelectedText("fuelType"))})</div>
     </div>
     <div class="box wb kv">
-      <div class="k">Departure</div><div class="v">${escHtml(getText("tow"))} kg @ ${escHtml(getText("cg"))} mm</div>
-      <div class="k">Arrival</div><div class="v">${escHtml(getText("lw"))} kg @ ${escHtml(getText("cgArr"))} mm</div>
-      <div class="k">W&B status</div><div class="v">${escHtml(getText("wbStatusPill"))}</div>
+      <div class="k">Departure</div><div class="v${classIfBad(towBad)}">${escHtml(getText("tow"))} kg @ ${escHtml(getText("cg"))} mm</div>
+      <div class="k">Arrival</div><div class="v${classIfBad(lwBad)}">${escHtml(getText("lw"))} kg @ ${escHtml(getText("cgArr"))} mm</div>
+      <div class="k">W&B status</div><div class="v${classIfBad(wbBad)}">${escHtml(getText("wbStatusPill"))}</div>
     </div>
   </div>
 
@@ -1170,8 +1216,8 @@
         <thead><tr><th>Item</th><th class="num">Mass kg</th><th class="num">Arm mm</th><th class="num">Moment</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
         <tfoot>
-          <tr><td><strong>Total with fuel</strong></td><td class="num">${escHtml(getText("mtMassTO"))}</td><td class="num">${escHtml(getText("mtArmTO"))}</td><td class="num">${escHtml(getText("mtMomTO"))}</td></tr>
-          <tr><td><strong>Total no fuel</strong></td><td class="num">${escHtml(getText("mtMassLW"))}</td><td class="num">${escHtml(getText("mtArmLW"))}</td><td class="num">${escHtml(getText("mtMomLW"))}</td></tr>
+          <tr class="${towBad ? "bad-value" : ""}"><td><strong>Total with fuel</strong></td><td class="num">${escHtml(getText("mtMassTO"))}</td><td class="num">${escHtml(getText("mtArmTO"))}</td><td class="num">${escHtml(getText("mtMomTO"))}</td></tr>
+          <tr class="${lwBad ? "bad-value" : ""}"><td><strong>Total no fuel</strong></td><td class="num">${escHtml(getText("mtMassLW"))}</td><td class="num">${escHtml(getText("mtArmLW"))}</td><td class="num">${escHtml(getText("mtMomLW"))}</td></tr>
         </tfoot>
       </table>
     </div>
@@ -1189,8 +1235,8 @@
       <div class="k">QNH</div><div class="v">${escHtml(getValue("qnh"))} hPa</div>
       <div class="k">Pressure altitude</div><div class="v">${escHtml(getValue("pa"))} ft</div>
       <div class="k">OAT / ISA dev</div><div class="v">${escHtml(getValue("oat"))} °C / ${escHtml(getValue("isaDev"))} °C</div>
-      <div class="k">Wind</div><div class="v">${escHtml((String(getValue("windDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("windDir")}°T`)} / ${escHtml(getValue("windSpd"))} kt</div>
-      <div class="k">Components</div><div class="v">${escHtml(depWindComponentsText)}</div>
+      <div class="k">Wind</div><div class="v${classIfBad(depWindBad)}">${escHtml((String(getValue("windDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("windDir")}°T`)} / ${escHtml(getValue("windSpd"))} kt</div>
+      <div class="k">Components</div><div class="v${classIfBad(depWindBad)}">${escHtml(depWindComponentsText)}</div>
       <div class="k">TORA / TODA</div><div class="v">${escHtml(getText("declTora"))} / ${escHtml(getText("declToda"))}</div>
       <div class="k">ASDA</div><div class="v">${escHtml(getText("declAsda"))}</div>
     </div>
@@ -1201,8 +1247,8 @@
       <div class="k">QNH</div><div class="v">${escHtml(getValue("arrQnh"))} hPa</div>
       <div class="k">Pressure altitude</div><div class="v">${escHtml(getValue("arrPa"))} ft</div>
       <div class="k">OAT / ISA dev</div><div class="v">${escHtml(getValue("arrOat"))} °C / ${escHtml(getValue("arrIsaDev"))} °C</div>
-      <div class="k">Wind</div><div class="v">${escHtml((String(getValue("arrWindDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("arrWindDir")}°T`)} / ${escHtml(getValue("arrWindSpd"))} kt</div>
-      <div class="k">Components</div><div class="v">${escHtml(arrWindComponentsText)}</div>
+      <div class="k">Wind</div><div class="v${classIfBad(arrWindBad)}">${escHtml((String(getValue("arrWindDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("arrWindDir")}°T`)} / ${escHtml(getValue("arrWindSpd"))} kt</div>
+      <div class="k">Components</div><div class="v${classIfBad(arrWindBad)}">${escHtml(arrWindComponentsText)}</div>
       <div class="k">LDA</div><div class="v">${escHtml(getText("declLda"))}</div>
     </div>
   </div>
@@ -1211,14 +1257,14 @@
     <div class="box perf kv">
       <div class="k">T/O run</div><div class="v">${escHtml(getText("toRun"))} m</div>
       <div class="k">T/O distance to 50 ft</div><div class="v">${escHtml(getText("toDist"))} m</div>
-      <div class="k">Required TORA</div><div class="v">${escHtml(getText("reqTora125"))} m</div>
-      <div class="k">TODA / ASDA checks</div><div class="v">${escHtml(getText("reqToda115"))} m / ${escHtml(getText("reqAsda130"))} m</div>
+      <div class="k">Required TORA</div><div class="v${classIfBad(reqToraBad)}">${escHtml(requiredToraReport)} m</div>
+      <div class="k">TODA / ASDA checks</div><div class="v${classIfBad(todaAsdaBad)}">${escHtml(getText("reqToda115"))} m / ${escHtml(getText("reqAsda130"))} m</div>
     </div>
     <div class="box perf kv">
       <div class="k">Landing run</div><div class="v">${escHtml(getText("ldgRun"))} m</div>
       <div class="k">Landing distance from 50 ft</div><div class="v">${escHtml(getText("ldgDist"))} m</div>
-      <div class="k">Required LDA dry</div><div class="v">${escHtml(getText("reqLdaDry"))} m</div>
-      <div class="k">Required LDA wet</div><div class="v">${escHtml(getText("reqLdaWet"))} m</div>
+      <div class="k">Required LDA dry</div><div class="v${classIfBad(ldaDryBad)}">${escHtml(getText("reqLdaDry"))} m</div>
+      <div class="k">Required LDA wet</div><div class="v${classIfBad(ldaWetBad)}">${escHtml(getText("reqLdaWet"))} m</div>
       <div class="k">Rate of climb</div><div class="v">${escHtml(getText("roc"))} ft/min</div>
     </div>
   </div>
