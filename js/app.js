@@ -1197,7 +1197,8 @@
     .k { color: #475569; }
     .v { font-weight: 700; }
     .stack { display: grid; gap: 6px; }
-    .chart-img { width: 100%; max-height: 250px; object-fit: contain; }
+    .chart-frame { align-items: center; display: flex; justify-content: center; min-height: 255px; }
+    .chart-img { display: block; max-height: 255px; max-width: 100%; object-fit: contain; width: auto; height: auto; }
     table { width: 100%; border-collapse: collapse; margin-top: 4px; table-layout: fixed; }
     th, td { border-bottom: 1px solid #e5e7eb; padding: 3px 5px; text-align: left; vertical-align: top; }
     th { background: #eff6ff; color: #075985; text-transform: uppercase; font-size: 9px; }
@@ -1254,7 +1255,7 @@
       <p class="${wbBad ? "bad-value" : "ok"}"><strong>W&amp;B status:</strong> ${escHtml(getText("wbStatusPill"))}</p>
       </div>
     </div>
-    <div class="box wb">
+    <div class="box wb chart-frame">
       ${cgChartImg ? `<img class="chart-img" src="${cgChartImg}" alt="Weight and balance envelope">` : `<div class="muted">W&amp;B chart unavailable.</div>`}
     </div>
   </div>

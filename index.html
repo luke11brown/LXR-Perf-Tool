@@ -495,21 +495,18 @@
 
           <div class="runway-wrapper">
             <div class="runway-bar" id="takeoffRunwayBar">
-              <div class="runway-marker" id="barToRun" style="background:#38bdf8;"></div>
-              <div class="runway-marker" id="barToDist" style="background:#a855f7;"></div>
+              <div class="runway-marker" id="barToRun" style="background:#38bdf8;" title="Take-off ground run"></div>
+              <div class="runway-marker" id="barToDist" style="background:#a855f7;" title="Take-off distance to 50 ft"></div>
               <div class="runway-tick" id="tickTakeoffEnd" title="TORA end"></div>
-              <div class="runway-tick tick-tora" id="tickReqTora125">
-                <span class="tick-label">REQ TORA</span>
+              <div class="runway-tick tick-tora" id="tickReqTora125" title="Required take-off runway check">
+                <span class="tick-label" title="Required take-off runway check">REQ TORA</span>
               </div>
             </div>
             <div class="runway-legend">
-              <span><span class="leg-swatch sw-to-run"></span>Take-off run</span>
-              <span><span class="leg-swatch sw-to-dist"></span>Take-off distance to 50&nbsp;ft</span>
-              <span><span class="leg-swatch"
-                  style="width:12px;height:2px;border-radius:2px;background:rgba(226,237,246,0.55)"></span>TORA end</span>
-              <span><span class="leg-swatch"
-                  style="width:12px;height:2px;border-radius:2px;background:rgba(250,204,21,0.85)"></span>Required
-                distance</span>
+              <abbr title="Take-off ground run"><span class="leg-swatch sw-to-run"></span>TOR</abbr>
+              <abbr title="Take-off distance to 50 ft"><span class="leg-swatch sw-to-dist"></span>TOD</abbr>
+              <abbr title="Declared TORA end"><span class="leg-swatch leg-line leg-end"></span>TORA</abbr>
+              <abbr title="Required take-off runway check: Ops Manual TORA or declared-distance requirement, depending on stopway/clearway"><span class="leg-swatch leg-line leg-required"></span>REQ TORA</abbr>
             </div>
           </div>
 
@@ -527,21 +524,18 @@
 
           <div class="runway-wrapper">
             <div class="runway-bar" id="landingRunwayBar">
-              <div class="runway-marker" id="barLdgRun" style="background:#22c55e;"></div>
-              <div class="runway-marker" id="barLdgDist" style="background:#f97316;"></div>
+              <div class="runway-marker" id="barLdgRun" style="background:#22c55e;" title="Landing ground roll"></div>
+              <div class="runway-marker" id="barLdgDist" style="background:#f97316;" title="Landing distance from 50 ft"></div>
               <div class="runway-tick" id="tickLandingEnd" title="LDA end"></div>
-              <div class="runway-tick tick-lda" id="tickReqLda">
-                <span class="tick-label">REQ LDA</span>
+              <div class="runway-tick tick-lda" id="tickReqLda" title="Required landing distance available check">
+                <span class="tick-label" title="Required landing distance available check">REQ LDA</span>
               </div>
             </div>
             <div class="runway-legend">
-              <span><span class="leg-swatch sw-ldg-run"></span>Landing run</span>
-              <span><span class="leg-swatch sw-ldg-dist"></span>Landing distance from 50&nbsp;ft</span>
-              <span><span class="leg-swatch"
-                  style="width:12px;height:2px;border-radius:2px;background:rgba(226,237,246,0.55)"></span>LDA end</span>
-              <span><span class="leg-swatch"
-                  style="width:12px;height:2px;border-radius:2px;background:rgba(250,204,21,0.85)"></span>Required
-                distance</span>
+              <abbr title="Landing ground roll"><span class="leg-swatch sw-ldg-run"></span>LGR</abbr>
+              <abbr title="Landing distance from 50 ft"><span class="leg-swatch sw-ldg-dist"></span>LDG</abbr>
+              <abbr title="Declared LDA end"><span class="leg-swatch leg-line leg-end"></span>LDA</abbr>
+              <abbr title="Required landing distance available: AFM landing distance with Ops Manual dry/wet factor"><span class="leg-swatch leg-line leg-required"></span>REQ LDA</abbr>
             </div>
           </div>
             </div>

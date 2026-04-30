@@ -645,10 +645,21 @@
     .runway-legend {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.25rem 0.9rem;
+      gap: 0.3rem 0.55rem;
       font-size: 0.75rem;
       margin-top: 0.35rem;
       color: var(--muted);
+    }
+
+    .runway-legend abbr {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      border-bottom: 1px dotted rgba(159, 176, 195, 0.55);
+      cursor: help;
+      letter-spacing: 0.08em;
+      text-decoration: none;
+      text-transform: uppercase;
     }
 
     .leg-swatch {
@@ -656,7 +667,20 @@
       width: 10px;
       height: 6px;
       border-radius: 999px;
-      margin-right: 0.25rem;
+    }
+
+    .leg-line {
+      width: 12px;
+      height: 3px;
+      border-radius: 2px;
+    }
+
+    .leg-end {
+      background: rgba(226, 237, 246, 0.65);
+    }
+
+    .leg-required {
+      background: rgba(250, 204, 21, 0.95);
     }
 
     .sw-to-run {
