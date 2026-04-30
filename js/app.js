@@ -455,17 +455,19 @@
       return visibilityM >= 9999 ? "10 km or more" : `${round(visibilityM / 1000, 1)} km`;
     }
 
-    function assessWeatherMinima({ metar, windSpd, crosswind }) {
+    function assessWeatherMinima({ phase, metar, windSpd, crosswind }) {
       const flightRules = document.getElementById("flightRules")?.value || "vfr";
       const pilotQualification = document.getElementById("pilotQualification")?.value || "student";
       const vfrPhase = document.getElementById("vfrPhase")?.value || "circuit";
       const ifrAircraftClass = document.getElementById("ifrAircraftClass")?.value || "sep";
-      const statusEl = document.getElementById("weatherMinimaStatus");
-      const detailEl = document.getElementById("weatherMinimaDetail");
+      const isArrivalPhase = phase === "arrival";
+      const statusEl = document.getElementById(isArrivalPhase ? "arrWeatherMinimaStatus" : "depWeatherMinimaStatus");
+      const detailEl = document.getElementById(isArrivalPhase ? "arrWeatherMinimaDetail" : "depWeatherMinimaDetail");
+      const phaseLabel = isArrivalPhase ? "arrival" : "departure";
 
       if (!statusEl || !detailEl) return { ok: true, text: "Weather minima not displayed." };
       if (!metar) {
-        const text = "Weather minima not assessed - fetch a departure METAR first.";
+        const text = `Weather minima not assessed - fetch a ${phaseLabel} METAR first.`;
         statusEl.textContent = text;
         statusEl.className = "res-main summary-line-bad";
         detailEl.textContent = "Visibility and cloud ceiling are parsed from the fetched METAR. Manual weather-minima entry is not currently available.";
@@ -520,27 +522,30 @@
             : `Cloud layer: no more than FEW below ${mins.ceilingFt} ft`);
           if (excessiveLowLayer) ok = false;
         }
-        const phaseLabel = vfrPhase === "circuit" ? "circuit" : "solo navigation";
-        statusEl.textContent = `${ok ? "OK" : "CHECK"} - VFR ${phaseLabel} minima for selected pilot category.`;
+        const vfrPhaseLabel = vfrPhase === "circuit" ? "circuit" : "solo navigation";
+        statusEl.textContent = `${ok ? "OK" : "CHECK"} - ${phaseLabel} VFR ${vfrPhaseLabel} minima for selected pilot category.`;
       } else {
         const highIr = pilotQualification === "ir_high";
         const sep = ifrAircraftClass === "sep";
         const ceilingMin = highIr && sep ? 1000 : (!highIr ? 1500 : null);
         const visibilityMin = highIr && sep ? 3 : (!highIr ? 5 : null);
-        if (ceilingMin !== null) {
-          addCheck("Take-off ceiling", noCeilingReported ? "no ceiling reported" : (ceilingFt === null ? "unknown" : `${round(ceilingFt, 0)} ft`), `${ceilingMin} ft`, noCeilingReported || (ceilingFt !== null && ceilingFt >= ceilingMin));
+        if (isArrivalPhase) {
+          checks.push(highIr
+            ? "Approach: verify published approach minima/RVR."
+            : "Approach: verify published approach minima + 200 ft and published RVR + 500 m.");
         } else {
-          checks.push("Take-off ceiling: check published minima for MEP.");
+          if (ceilingMin !== null) {
+            addCheck("Take-off ceiling", noCeilingReported ? "no ceiling reported" : (ceilingFt === null ? "unknown" : `${round(ceilingFt, 0)} ft`), `${ceilingMin} ft`, noCeilingReported || (ceilingFt !== null && ceilingFt >= ceilingMin));
+          } else {
+            checks.push("Take-off ceiling: check published minima for MEP.");
+          }
+          if (visibilityMin !== null) {
+            addCheck("Take-off visibility", formatVisibilityKm(metar.visibilityM), `${visibilityMin} km`, visibilityKm !== null && visibilityKm >= visibilityMin);
+          } else {
+            checks.push("Take-off visibility: check published minima for MEP.");
+          }
         }
-        if (visibilityMin !== null) {
-          addCheck("Take-off visibility", formatVisibilityKm(metar.visibilityM), `${visibilityMin} km`, visibilityKm !== null && visibilityKm >= visibilityMin);
-        } else {
-          checks.push("Take-off visibility: check published minima for MEP.");
-        }
-        checks.push(highIr
-          ? "Approach: verify published approach minima/RVR."
-          : "Approach: verify published approach minima + 200 ft and published RVR + 500 m.");
-        statusEl.textContent = `${ok ? "OK" : "CHECK"} - IFR take-off minima where assessable from METAR.`;
+        statusEl.textContent = `${ok ? "OK" : "CHECK"} - ${phaseLabel} IFR ${isArrivalPhase ? "weather minima where assessable from METAR" : "take-off minima where assessable from METAR"}.`;
       }
 
       statusEl.className = ok ? "res-main summary-line-ok" : "res-main summary-line-bad";
@@ -988,7 +993,18 @@
       }
       setPhaseWindWarning(depWindLimitWarn, depWindWarnings);
       setPhaseWindWarning(arrWindLimitWarn, arrWindWarnings);
-      const weatherMinima = assessWeatherMinima({ metar: departureMetar, windSpd, crosswind });
+      const depWeatherMinima = assessWeatherMinima({
+        phase: "departure",
+        metar: departureMetar,
+        windSpd,
+        crosswind,
+      });
+      const arrWeatherMinima = assessWeatherMinima({
+        phase: "arrival",
+        metar: arrivalMetar || (arrivalUsesDepartureRunway ? departureMetar : null),
+        windSpd: arrWindSpd,
+        crosswind: arrCrosswind,
+      });
 
       const baseTO = interpTOLD(pa, isaDev, TO_TABLE);
       const baseLDG = interpTOLD(arrPa, arrIsaDev, LDG_TABLE);
@@ -1266,7 +1282,9 @@
       if (!toOk) nonCompliance.push("take-off requirement not met");
       if (!ldgCriterionOk) nonCompliance.push("landing requirement not met");
       if (!windOk) nonCompliance.push("wind limits or recommendations exceeded");
-      if (weatherMinima.assessed && !weatherMinima.ok) nonCompliance.push("weather minima warning active");
+      if ((depWeatherMinima.assessed && !depWeatherMinima.ok) || (arrWeatherMinima.assessed && !arrWeatherMinima.ok)) {
+        nonCompliance.push("weather minima warning active");
+      }
       const complianceAlertRow = document.getElementById("complianceAlertRow");
       const complianceAlert = document.getElementById("complianceAlert");
       if (nonCompliance.length > 0) {
@@ -1375,7 +1393,12 @@
       const cgChartImg = document.getElementById("cgChart")?.toDataURL("image/png") || "";
       const depWindComponentsText = formatWindComponentsForExport("windDir", "windSpd", "rwHeading");
       const arrWindComponentsText = formatWindComponentsForExport("arrWindDir", "arrWindSpd", "arrHeading");
-      const weatherMinimaText = `${getText("weatherMinimaStatus")} ${getText("weatherMinimaDetail")}`.trim();
+      const depWeatherMinimaText = `${getText("depWeatherMinimaStatus")} ${getText("depWeatherMinimaDetail")}`.trim();
+      const arrWeatherMinimaText = `${getText("arrWeatherMinimaStatus")} ${getText("arrWeatherMinimaDetail")}`.trim();
+      const weatherMinimaText = [
+        depWeatherMinimaText ? `Departure: ${depWeatherMinimaText}` : "",
+        arrWeatherMinimaText ? `Arrival: ${arrWeatherMinimaText}` : "",
+      ].filter(Boolean).join(" ");
       const complianceText = getText("complianceAlert");
       const classIfBad = (bad) => bad ? " bad-value" : "";
       const startsNotOk = (id) => /^NOT OK/i.test(getText(id));

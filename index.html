@@ -241,47 +241,6 @@
           </div>
           <div class="inline-note" id="metarStatus"></div>
 
-          <div class="grid" style="margin-top:0.75rem">
-            <div class="field">
-              <label for="flightRules">Flight rules</label>
-              <select id="flightRules">
-                <option value="vfr" selected>VFR</option>
-                <option value="ifr">IFR</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="pilotQualification">Pilot qualification</label>
-              <select id="pilotQualification">
-                <option value="student" selected>Non-licensed / student</option>
-                <option value="ppl_lt100">PPL &lt;100 h post issue</option>
-                <option value="ppl_gt100_no_ir">PPL &gt;100 h, no IR</option>
-                <option value="ir_low">IR &lt;100 h instruction or &lt;250 h IR</option>
-                <option value="ir_high">IR &gt;100 h instruction and &gt;250 h IR</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="vfrPhase">VFR phase</label>
-              <select id="vfrPhase">
-                <option value="circuit" selected>Circuit</option>
-                <option value="solo_nav">Solo navigation</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="ifrAircraftClass">IFR aircraft class</label>
-              <select id="ifrAircraftClass">
-                <option value="sep" selected>SEP</option>
-                <option value="mep">MEP</option>
-              </select>
-            </div>
-          </div>
-          <div class="res-card phase-result">
-            <div class="res-title">Weather minima</div>
-            <div class="res-main" id="weatherMinimaStatus">Awaiting METAR or manual weather data.</div>
-            <div class="res-sub" id="weatherMinimaDetail">
-              VFR minima are checked against parsed METAR visibility, cloud ceiling, wind and XWC. IFR take-off minima are checked where possible; approach minima and RVR must be verified against published procedures.
-            </div>
-          </div>
-
           <div class="grid-3" style="margin-top:0.75rem">
             <div class="field">
               <label for="fieldElev">Field elevation (ft)</label>
@@ -506,6 +465,57 @@
                 OM-C requires the AFM LDR to fit within 70% of LDA; wet landing applies ×1.15 before the 70% check. Both dry and wet values remain visible for weather awareness.
               </div>
             </div>
+            </div>
+          </div>
+
+          <div class="subsection-title">Weather minima</div>
+          <div class="grid" style="margin-top:0.75rem">
+            <div class="field">
+              <label for="flightRules">Flight rules</label>
+              <select id="flightRules">
+                <option value="vfr" selected>VFR</option>
+                <option value="ifr">IFR</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="pilotQualification">Pilot qualification</label>
+              <select id="pilotQualification">
+                <option value="student" selected>Non-licensed / student</option>
+                <option value="ppl_lt100">PPL &lt;100 h post issue</option>
+                <option value="ppl_gt100_no_ir">PPL &gt;100 h, no IR</option>
+                <option value="ir_low">IR &lt;100 h instruction or &lt;250 h IR</option>
+                <option value="ir_high">IR &gt;100 h instruction and &gt;250 h IR</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="vfrPhase">VFR phase</label>
+              <select id="vfrPhase">
+                <option value="circuit" selected>Circuit</option>
+                <option value="solo_nav">Solo navigation</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="ifrAircraftClass">IFR aircraft class</label>
+              <select id="ifrAircraftClass">
+                <option value="sep" selected>SEP</option>
+                <option value="mep">MEP</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid" style="margin-top:0.75rem">
+            <div class="res-card phase-result">
+              <div class="res-title">Departure weather minima</div>
+              <div class="res-main" id="depWeatherMinimaStatus">Awaiting departure METAR.</div>
+              <div class="res-sub" id="depWeatherMinimaDetail">
+                VFR minima are checked against parsed METAR visibility, cloud ceiling, wind and XWC. IFR take-off minima are checked where possible.
+              </div>
+            </div>
+            <div class="res-card phase-result">
+              <div class="res-title">Arrival weather minima</div>
+              <div class="res-main" id="arrWeatherMinimaStatus">Awaiting arrival METAR.</div>
+              <div class="res-sub" id="arrWeatherMinimaDetail">
+                VFR minima are checked against parsed METAR visibility, cloud ceiling, wind and XWC. IFR approach minima and RVR must be verified against published procedures.
+              </div>
             </div>
           </div>
 
