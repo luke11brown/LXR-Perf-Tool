@@ -609,8 +609,13 @@
       background: rgba(34, 197, 94, 0.55);
     }
 
-    .runway-tick.tick-end {
-      background: rgba(226, 237, 246, 0.65);
+    .runway-tick.tick-declared {
+      background: #ef4444;
+      width: 3px;
+    }
+
+    .runway-tick.tick-toda {
+      background: #fb923c;
       width: 3px;
     }
 
@@ -675,8 +680,12 @@
       border-radius: 2px;
     }
 
-    .leg-end {
-      background: rgba(226, 237, 246, 0.65);
+    .leg-declared {
+      background: #ef4444;
+    }
+
+    .leg-toda {
+      background: #fb923c;
     }
 
     .leg-required {

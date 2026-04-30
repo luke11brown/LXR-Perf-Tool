@@ -940,7 +940,19 @@
       setMarker("barToRun", toRun, runwayTora, takeoffScaleLength, takeoffBarWidth);
       setMarker("barToDist", toDist, runwayToda, takeoffScaleLength, takeoffBarWidth);
       setTick("tickTakeoffEnd", runwayTora, takeoffScaleLength, takeoffBarWidth);
+      setTick("tickTodaEnd", runwayToda, takeoffScaleLength, takeoffBarWidth);
       setTick("tickReqTora125", activeReqToraVal, takeoffScaleLength, takeoffBarWidth);
+
+      const todaDiffers = Math.abs(runwayToda - runwayTora) > 0.5;
+      const todaTick = document.getElementById("tickTodaEnd");
+      const legendTora = document.getElementById("legendTora");
+      const legendToda = document.getElementById("legendToda");
+      if (todaTick) todaTick.style.display = todaDiffers ? "block" : "none";
+      if (legendTora) {
+        legendTora.title = todaDiffers ? "Declared TORA end" : "Declared TORA/TODA end";
+        legendTora.lastChild.textContent = todaDiffers ? "TORA" : "TORA/TODA";
+      }
+      if (legendToda) legendToda.style.display = todaDiffers ? "inline-flex" : "none";
 
       setMarker("barLdgRun", ldgRun, runwayLda, landingScaleLength, landingBarWidth);
       setMarker("barLdgDist", ldgDist, runwayLda, landingScaleLength, landingBarWidth);
