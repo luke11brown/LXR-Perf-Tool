@@ -68,6 +68,8 @@
     let arrivalUsesDepartureRunway = true;
     let depSurfaceBase = "hard";
     let arrSurfaceBase = "hard";
+    let departureMetar = null;
+    let arrivalMetar = null;
     const METAR_STALE_MINUTES = 90;
     const METAR_FETCH_TIMEOUT_MS = 12000;
 
@@ -278,6 +280,34 @@
       const temp = metar.match(/\b(M?\d{2})\/(?:M?\d{2}|\/\/)\b/);
       const qnh = metar.match(/\bQ(\d{4})\b/);
       const altimeter = metar.match(/\bA(\d{4})\b/);
+      const cavok = /\bCAVOK\b/.test(metar);
+      const vis = cavok
+        ? 10000
+        : (() => {
+          const metricVis = metar.match(/\b(\d{4})(?:[NSEW]{1,2})?\b/);
+          const statuteVis = metar.match(/\b(\d+(?:\/\d+)?|\d+\s+\d\/\d)SM\b/);
+          if (metricVis) return Number(metricVis[1]);
+          if (!statuteVis) return null;
+          const raw = statuteVis[1].replace(/\s+/g, " ");
+          const parts = raw.split(" ");
+          const miles = parts.reduce((sum, part) => {
+            if (part.includes("/")) {
+              const [num, den] = part.split("/").map(Number);
+              return sum + (den ? num / den : 0);
+            }
+            return sum + Number(part);
+          }, 0);
+          return Math.round(miles * 1609.344);
+        })();
+      const cloudLayers = [];
+      const cloudRegex = /\b(FEW|SCT|BKN|OVC|VV)(\d{3}|\/\/)(?:CB|TCU)?\b/g;
+      for (let match; (match = cloudRegex.exec(metar));) {
+        const amount = match[1];
+        const heightFt = match[2] === "//" ? null : Number(match[2]) * 100;
+        cloudLayers.push({ amount, heightFt });
+      }
+      const ceilingLayer = cloudLayers.find(layer => ["BKN", "OVC", "VV"].includes(layer.amount) && layer.heightFt !== null);
+      const cloudCeilingFt = cavok ? 5000 : (ceilingLayer?.heightFt ?? null);
 
       const speedUnit = wind?.[3];
       const rawSpeed = wind ? Number(wind[2]) : null;
@@ -293,6 +323,10 @@
         observedAt: parseMetarTimestamp(observedLine),
         windDir: wind ? wind[1] : null,
         windSpeed,
+        visibilityM: vis,
+        cloudCeilingFt,
+        cloudLayers,
+        cavok,
         oat: temp ? decodeMetarTemperature(temp[1]) : null,
         qnh: qnhValue,
       };
@@ -361,7 +395,9 @@
       button.disabled = true;
       status.textContent = `Fetching ${stationLabel} METAR from NOAA...`;
       try {
-        const metar = await fetchMetarForStation(station);
+      const metar = await fetchMetarForStation(station);
+        if (isArrival) arrivalMetar = metar;
+        else departureMetar = metar;
         applyMetarToFields(metar, target);
         if (!isArrival && arrivalUsesDepartureRunway) copyDepartureWeatherToArrival();
         calculateAll();
@@ -412,6 +448,103 @@
       return headwindComponent >= 0
         ? `accountable HWC ${round(absComponent, 1)} kt (50% reported HWC)`
         : `accountable TWC ${round(absComponent, 1)} kt (150% reported TWC)`;
+    }
+
+    function formatVisibilityKm(visibilityM) {
+      if (visibilityM === null || visibilityM === undefined) return "unknown";
+      return visibilityM >= 9999 ? "10 km or more" : `${round(visibilityM / 1000, 1)} km`;
+    }
+
+    function assessWeatherMinima({ metar, windSpd, crosswind }) {
+      const flightRules = document.getElementById("flightRules")?.value || "vfr";
+      const pilotQualification = document.getElementById("pilotQualification")?.value || "student";
+      const vfrPhase = document.getElementById("vfrPhase")?.value || "circuit";
+      const ifrAircraftClass = document.getElementById("ifrAircraftClass")?.value || "sep";
+      const statusEl = document.getElementById("weatherMinimaStatus");
+      const detailEl = document.getElementById("weatherMinimaDetail");
+
+      if (!statusEl || !detailEl) return { ok: true, text: "Weather minima not displayed." };
+      if (!metar) {
+        const text = "Weather minima not assessed - fetch a departure METAR first.";
+        statusEl.textContent = text;
+        statusEl.className = "res-main summary-line-bad";
+        detailEl.textContent = "Visibility and cloud ceiling are parsed from the fetched METAR. Manual weather-minima entry is not currently available.";
+        return { ok: false, assessed: false, text };
+      }
+
+      const visibilityKm = metar.visibilityM === null || metar.visibilityM === undefined ? null : metar.visibilityM / 1000;
+      const ceilingFt = metar.cloudCeilingFt;
+      const xwindKt = Math.abs(crosswind);
+      const checks = [];
+      let ok = true;
+
+      function addCheck(label, actual, required, pass) {
+        checks.push(`${label}: ${actual} ${pass ? "meets" : "below"} ${required}`);
+        if (!pass) ok = false;
+      }
+
+      if (flightRules === "vfr") {
+        const vfrMinima = {
+          student: {
+            circuit: { ceilingFt: 1500, visibilityKm: 5, xwindKt: 10, maxWindKt: 20 },
+            solo_nav: { ceilingFt: 5000, visibilityKm: 8, xwindKt: 10, maxWindKt: 20, maxLowCloudAmount: "FEW" },
+          },
+          ppl_lt100: {
+            circuit: { ceilingFt: 1500, visibilityKm: 5, xwindKt: 15, maxWindKt: 25 },
+            solo_nav: { ceilingFt: 3000, visibilityKm: 8, xwindKt: 15, maxWindKt: 25 },
+          },
+          ppl_gt100_no_ir: {
+            circuit: { ceilingFt: 1500, visibilityKm: 5, xwindKt: MAX_XWIND, maxWindKt: 30 },
+            solo_nav: { ceilingFt: 2500, visibilityKm: 5, xwindKt: MAX_XWIND, maxWindKt: 30 },
+          },
+        };
+        const vfrQualification = vfrMinima[pilotQualification]
+          ? pilotQualification
+          : (pilotQualification.startsWith("ir_") ? "ppl_gt100_no_ir" : "student");
+        const mins = vfrMinima[vfrQualification][vfrPhase];
+        const ceilingPass = ceilingFt !== null && ceilingFt >= mins.ceilingFt;
+        const visPass = visibilityKm !== null && visibilityKm >= mins.visibilityKm;
+        const xwindPass = xwindKt <= mins.xwindKt;
+        const windPass = windSpd <= mins.maxWindKt;
+        addCheck("Ceiling", ceilingFt === null ? "unknown" : `${round(ceilingFt, 0)} ft`, `${mins.ceilingFt} ft`, ceilingPass);
+        addCheck("Visibility", formatVisibilityKm(metar.visibilityM), `${mins.visibilityKm} km`, visPass);
+        addCheck("XWC", `${round(xwindKt, 1)} kt`, `${mins.xwindKt} kt`, xwindPass);
+        addCheck("Surface wind", `${round(windSpd, 1)} kt`, `${mins.maxWindKt} kt`, windPass);
+        if (mins.maxLowCloudAmount) {
+          const excessiveLowLayer = (metar.cloudLayers || []).some(layer =>
+            layer.heightFt !== null && layer.heightFt < mins.ceilingFt && ["SCT", "BKN", "OVC", "VV"].includes(layer.amount)
+          );
+          checks.push(excessiveLowLayer
+            ? `Cloud layer: more than FEW below ${mins.ceilingFt} ft`
+            : `Cloud layer: no more than FEW below ${mins.ceilingFt} ft`);
+          if (excessiveLowLayer) ok = false;
+        }
+        const phaseLabel = vfrPhase === "circuit" ? "circuit" : "solo navigation";
+        statusEl.textContent = `${ok ? "OK" : "CHECK"} - VFR ${phaseLabel} minima for selected pilot category.`;
+      } else {
+        const highIr = pilotQualification === "ir_high";
+        const sep = ifrAircraftClass === "sep";
+        const ceilingMin = highIr && sep ? 1000 : (!highIr ? 1500 : null);
+        const visibilityMin = highIr && sep ? 3 : (!highIr ? 5 : null);
+        if (ceilingMin !== null) {
+          addCheck("Take-off ceiling", ceilingFt === null ? "unknown" : `${round(ceilingFt, 0)} ft`, `${ceilingMin} ft`, ceilingFt !== null && ceilingFt >= ceilingMin);
+        } else {
+          checks.push("Take-off ceiling: check published minima for MEP.");
+        }
+        if (visibilityMin !== null) {
+          addCheck("Take-off visibility", formatVisibilityKm(metar.visibilityM), `${visibilityMin} km`, visibilityKm !== null && visibilityKm >= visibilityMin);
+        } else {
+          checks.push("Take-off visibility: check published minima for MEP.");
+        }
+        checks.push(highIr
+          ? "Approach: verify published approach minima/RVR."
+          : "Approach: verify published approach minima + 200 ft and published RVR + 500 m.");
+        statusEl.textContent = `${ok ? "OK" : "CHECK"} - IFR take-off minima where assessable from METAR.`;
+      }
+
+      statusEl.className = ok ? "res-main summary-line-ok" : "res-main summary-line-bad";
+      detailEl.textContent = checks.join(" | ");
+      return { ok, assessed: true, text: `${statusEl.textContent} ${detailEl.textContent}` };
     }
 
     function round(x, decimals = 0) {
@@ -854,6 +987,7 @@
       }
       setPhaseWindWarning(depWindLimitWarn, depWindWarnings);
       setPhaseWindWarning(arrWindLimitWarn, arrWindWarnings);
+      const weatherMinima = assessWeatherMinima({ metar: departureMetar, windSpd, crosswind });
 
       const baseTO = interpTOLD(pa, isaDev, TO_TABLE);
       const baseLDG = interpTOLD(arrPa, arrIsaDev, LDG_TABLE);
@@ -1131,6 +1265,7 @@
       if (!toOk) nonCompliance.push("take-off requirement not met");
       if (!ldgCriterionOk) nonCompliance.push("landing requirement not met");
       if (!windOk) nonCompliance.push("wind limits or recommendations exceeded");
+      if (weatherMinima.assessed && !weatherMinima.ok) nonCompliance.push("weather minima warning active");
       const complianceAlertRow = document.getElementById("complianceAlertRow");
       const complianceAlert = document.getElementById("complianceAlert");
       if (nonCompliance.length > 0) {
@@ -1239,6 +1374,7 @@
       const cgChartImg = document.getElementById("cgChart")?.toDataURL("image/png") || "";
       const depWindComponentsText = formatWindComponentsForExport("windDir", "windSpd", "rwHeading");
       const arrWindComponentsText = formatWindComponentsForExport("arrWindDir", "arrWindSpd", "arrHeading");
+      const weatherMinimaText = `${getText("weatherMinimaStatus")} ${getText("weatherMinimaDetail")}`.trim();
       const complianceText = getText("complianceAlert");
       const classIfBad = (bad) => bad ? " bad-value" : "";
       const startsNotOk = (id) => /^NOT OK/i.test(getText(id));
@@ -1382,6 +1518,10 @@
     </div>
   </div>
 
+  <div class="box perf kv">
+    <div class="k">Weather minima</div><div class="v">${escHtml(weatherMinimaText || "Not assessed")}</div>
+  </div>
+
   <div class="grid">
     <div class="box perf kv">
       <div class="k">TORR (AFM)</div><div class="v">${escHtml(getText("toRun"))} m</div>
@@ -1405,6 +1545,7 @@
     <p><strong>Take-off:</strong> ${escHtml(getText("sumPerfTo"))}</p>
     <p><strong>Landing:</strong> ${escHtml(getText("sumPerfLdg"))}</p>
     <p><strong>Wind:</strong> ${escHtml(getText("sumWind"))}</p>
+    <p><strong>Weather minima:</strong> ${escHtml(weatherMinimaText || "Not assessed")}</p>
     <p><strong>Runway:</strong> ${escHtml(getText("sumRunway"))}</p>
   </div>
 
@@ -1522,6 +1663,10 @@
         document.getElementById(id).addEventListener("input", () => {
           if (arrivalUsesDepartureRunway) copyDepartureWeatherToArrival();
         });
+      });
+
+      ["flightRules", "pilotQualification", "vfrPhase", "ifrAircraftClass"].forEach(id => {
+        document.getElementById(id)?.addEventListener("change", calculateAll);
       });
 
       updateArrivalWeatherControls();
