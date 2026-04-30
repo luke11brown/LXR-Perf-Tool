@@ -476,83 +476,70 @@
         </section>
 
         <section class="card">
-          <h2>Runway Diagram &amp; Graphs</h2>
-          <small>Visual comparison of AFM distances vs declared runway plus AFM-style graphs.</small>
+          <h2>Runway Performance</h2>
+          <small>Separate visual checks for departure and arrival runway requirements.</small>
 
-          <div class="declared-row" id="declaredRow">
+          <div class="declared-row">
             <span class="k">DEP RWY</span> <span class="v" id="declRwy">—</span>
-            <span class="k">ARR RWY</span> <span class="v" id="declArrRwy">—</span>
             <span class="k">TORA</span> <span class="v" id="declTora">—</span>
             <span class="k">TODA</span> <span class="v" id="declToda">—</span>
             <span class="k">ASDA</span> <span class="v" id="declAsda">—</span>
-            <span class="k">ARR LDA</span> <span class="v" id="declLda">—</span>
-            <span class="k">Surface</span> <span class="v" id="declSurface">—</span>
+            <span class="k">Surface</span> <span class="v" id="declDepSurface">—</span>
           </div>
 
-          <div class="limiter-strip" id="limiterStrip">
-            <strong>Status:</strong> <span id="limiterText">Awaiting calculation</span>
+          <div class="limiter-strip" id="takeoffLimiterStrip">
+            <strong>Departure:</strong> <span id="takeoffLimiterText">Awaiting calculation</span>
           </div>
-
 
           <div class="runway-wrapper">
-            <div class="runway-bar" id="runwayBar">
+            <div class="runway-bar" id="takeoffRunwayBar">
               <div class="runway-marker" id="barToRun" style="background:#38bdf8;"></div>
               <div class="runway-marker" id="barToDist" style="background:#a855f7;"></div>
-              <div class="runway-marker" id="barLdgRun" style="background:#22c55e;"></div>
-              <div class="runway-marker" id="barLdgDist" style="background:#f97316;"></div>
-              <div class="runway-tick" id="tickRunwayEnd" title="Runway end"></div>
+              <div class="runway-tick" id="tickTakeoffEnd" title="TORA end"></div>
               <div class="runway-tick tick-tora" id="tickReqTora125">
                 <span class="tick-label">REQ TORA</span>
-              </div>
-              <div class="runway-tick tick-lda" id="tickReqLda">
-                <span class="tick-label">REQ LDA</span>
               </div>
             </div>
             <div class="runway-legend">
               <span><span class="leg-swatch sw-to-run"></span>Take-off run</span>
               <span><span class="leg-swatch sw-to-dist"></span>Take-off distance to 50&nbsp;ft</span>
-              <span><span class="leg-swatch sw-ldg-run"></span>Landing run</span>
-              <span><span class="leg-swatch sw-ldg-dist"></span>Landing distance from 50&nbsp;ft</span>
-            </div>
-            <div class="runway-legend">
               <span><span class="leg-swatch"
-                  style="width:12px;height:2px;border-radius:2px;background:rgba(226,237,246,0.55)"></span>Runway
-                end</span>
+                  style="width:12px;height:2px;border-radius:2px;background:rgba(226,237,246,0.55)"></span>TORA end</span>
               <span><span class="leg-swatch"
                   style="width:12px;height:2px;border-radius:2px;background:rgba(250,204,21,0.85)"></span>Required
                 distance</span>
             </div>
-
           </div>
 
-          <details class="collapse-block" id="graphsBlock">
-            <summary>
-              Performance graphs
-              <span class="collapse-hint">show</span>
-            </summary>
+          <div class="declared-row runway-section-row">
+            <span class="k">ARR RWY</span> <span class="v" id="declArrRwy">—</span>
+            <span class="k">LDA</span> <span class="v" id="declLda">—</span>
+            <span class="k">Surface</span> <span class="v" id="declArrSurface">—</span>
+          </div>
 
-            <div class="collapse-body">
-              <div class="charts-grid">
-                <div>
-                  <h3>Take-off vs pressure altitude</h3>
-                  <canvas id="toChart"></canvas>
-                </div>
-                <div>
-                  <h3>Landing vs pressure altitude</h3>
-                  <canvas id="ldgChart"></canvas>
-                </div>
-                <div>
-                  <h3>Rate of climb vs pressure altitude</h3>
-                  <canvas id="rocChart"></canvas>
-                </div>
+          <div class="limiter-strip" id="landingLimiterStrip">
+            <strong>Arrival:</strong> <span id="landingLimiterText">Awaiting calculation</span>
+          </div>
+
+          <div class="runway-wrapper">
+            <div class="runway-bar" id="landingRunwayBar">
+              <div class="runway-marker" id="barLdgRun" style="background:#22c55e;"></div>
+              <div class="runway-marker" id="barLdgDist" style="background:#f97316;"></div>
+              <div class="runway-tick" id="tickLandingEnd" title="LDA end"></div>
+              <div class="runway-tick tick-lda" id="tickReqLda">
+                <span class="tick-label">REQ LDA</span>
               </div>
-
-              <p class="muted">
-                Markers show current PA / ISA deviation. Curves from AFM tables at ISA, ISA+10&nbsp;°C, ISA+20&nbsp;°C
-                (630&nbsp;kg).
-              </p>
             </div>
-          </details>
+            <div class="runway-legend">
+              <span><span class="leg-swatch sw-ldg-run"></span>Landing run</span>
+              <span><span class="leg-swatch sw-ldg-dist"></span>Landing distance from 50&nbsp;ft</span>
+              <span><span class="leg-swatch"
+                  style="width:12px;height:2px;border-radius:2px;background:rgba(226,237,246,0.55)"></span>LDA end</span>
+              <span><span class="leg-swatch"
+                  style="width:12px;height:2px;border-radius:2px;background:rgba(250,204,21,0.85)"></span>Required
+                distance</span>
+            </div>
+          </div>
 
         </section>
       </div>

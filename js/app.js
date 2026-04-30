@@ -489,8 +489,8 @@
       return lerp(paClamped, a0, a1, roc_a0, roc_a1);
     }
 
-    let cgChart, toChart, ldgChart, rocChart;
-    let cgDepDataset, cgArrDataset, toPointDataset, ldgPointDataset, rocPointDataset;
+    let cgChart;
+    let cgDepDataset, cgArrDataset;
 
     function buildCGChart() {
       const ctx = document.getElementById("cgChart").getContext("2d");
@@ -544,199 +544,6 @@
           plugins: { legend: { labels: { boxWidth: 10 } } },
         },
       });
-    }
-
-    function buildPerfCharts() {
-      const ctxTo = document.getElementById("toChart").getContext("2d");
-      const ctxLdg = document.getElementById("ldgChart").getContext("2d");
-      const ctxRoc = document.getElementById("rocChart").getContext("2d");
-
-      const toISA_run = [], toISA_dist = [];
-      const toISA10_run = [], toISA10_dist = [];
-      const toISA20_run = [], toISA20_dist = [];
-
-      ALT_GRID_TOLD.forEach(alt => {
-        const row = TO_TABLE[alt];
-        toISA_run.push({ x: alt, y: row[0] });
-        toISA_dist.push({ x: alt, y: row[1] });
-        toISA10_run.push({ x: alt, y: row[2] });
-        toISA10_dist.push({ x: alt, y: row[3] });
-        toISA20_run.push({ x: alt, y: row[4] });
-        toISA20_dist.push({ x: alt, y: row[5] });
-      });
-
-      const ldgISA_run = [], ldgISA_dist = [];
-      const ldgISA10_run = [], ldgISA10_dist = [];
-      const ldgISA20_run = [], ldgISA20_dist = [];
-
-      ALT_GRID_TOLD.forEach(alt => {
-        const row = LDG_TABLE[alt];
-        ldgISA_run.push({ x: alt, y: row[0] });
-        ldgISA_dist.push({ x: alt, y: row[1] });
-        ldgISA10_run.push({ x: alt, y: row[2] });
-        ldgISA10_dist.push({ x: alt, y: row[3] });
-        ldgISA20_run.push({ x: alt, y: row[4] });
-        ldgISA20_dist.push({ x: alt, y: row[5] });
-      });
-
-      const rocISA = [], rocISA10 = [], rocISA20 = [];
-      ALT_GRID_ROC.forEach(alt => {
-        const row = ROC_TABLE[alt];
-        rocISA.push({ x: alt, y: row[0] });
-        rocISA10.push({ x: alt, y: row[1] });
-        rocISA20.push({ x: alt, y: row[2] });
-      });
-
-      toPointDataset = {
-        type: "scatter",
-        label: "Current condition",
-        data: [],
-        yAxisID: "y1",
-        pointRadius: 5,
-        pointHoverRadius: 6,
-      };
-
-      toChart = new Chart(ctxTo, {
-        type: "line",
-        data: {
-          datasets: [
-            { label: "Run ISA", data: toISA_run, tension: 0.2, yAxisID: "y1" },
-            { label: "Run ISA+10", data: toISA10_run, tension: 0.2, yAxisID: "y1" },
-            { label: "Run ISA+20", data: toISA20_run, tension: 0.2, yAxisID: "y1" },
-            {
-              label: "50 ft dist ISA",
-              data: toISA_dist,
-              borderDash: [4, 3],
-              tension: 0.2,
-              yAxisID: "y2",
-            },
-            {
-              label: "50 ft dist ISA+10",
-              data: toISA10_dist,
-              borderDash: [4, 3],
-              tension: 0.2,
-              yAxisID: "y2",
-            },
-            {
-              label: "50 ft dist ISA+20",
-              data: toISA20_dist,
-              borderDash: [4, 3],
-              tension: 0.2,
-              yAxisID: "y2",
-            },
-            toPointDataset,
-          ],
-        },
-        options: {
-          responsive: true,
-          scales: {
-            x: { type: "linear", title: { display: true, text: "Pressure altitude (ft)" } },
-            y1: { position: "left", title: { display: true, text: "T/O run (m)" } },
-            y2: {
-              position: "right",
-              title: { display: true, text: "T/O distance to 50 ft (m)" },
-              grid: { drawOnChartArea: false },
-            },
-          },
-          plugins: { legend: { labels: { boxWidth: 10 } } },
-        },
-      });
-
-      ldgPointDataset = {
-        type: "scatter",
-        label: "Current condition",
-        data: [],
-        yAxisID: "y1",
-        pointRadius: 5,
-        pointHoverRadius: 6,
-      };
-
-      ldgChart = new Chart(ctxLdg, {
-        type: "line",
-        data: {
-          datasets: [
-            { label: "Run ISA", data: ldgISA_run, tension: 0.2, yAxisID: "y1" },
-            { label: "Run ISA+10", data: ldgISA10_run, tension: 0.2, yAxisID: "y1" },
-            { label: "Run ISA+20", data: ldgISA20_run, tension: 0.2, yAxisID: "y1" },
-            {
-              label: "50 ft dist ISA",
-              data: ldgISA_dist,
-              borderDash: [4, 3],
-              tension: 0.2,
-              yAxisID: "y2",
-            },
-            {
-              label: "50 ft dist ISA+10",
-              data: ldgISA10_dist,
-              borderDash: [4, 3],
-              tension: 0.2,
-              yAxisID: "y2",
-            },
-            {
-              label: "50 ft dist ISA+20",
-              data: ldgISA20_dist,
-              borderDash: [4, 3],
-              tension: 0.2,
-              yAxisID: "y2",
-            },
-            ldgPointDataset,
-          ],
-        },
-        options: {
-          responsive: true,
-          scales: {
-            x: { type: "linear", title: { display: true, text: "Pressure altitude (ft)" } },
-            y1: { position: "left", title: { display: true, text: "Landing run (m)" } },
-            y2: {
-              position: "right",
-              title: { display: true, text: "Landing distance 50 ft (m)" },
-              grid: { drawOnChartArea: false },
-            },
-          },
-          plugins: { legend: { labels: { boxWidth: 10 } } },
-        },
-      });
-
-      rocPointDataset = {
-        type: "scatter",
-        label: "Current condition",
-        data: [],
-        pointRadius: 5,
-        pointHoverRadius: 6,
-      };
-
-      rocChart = new Chart(ctxRoc, {
-        type: "line",
-        data: {
-          datasets: [
-            { label: "Vz ISA", data: rocISA, tension: 0.2 },
-            { label: "Vz ISA+10", data: rocISA10, tension: 0.2 },
-            { label: "Vz ISA+20", data: rocISA20, tension: 0.2 },
-            rocPointDataset,
-          ],
-        },
-        options: {
-          responsive: true,
-          scales: {
-            x: { type: "linear", title: { display: true, text: "Pressure altitude (ft)" } },
-            y: { title: { display: true, text: "Rate of climb (ft/min)" } },
-          },
-          plugins: { legend: { labels: { boxWidth: 10 } } },
-        },
-      });
-      const graphsBlock = document.getElementById("graphsBlock");
-      if (graphsBlock) {
-        graphsBlock.addEventListener("toggle", () => {
-          if (graphsBlock.open) {
-            // The details element needs a frame to finish opening before Chart.js can measure it.
-            requestAnimationFrame(() => {
-              try { toChart && toChart.resize(); } catch (e) { }
-              try { ldgChart && ldgChart.resize(); } catch (e) { }
-              try { rocChart && rocChart.resize(); } catch (e) { }
-            });
-          }
-        });
-      }
     }
 
     function setSummaryLine(id, text, ok) {
@@ -1035,46 +842,39 @@
       statusSpan("reqLdaDryStatus", ldaDryOk);
       statusSpan("reqLdaWetStatus", ldaWetOk);
 
-      if (toPointDataset && ldgPointDataset && rocPointDataset) {
-        toPointDataset.data = [{ x: pa, y: toRun }];
-        ldgPointDataset.data = [{ x: arrPa, y: ldgRun }];
-        rocPointDataset.data = [{ x: pa, y: roc }];
-        toChart.update();
-        ldgChart.update();
-        rocChart.update();
-      }
-
-      const bar = document.getElementById("runwayBar");
-      const barWidth = bar.clientWidth || 1;
-
-      function setMarker(id, dist) {
+      function setMarker(id, dist, availableLength, barWidth) {
         const el = document.getElementById(id);
-        const ratio = dist / declaredRunwayLength;
+        const ratio = dist / availableLength;
         const widthPx = Math.min(barWidth, Math.max(0, ratio * barWidth));
         el.style.width = widthPx + "px";
 
-        if (dist > declaredRunwayLength) el.classList.add("overrun");
+        if (dist > availableLength) el.classList.add("overrun");
         else el.classList.remove("overrun");
       }
 
-      setMarker("barToRun", toRun);
-      setMarker("barToDist", toDist);
-      setMarker("barLdgRun", ldgRun);
-      setMarker("barLdgDist", ldgDist);
-
-      function setTick(id, dist) {
+      function setTick(id, dist, availableLength, barWidth) {
         const el = document.getElementById(id);
         if (!el) return;
-        const ratio = dist / declaredRunwayLength;
+        const ratio = dist / availableLength;
         const xPx = clamp(ratio, 0, 1) * barWidth;
         el.style.left = xPx + "px";
       }
 
-      setTick("tickRunwayEnd", runwayTora);
-      setTick("tickReqTora125", activeReqToraVal);
-
       const activeReqLda = usingWet ? reqLdaWet : reqLdaDry;
-      setTick("tickReqLda", activeReqLda);
+      const takeoffBar = document.getElementById("takeoffRunwayBar");
+      const landingBar = document.getElementById("landingRunwayBar");
+      const takeoffBarWidth = takeoffBar?.clientWidth || 1;
+      const landingBarWidth = landingBar?.clientWidth || 1;
+
+      setMarker("barToRun", toRun, runwayTora, takeoffBarWidth);
+      setMarker("barToDist", toDist, runwayTora, takeoffBarWidth);
+      setTick("tickTakeoffEnd", runwayTora, runwayTora, takeoffBarWidth);
+      setTick("tickReqTora125", activeReqToraVal, runwayTora, takeoffBarWidth);
+
+      setMarker("barLdgRun", ldgRun, runwayLda, landingBarWidth);
+      setMarker("barLdgDist", ldgDist, runwayLda, landingBarWidth);
+      setTick("tickLandingEnd", runwayLda, runwayLda, landingBarWidth);
+      setTick("tickReqLda", activeReqLda, runwayLda, landingBarWidth);
 
       document.getElementById("declRwy").textContent = `${formatRunwayLabel()} (${round(rwHeading, 0)}°T)`;
       document.getElementById("declArrRwy").textContent = `${formatArrivalRunwayLabel()} (${round(arrHeading, 0)}°T)`;
@@ -1085,37 +885,47 @@
 
       const surfaceLabel = surfaceCfg.label || "CUSTOM";
       const arrSurfaceLabel = arrSurfaceCfg.label || "CUSTOM";
-      document.getElementById("declSurface").textContent = `DEP: ${surfaceLabel} / ARR: ${arrSurfaceLabel}`;
+      document.getElementById("declDepSurface").textContent = surfaceLabel;
+      document.getElementById("declArrSurface").textContent = arrSurfaceLabel;
 
-      const limiterStrip = document.getElementById("limiterStrip");
-      const limiterText = document.getElementById("limiterText");
+      const takeoffLimiterStrip = document.getElementById("takeoffLimiterStrip");
+      const takeoffLimiterText = document.getElementById("takeoffLimiterText");
+      const landingLimiterStrip = document.getElementById("landingLimiterStrip");
+      const landingLimiterText = document.getElementById("landingLimiterText");
 
       const activeReqLdaVal = usingWet ? reqLdaWet : reqLdaDry;
       const activeLdaOk = usingWet ? ldaWetOk : ldaDryOk;
 
-      let limiting = [];
+      let takeoffLimiting = [];
       if (!activeTakeoffOk) {
         if (declaredStopwayOrClearway) {
-          if (!toraRunOk) limiting.push(`Take-off: TORA ${round(runwayTora, 0)} m < AFM run ${round(reqToraRun, 0)} m`);
-          if (!toda115Ok) limiting.push(`Take-off: TODA ${round(runwayToda, 0)} m < 1.15 × AFM distance ${round(reqToda115, 0)} m`);
-          if (!asda130Ok) limiting.push(`Take-off: ASDA ${round(runwayAsda, 0)} m < 1.3 × AFM run ${round(reqAsda130, 0)} m`);
+          if (!toraRunOk) takeoffLimiting.push(`TORA ${round(runwayTora, 0)} m < AFM run ${round(reqToraRun, 0)} m`);
+          if (!toda115Ok) takeoffLimiting.push(`TODA ${round(runwayToda, 0)} m < 1.15 × AFM distance ${round(reqToda115, 0)} m`);
+          if (!asda130Ok) takeoffLimiting.push(`ASDA ${round(runwayAsda, 0)} m < 1.3 × AFM run ${round(reqAsda130, 0)} m`);
         } else {
-          limiting.push(`Take-off: required TORA ${round(reqTora125, 0)} m > available ${round(runwayTora, 0)} m`);
+          takeoffLimiting.push(`required TORA ${round(reqTora125, 0)} m > available ${round(runwayTora, 0)} m`);
         }
       }
-      if (!activeLdaOk) limiting.push(`Landing: REQ LDA ${round(activeReqLdaVal, 0)} > AVAIL ${round(runwayLda, 0)} m`);
 
-      if (limiting.length === 0) {
-        limiterText.textContent = `OK — required distances within available runway.`;
-        limiterStrip.classList.add("ok");
-        limiterStrip.classList.remove("bad");
+      if (takeoffLimiting.length === 0) {
+        takeoffLimiterText.textContent = `OK — take-off requirements within available runway.`;
+        takeoffLimiterStrip.classList.add("ok");
+        takeoffLimiterStrip.classList.remove("bad");
       } else {
-        limiterText.textContent = `LIMITED — ` + limiting.join(" | ");
-        limiterStrip.classList.add("bad");
-        limiterStrip.classList.remove("ok");
+        takeoffLimiterText.textContent = `LIMITED — ` + takeoffLimiting.join(" | ");
+        takeoffLimiterStrip.classList.add("bad");
+        takeoffLimiterStrip.classList.remove("ok");
       }
 
-
+      if (activeLdaOk) {
+        landingLimiterText.textContent = `OK — landing requirement within available LDA.`;
+        landingLimiterStrip.classList.add("ok");
+        landingLimiterStrip.classList.remove("bad");
+      } else {
+        landingLimiterText.textContent = `LIMITED — required LDA ${round(activeReqLdaVal, 0)} m > available ${round(runwayLda, 0)} m`;
+        landingLimiterStrip.classList.add("bad");
+        landingLimiterStrip.classList.remove("ok");
+      }
 
       const sumWbText = wbOk
         ? `OK – TOW ${round(massTO, 1)} kg at ${round(cgTO, 0)} mm; landing weight ${round(massLW, 1)} kg at ${round(cgLW, 0)} mm. Fuel and baggage within AFM limits.`

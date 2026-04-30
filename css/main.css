@@ -206,11 +206,11 @@
 
     input:disabled,
     select:disabled {
-      background: #141c26;
-      border-color: #334155;
-      color: #8ba0b7;
+      background: #0b1118;
+      border-color: var(--border);
+      color: var(--data);
       cursor: not-allowed;
-      opacity: 1;
+      opacity: 0.7;
     }
 
     .inline-note {
@@ -490,28 +490,9 @@
       margin-top: 0.3rem;
     }
 
-    .charts-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 0.9rem;
-      margin-top: 0.5rem;
-      position: relative;
-      z-index: 1;
-    }
-
-    .charts-grid h3 {
-      margin: 0.4rem 0 0.2rem;
-      font-size: 0.85rem;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    /* Runway diagram */
     .runway-bar {
       position: relative;
       height: 60px;
-      /* was 22px */
       border-radius: 10px;
       background: #070b10;
       border: 1px solid var(--border);
@@ -531,7 +512,6 @@
       z-index: 0;
     }
 
-    /* Each marker is now a thin lane */
     .runway-marker {
       position: absolute;
       left: 0;
@@ -567,29 +547,18 @@
       background: rgba(34, 197, 94, 0.55);
     }
 
-    /* Runway end */
     .runway-tick.tick-end {
       background: rgba(226, 237, 246, 0.65);
       width: 3px;
     }
 
-    /* Required take-off distance (TORA) */
     .runway-tick.tick-tora {
       background: #a855f7;
-      /* same purple as take-off distance bar */
     }
 
-    /* Required landing distance (LDA) */
     .runway-tick.tick-lda {
       background: rgba(250, 204, 21, 0.85);
-      /* amber */
     }
-
-
-    /* amber */
-
-
-    /* lane positions (top offsets) */
     #barToRun {
       top: 6px;
     }
@@ -642,6 +611,10 @@
 
     .sw-ldg-dist {
       background: #f97316;
+    }
+
+    .runway-section-row {
+      margin-top: 1.1rem;
     }
 
     .fact-status-ok {
