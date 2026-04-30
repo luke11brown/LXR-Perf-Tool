@@ -692,6 +692,9 @@
         insidePolyTO && insidePolyLW &&
         fuelOk && bagOk;
 
+      ["tow", "cg"].forEach(id => document.getElementById(id).classList.toggle("bad-value", !massOkTO || !cgBasicTO || !insidePolyTO));
+      ["lw", "cgArr"].forEach(id => document.getElementById(id).classList.toggle("bad-value", !massOkLW || !cgBasicLW || !insidePolyLW));
+
       if (wbOk) {
         wbStatusPill.textContent = "All points inside AFM envelope and limits";
         wbStatusPill.classList.remove("bad");
@@ -948,8 +951,8 @@
       setTick("tickLandingEnd", runwayLda, landingScaleLength, landingBarWidth);
       setTick("tickReqLda", activeReqLda, landingScaleLength, landingBarWidth);
 
-      document.getElementById("declRwy").textContent = `${formatRunwayLabel()} (${round(rwHeading, 0)}°T)`;
-      document.getElementById("declArrRwy").textContent = `${formatArrivalRunwayLabel()} (${round(arrHeading, 0)}°T)`;
+      document.getElementById("declRwy").textContent = formatRunwayLabel();
+      document.getElementById("declArrRwy").textContent = formatArrivalRunwayLabel();
       document.getElementById("declTora").textContent = `${round(runwayTora, 0)} m`;
       document.getElementById("declToda").textContent = `${round(runwayToda, 0)} m`;
       document.getElementById("declAsda").textContent = `${round(runwayAsda, 0)} m`;
@@ -1067,6 +1070,8 @@
         rows.forEach(([label, mass, arm, moment]) => {
           if (!mass || mass <= 0) return;
           const tr = document.createElement("tr");
+          const rowBad = (label === "Baggage" && !bagOk) || (label === "Fuel" && !fuelOk);
+          tr.classList.toggle("bad-value", rowBad);
           tr.innerHTML = `
       <td>${label}</td>
       <td class="num">${round(mass, 1)}</td>
@@ -1082,6 +1087,8 @@
         document.getElementById("mtMomLW").textContent = Math.round(momLW).toLocaleString();
         document.getElementById("mtArmTO").textContent = isFinite(cgTO) ? round(cgTO, 0) : "–";
         document.getElementById("mtArmLW").textContent = isFinite(cgLW) ? round(cgLW, 0) : "–";
+        document.getElementById("mtMassTO").closest("tr")?.classList.toggle("bad-value", !massOkTO || !cgBasicTO || !insidePolyTO);
+        document.getElementById("mtMassLW").closest("tr")?.classList.toggle("bad-value", !massOkLW || !cgBasicLW || !insidePolyLW);
 
       }
     }
@@ -1317,14 +1324,14 @@
 </body>
 </html>`;
 
-      const win = window.open("", "_blank");
+      const reportUrl = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+      const win = window.open(reportUrl, "_blank", "noopener");
       if (!win) {
+        URL.revokeObjectURL(reportUrl);
         alert("Popup blocked. Please allow popups for this page, then try Export PDF again.");
         return;
       }
-      win.document.open();
-      win.document.write(html);
-      win.document.close();
+      window.setTimeout(() => URL.revokeObjectURL(reportUrl), 60000);
     }
 
     window.addEventListener("DOMContentLoaded", async () => {

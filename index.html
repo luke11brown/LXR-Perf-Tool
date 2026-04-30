@@ -241,7 +241,7 @@
           </div>
           <div class="inline-note" id="metarStatus"></div>
 
-          <div class="grid" style="margin-top:0.75rem">
+          <div class="grid-3" style="margin-top:0.75rem">
             <div class="field">
               <label for="fieldElev">Field elevation (ft)</label>
               <input id="fieldElev" type="number" inputmode="decimal" value="200" />
@@ -302,17 +302,17 @@
 
           <div class="grid" style="margin-top:0.75rem">
             <div class="field">
-              <label for="rwHeading">Runway heading (°T)</label>
-              <input id="rwHeading" type="number" inputmode="decimal" value="137" />
-              <div class="inline-note">Use true heading; METAR/TAF winds are given in °T.</div>
-            </div>
-            <div class="field">
               <label for="windDir">Wind direction (°T / from, or VRB)</label>
               <input id="windDir" type="text" inputmode="text" value="137" />
             </div>
             <div class="field">
               <label for="windSpd">Wind speed (kt)</label>
               <input id="windSpd" type="number" inputmode="decimal" value="0" />
+            </div>
+            <div class="field">
+              <label for="rwHeading">Runway heading (°T)</label>
+              <input id="rwHeading" type="number" inputmode="decimal" value="137" />
+              <div class="inline-note">Use true heading; METAR/TAF winds are given in °T.</div>
             </div>
             <div class="field">
               <label>Wind components</label>
@@ -423,17 +423,17 @@
           </div>
           <div class="grid" style="margin-top:0.75rem">
             <div class="field">
-              <label for="arrHeading">Runway heading (°T)</label>
-              <input id="arrHeading" type="number" inputmode="decimal" value="137" />
-              <div class="inline-note">Use true heading; METAR/TAF winds are given in °T.</div>
-            </div>
-            <div class="field">
               <label for="arrWindDir">Wind direction (°T / from, or VRB)</label>
               <input id="arrWindDir" type="text" inputmode="text" value="137" />
             </div>
             <div class="field" id="arrivalWindSpeedField">
               <label for="arrWindSpd">Wind speed (kt)</label>
               <input id="arrWindSpd" type="number" inputmode="decimal" value="0" />
+            </div>
+            <div class="field">
+              <label for="arrHeading">Runway heading (°T)</label>
+              <input id="arrHeading" type="number" inputmode="decimal" value="137" />
+              <div class="inline-note">Use true heading; METAR/TAF winds are given in °T.</div>
             </div>
             <div class="field">
               <label>Wind components</label>

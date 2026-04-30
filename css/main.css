@@ -416,6 +416,12 @@
       border-bottom: none;
     }
 
+    .wb-table tr.bad-value td,
+    .wb-table tfoot tr.bad-value td {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
     button {
       border-radius: 8px;
       border: 1px solid var(--border);
@@ -692,6 +698,11 @@
 
     .summary-line-bad {
       color: var(--danger);
+    }
+
+    .bad-value {
+      color: var(--danger) !important;
+      font-weight: 700;
     }
 
     .declared-row {
