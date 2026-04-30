@@ -403,6 +403,17 @@
       return interpPoints(clamp(-headwindComponent, 0, WIND_FACTOR_LIMIT_TAIL), cfg.tail);
     }
 
+    function accountableWindComponent(headwindComponent) {
+      return headwindComponent >= 0 ? headwindComponent * 0.5 : headwindComponent * 1.5;
+    }
+
+    function formatAccountableWind(headwindComponent) {
+      const absComponent = Math.abs(headwindComponent);
+      return headwindComponent >= 0
+        ? `accountable HWC ${round(absComponent, 1)} kt (50% reported HWC)`
+        : `accountable TWC ${round(absComponent, 1)} kt (150% reported TWC)`;
+    }
+
     function round(x, decimals = 0) {
       const f = Math.pow(10, decimals);
       return Math.round(x * f) / f;
@@ -759,6 +770,8 @@
       const headwind = depWind.headwind;
       const crosswind = depWind.crosswind;
       const tailwind = headwind < 0 ? -headwind : 0;
+      const performanceHeadwind = accountableWindComponent(headwind);
+      const performanceTailwind = performanceHeadwind < 0 ? -performanceHeadwind : 0;
 
       const arrWindDirRaw = String(document.getElementById("arrWindDir").value || "").trim().toUpperCase();
       const arrWindSpd = parseFloat(document.getElementById("arrWindSpd").value) || 0;
@@ -767,6 +780,8 @@
       const arrHeadwind = arrWind.headwind;
       const arrCrosswind = arrWind.crosswind;
       const arrTailwind = arrHeadwind < 0 ? -arrHeadwind : 0;
+      const arrPerformanceHeadwind = accountableWindComponent(arrHeadwind);
+      const arrPerformanceTailwind = arrPerformanceHeadwind < 0 ? -arrPerformanceHeadwind : 0;
 
       const depWindComponentsEl = document.getElementById("depWindComponents");
       const arrWindComponentsEl = document.getElementById("arrWindComponents");
@@ -792,12 +807,14 @@
       if (depWindComponentsEl) {
         depWindComponentsEl.innerHTML = `
           <div>${headStr}, ${xwStr}</div>
+          <div>${formatAccountableWind(performanceHeadwind)} used for AFM correction</div>
           <div>${depXwNote}</div>
         `;
       }
       if (arrWindComponentsEl) {
         arrWindComponentsEl.innerHTML = `
           <div>${arrHeadStr}, ${arrXwStr}</div>
+          <div>${formatAccountableWind(arrPerformanceHeadwind)} used for AFM correction</div>
           <div>${arrXwNote}</div>
         `;
       }
@@ -820,10 +837,10 @@
       if (arrWindSpd > MAX_WIND) arrWindWarnings.push(`Wind speed ${round(arrWindSpd, 1)} kt exceeds 40 kt limit.`);
       if (tailwind > MAX_RECOMMENDED_TAILWIND) depWindWarnings.push(`Tailwind ${round(tailwind, 1)} kt exceeds AFM recommended maximum ${MAX_RECOMMENDED_TAILWIND} kt.`);
       if (arrTailwind > MAX_RECOMMENDED_TAILWIND) arrWindWarnings.push(`Tailwind ${round(arrTailwind, 1)} kt exceeds AFM recommended maximum ${MAX_RECOMMENDED_TAILWIND} kt.`);
-      if (tailwind > WIND_FACTOR_LIMIT_TAIL) depWindWarnings.push(`Tailwind correction is capped at ${WIND_FACTOR_LIMIT_TAIL} kt for chart validity.`);
-      if (arrTailwind > WIND_FACTOR_LIMIT_TAIL) arrWindWarnings.push(`Tailwind correction is capped at ${WIND_FACTOR_LIMIT_TAIL} kt for chart validity.`);
-      if (headwind > WIND_FACTOR_LIMIT_HEAD) depWindWarnings.push(`Headwind correction is capped at ${WIND_FACTOR_LIMIT_HEAD} kt for chart validity.`);
-      if (arrHeadwind > WIND_FACTOR_LIMIT_HEAD) arrWindWarnings.push(`Headwind correction is capped at ${WIND_FACTOR_LIMIT_HEAD} kt for chart validity.`);
+      if (performanceTailwind > WIND_FACTOR_LIMIT_TAIL) depWindWarnings.push(`Accountable tailwind correction is capped at ${WIND_FACTOR_LIMIT_TAIL} kt for chart validity.`);
+      if (arrPerformanceTailwind > WIND_FACTOR_LIMIT_TAIL) arrWindWarnings.push(`Accountable tailwind correction is capped at ${WIND_FACTOR_LIMIT_TAIL} kt for chart validity.`);
+      if (performanceHeadwind > WIND_FACTOR_LIMIT_HEAD) depWindWarnings.push(`Accountable headwind correction is capped at ${WIND_FACTOR_LIMIT_HEAD} kt for chart validity.`);
+      if (arrPerformanceHeadwind > WIND_FACTOR_LIMIT_HEAD) arrWindWarnings.push(`Accountable headwind correction is capped at ${WIND_FACTOR_LIMIT_HEAD} kt for chart validity.`);
 
       function setPhaseWindWarning(el, warnings) {
         if (!el) return;
@@ -851,10 +868,10 @@
       const ldgRunNoWind = baseLDG.run * landingSurface.ldg;
       const ldgDistNoWind = ldgRunNoWind + ldgAirborneNoWind;
 
-      const toRun = toRunNoWind * windCorrectionFactor("takeoff_run", headwind);
-      const toDist = toDistNoWind * windCorrectionFactor("takeoff_distance", headwind);
-      const ldgRun = ldgRunNoWind * windCorrectionFactor("landing_run", arrHeadwind);
-      const ldgDist = ldgDistNoWind * windCorrectionFactor("landing_distance", arrHeadwind);
+      const toRun = toRunNoWind * windCorrectionFactor("takeoff_run", performanceHeadwind);
+      const toDist = toDistNoWind * windCorrectionFactor("takeoff_distance", performanceHeadwind);
+      const ldgRun = ldgRunNoWind * windCorrectionFactor("landing_run", arrPerformanceHeadwind);
+      const ldgDist = ldgDistNoWind * windCorrectionFactor("landing_distance", arrPerformanceHeadwind);
 
       document.getElementById("toRun").textContent = round(toRun, 0);
       document.getElementById("toDist").textContent = round(toDist, 0);
@@ -1073,7 +1090,7 @@
       setSummaryLine("sumPerfLdg", sumPerfLdgText, ldgCriterionOk);
 
       const sumWindText = windOk
-        ? `OK – departure ${headStr.toLowerCase()}, ${xwStr.toLowerCase()}; arrival ${arrHeadStr.toLowerCase()}, ${arrXwStr.toLowerCase()}. Wind speeds ≤ 40 kt, crosswind within 18 kt demonstrated where assessed, tailwind within ${MAX_RECOMMENDED_TAILWIND} kt recommendation.`
+        ? `OK – departure ${headStr.toLowerCase()}, ${formatAccountableWind(performanceHeadwind)}; arrival ${arrHeadStr.toLowerCase()}, ${formatAccountableWind(arrPerformanceHeadwind)}. Wind speeds ≤ 40 kt, crosswind within 18 kt demonstrated where assessed, tailwind within ${MAX_RECOMMENDED_TAILWIND} kt recommendation.`
         : `NOT OK – wind limits/recommendations exceeded (departure wind ${round(windSpd, 1)} kt, tailwind ${round(tailwind, 1)} kt; arrival wind ${round(arrWindSpd, 1)} kt, tailwind ${round(arrTailwind, 1)} kt).`;
       setSummaryLine("sumWind", sumWindText, windOk);
 
@@ -1169,7 +1186,12 @@
       const tailwind = wind.headwind < 0 ? -wind.headwind : 0;
       const along = wind.headwind >= 0 ? `HWC ${round(wind.headwind, 1)} kt` : `TWC ${round(tailwind, 1)} kt`;
       const cross = wind.windIsVRB ? "XWC not assessed (VRB)" : `XWC ${round(Math.abs(wind.crosswind), 1)} kt`;
-      return `${along}, ${cross}`;
+      const credited = accountableWindComponent(wind.headwind);
+      const creditedAbs = round(Math.abs(credited), 1);
+      const creditedText = credited >= 0
+        ? `credited HWC ${creditedAbs} kt (50% of reported HWC)`
+        : `penalised TWC ${creditedAbs} kt (150% of reported TWC)`;
+      return `Reported: ${along}, ${cross}. Ops Manual performance wind: ${creditedText}`;
     }
 
     function escHtml(value) {
@@ -1319,7 +1341,7 @@
       <div class="k">Pressure altitude</div><div class="v">${escHtml(getValue("pa"))} ft</div>
       <div class="k">OAT / ISA dev</div><div class="v">${escHtml(getValue("oat"))} °C / ${escHtml(getValue("isaDev"))} °C</div>
       <div class="k">Wind</div><div class="v${classIfBad(depWindBad)}">${escHtml((String(getValue("windDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("windDir")}°T`)} / ${escHtml(getValue("windSpd"))} kt</div>
-      <div class="k">Components</div><div class="v${classIfBad(depWindBad)}">${escHtml(depWindComponentsText)}</div>
+      <div class="k">Wind credit</div><div class="v${classIfBad(depWindBad)}">${escHtml(depWindComponentsText)}</div>
       <div class="k">TORA / TODA</div><div class="v">${escHtml(getText("declTora"))} / ${escHtml(getText("declToda"))}</div>
       <div class="k">ASDA</div><div class="v">${escHtml(getText("declAsda"))}</div>
     </div>
@@ -1331,7 +1353,7 @@
       <div class="k">Pressure altitude</div><div class="v">${escHtml(getValue("arrPa"))} ft</div>
       <div class="k">OAT / ISA dev</div><div class="v">${escHtml(getValue("arrOat"))} °C / ${escHtml(getValue("arrIsaDev"))} °C</div>
       <div class="k">Wind</div><div class="v${classIfBad(arrWindBad)}">${escHtml((String(getValue("arrWindDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("arrWindDir")}°T`)} / ${escHtml(getValue("arrWindSpd"))} kt</div>
-      <div class="k">Components</div><div class="v${classIfBad(arrWindBad)}">${escHtml(arrWindComponentsText)}</div>
+      <div class="k">Wind credit</div><div class="v${classIfBad(arrWindBad)}">${escHtml(arrWindComponentsText)}</div>
       <div class="k">LDA</div><div class="v">${escHtml(getText("declLda"))}</div>
     </div>
   </div>

@@ -319,7 +319,7 @@
               <div class="inline-note" id="depWindComponents">
                 Headwind 0 kt, crosswind 0 kt (max demonstrated 18 kt).
               </div>
-              <div class="inline-note">VRB is treated as full tailwind for performance; crosswind is not assessed.</div>
+              <div class="inline-note">Performance correction uses 50% of reported HWC or 150% of reported TWC. VRB is treated as full tailwind; crosswind is not assessed.</div>
               <div class="inline-warning" id="depWindLimitWarn" style="display:none;"></div>
             </div>
           </div>
@@ -331,7 +331,7 @@
               TODR: <strong><span id="toDist"></span> m</strong>
             </div>
             <div class="res-sub">
-              AFM base: flaps T/O, 630&nbsp;kg, level paved runway. Surface factor changes the ground run; the 50&nbsp;ft distance is adjusted by preserving the airborne segment. Wind factors are then applied.
+              AFM base: flaps T/O, 630&nbsp;kg, level paved runway. Surface factor changes the ground run; the 50&nbsp;ft distance is adjusted by preserving the airborne segment. Wind correction uses the Ops Manual accountable wind component.
             </div>
           </div>
 
@@ -349,7 +349,7 @@
                 <div>Non-balanced field, all applicable declared-distance checks must pass:</div>
                 <div>- TORA ≥ TORR (<span id="reqToraRun"></span> m)</div>
                 <div>- TODA ≥ TODR, 1.15 × AFM TODR (<span id="reqToda115"></span> m)</div>
-                <div>- ASDA ≥ ASDR, 1.3 × AFM TODR (<span id="reqAsda130"></span> m)</div>
+                <div>- ASDA ≥ ASDR, 1.3 × TORR (<span id="reqAsda130"></span> m)</div>
                 <div>Status: <span id="reqStopwayStatus"></span></div>
               </div>
             </div>
@@ -436,7 +436,7 @@
               <div class="inline-note" id="arrWindComponents">
                 Headwind 0 kt, crosswind 0 kt (max demonstrated 18 kt).
               </div>
-              <div class="inline-note">VRB is treated as full tailwind for performance; crosswind is not assessed.</div>
+              <div class="inline-note">Performance correction uses 50% of reported HWC or 150% of reported TWC. VRB is treated as full tailwind; crosswind is not assessed.</div>
               <div class="inline-warning" id="arrWindLimitWarn" style="display:none;"></div>
             </div>
           </div>
@@ -447,7 +447,7 @@
                 LDR: <strong><span id="ldgDist"></span> m</strong>
               </div>
               <div class="res-sub">
-                AFM base: flaps LDG, -3° approach, 630&nbsp;kg, dry paved runway. Surface factor changes the ground roll; total landing distance is adjusted accordingly. Wet surface also selects the active Ops Manual wet LDR check.
+                AFM base: flaps LDG, -3° approach, 630&nbsp;kg, dry paved runway. Surface factor changes the ground roll; total landing distance is adjusted accordingly. Wind correction uses the Ops Manual accountable wind component. Wet surface also selects the active Ops Manual wet LDR check.
               </div>
             </div>
 
@@ -469,7 +469,7 @@
 
           <p class="muted">
             AFM performance tables are no-wind, level paved runway at 630&nbsp;kg.
-            This tool applies digitised wind correction factors to the displayed AFM distances, then applies the Ops Manual factors.
+            This tool applies digitised wind correction factors using 50% of reported headwind or 150% of reported tailwind, then applies the Ops Manual runway factors.
             Keep margins generous and verify against the AFM.
           </p>
         </section>
