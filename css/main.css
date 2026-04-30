@@ -204,6 +204,15 @@
       opacity: 0.7;
     }
 
+    input:disabled,
+    select:disabled {
+      background: #141c26;
+      border-color: #334155;
+      color: #8ba0b7;
+      cursor: not-allowed;
+      opacity: 1;
+    }
+
     .inline-note {
       font-size: 0.75rem;
       color: var(--muted);

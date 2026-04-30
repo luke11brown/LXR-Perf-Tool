@@ -125,8 +125,8 @@
       const depPresetSelected = document.getElementById("savedRunwaySelect")?.value !== "none";
       const arrPresetSelected = document.getElementById("arrivalRunwaySelect")?.value !== "none";
 
-      setFieldGroupDisabled(["fieldElev", "runwayTora", "runwayToda", "runwayAsda", "runwayLda", "surface", "rwHeading"], depPresetSelected);
-      setFieldGroupDisabled(["arrFieldElev", "arrLda", "arrSurface", "arrHeading"], arrivalUsesDepartureRunway || arrPresetSelected);
+      setFieldGroupDisabled(["fieldElev", "runwayTora", "runwayToda", "runwayAsda", "runwayLda", "rwHeading"], depPresetSelected);
+      setFieldGroupDisabled(["arrFieldElev", "arrLda", "arrHeading"], arrivalUsesDepartureRunway || arrPresetSelected);
     }
 
     function setRunwayFields(data, label) {
@@ -933,10 +933,9 @@
 
       const arrHeadStr = arrHeadwind >= 0 ? `Headwind ${round(arrHeadwind, 1)} kt` : `Tailwind ${round(arrTailwind, 1)} kt`;
       const arrXwStr = arrWindIsVRB ? "Crosswind not assessed (VRB)" : `Crosswind ${round(Math.abs(arrCrosswind), 1)} kt`;
-      const arrWeatherNote = arrivalWeatherUsesDeparture ? "same weather" : "separate arrival weather";
       windComponentsEl.innerHTML = `
         <div><strong>DEP</strong> ${headStr}, ${xwStr}</div>
-        <div><strong>ARR</strong> ${arrHeadStr}, ${arrXwStr} (${arrWeatherNote})</div>
+        <div><strong>ARR</strong> ${arrHeadStr}, ${arrXwStr}</div>
         <div>${xwWarn.replace(/^ – /, "")}</div>
       `;
 
@@ -1144,7 +1143,7 @@
       setSummaryLine("sumPerfLdg", sumPerfLdgText, ldgCriterionOk);
 
       const sumWindText = windOk
-        ? `${arrivalWeatherUsesDeparture ? "OK" : "OK – separate arrival weather used"} – departure ${headStr.toLowerCase()}, ${xwStr.toLowerCase()}; arrival ${arrHeadStr.toLowerCase()}, ${arrXwStr.toLowerCase()}. Wind speeds ≤ 40 kt, crosswind within 18 kt demonstrated where assessed, tailwind within ${MAX_RECOMMENDED_TAILWIND} kt recommendation.`
+        ? `OK – departure ${headStr.toLowerCase()}, ${xwStr.toLowerCase()}; arrival ${arrHeadStr.toLowerCase()}, ${arrXwStr.toLowerCase()}. Wind speeds ≤ 40 kt, crosswind within 18 kt demonstrated where assessed, tailwind within ${MAX_RECOMMENDED_TAILWIND} kt recommendation.`
         : `NOT OK – wind limits/recommendations exceeded (departure wind ${round(windSpd, 1)} kt, tailwind ${round(tailwind, 1)} kt; arrival wind ${round(arrWindSpd, 1)} kt, tailwind ${round(arrTailwind, 1)} kt).`;
       setSummaryLine("sumWind", sumWindText, windOk);
 
@@ -1230,6 +1229,17 @@
       );
     }
 
+    function formatWindComponentsForExport(windDirId, windSpdId, headingId) {
+      const windDirRaw = String(getValue(windDirId) || "").trim().toUpperCase();
+      const windSpd = parseFloat(getValue(windSpdId)) || 0;
+      const heading = parseFloat(getValue(headingId)) || 0;
+      const wind = computeWindComponentsForHeading(windDirRaw, windSpd, heading);
+      const tailwind = wind.headwind < 0 ? -wind.headwind : 0;
+      const along = wind.headwind >= 0 ? `HWC ${round(wind.headwind, 1)} kt` : `TWC ${round(tailwind, 1)} kt`;
+      const cross = wind.windIsVRB ? "XWC not assessed (VRB)" : `XWC ${round(Math.abs(wind.crosswind), 1)} kt`;
+      return `${along}, ${cross}`;
+    }
+
     function escHtml(value) {
       return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
         "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
@@ -1251,7 +1261,8 @@
       const decisionText = getText("sumPill");
       const decisionClass = decisionText.includes("NO-GO") ? "decision bad-bg" : decisionText.includes("GO") ? "decision ok-bg" : "decision";
       const cgChartImg = document.getElementById("cgChart")?.toDataURL("image/png") || "";
-      const windComponentsText = getText("windComponents");
+      const depWindComponentsText = formatWindComponentsForExport("windDir", "windSpd", "rwHeading");
+      const arrWindComponentsText = formatWindComponentsForExport("arrWindDir", "arrWindSpd", "arrHeading");
 
       const html = `<!doctype html>
 <html>
@@ -1266,7 +1277,6 @@
     h2 { background: #e0f2fe; border-left: 4px solid #0284c7; color: #075985; font-size: 12px; margin: 14px 0 6px; letter-spacing: 0.06em; text-transform: uppercase; padding: 5px 7px; }
     .muted { color: #475569; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 10px; }
     .box { background: #ffffff; border: 1px solid #bfdbfe; border-top: 3px solid #38bdf8; border-radius: 6px; padding: 8px; break-inside: avoid; }
     .box.wb { border-top-color: #22c55e; }
     .box.perf { border-top-color: #8b5cf6; }
@@ -1275,8 +1285,7 @@
     .k { color: #475569; }
     .v { font-weight: 700; }
     .stack { display: grid; gap: 6px; }
-    .chart-img { width: 100%; max-height: 230px; object-fit: contain; }
-    .status-note { margin-top: 8px; padding: 7px 8px; border: 1px solid #bae6fd; border-radius: 6px; background: #f0f9ff; color: #075985; font-weight: 700; }
+    .chart-img { width: 100%; max-height: 205px; object-fit: contain; }
     table { width: 100%; border-collapse: collapse; margin-top: 4px; table-layout: fixed; }
     th, td { border-bottom: 1px solid #e5e7eb; padding: 4px 5px; text-align: left; vertical-align: top; }
     th { background: #eff6ff; color: #075985; text-transform: uppercase; font-size: 9px; }
@@ -1338,9 +1347,8 @@
   </div>
 
   <h2>Conditions and runway</h2>
-  <div class="grid-3">
+  <div class="grid">
     <div class="box perf kv">
-      <div class="k">Phase</div><div class="v">Departure</div>
       <div class="k">Departure runway</div><div class="v">${escHtml(getText("declRwy"))}</div>
       <div class="k">Surface</div><div class="v">${escHtml(depSurfaceText)}</div>
       <div class="k">Elevation</div><div class="v">${escHtml(getValue("fieldElev"))} ft</div>
@@ -1348,11 +1356,11 @@
       <div class="k">Pressure altitude</div><div class="v">${escHtml(getValue("pa"))} ft</div>
       <div class="k">OAT / ISA dev</div><div class="v">${escHtml(getValue("oat"))} °C / ${escHtml(getValue("isaDev"))} °C</div>
       <div class="k">Wind</div><div class="v">${escHtml((String(getValue("windDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("windDir")}°T`)} / ${escHtml(getValue("windSpd"))} kt</div>
+      <div class="k">Components</div><div class="v">${escHtml(depWindComponentsText)}</div>
       <div class="k">TORA / TODA</div><div class="v">${escHtml(getText("declTora"))} / ${escHtml(getText("declToda"))}</div>
       <div class="k">ASDA</div><div class="v">${escHtml(getText("declAsda"))}</div>
     </div>
     <div class="box perf kv">
-      <div class="k">Phase</div><div class="v">Arrival</div>
       <div class="k">Arrival runway</div><div class="v">${escHtml(getText("declArrRwy"))}</div>
       <div class="k">Surface</div><div class="v">${escHtml(arrSurfaceText)}</div>
       <div class="k">Elevation</div><div class="v">${escHtml(getValue("arrFieldElev"))} ft</div>
@@ -1360,15 +1368,8 @@
       <div class="k">Pressure altitude</div><div class="v">${escHtml(getValue("arrPa"))} ft</div>
       <div class="k">OAT / ISA dev</div><div class="v">${escHtml(getValue("arrOat"))} °C / ${escHtml(getValue("arrIsaDev"))} °C</div>
       <div class="k">Wind</div><div class="v">${escHtml((String(getValue("arrWindDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("arrWindDir")}°T`)} / ${escHtml(getValue("arrWindSpd"))} kt</div>
+      <div class="k">Components</div><div class="v">${escHtml(arrWindComponentsText)}</div>
       <div class="k">LDA</div><div class="v">${escHtml(getText("declLda"))}</div>
-    </div>
-    <div class="box warn stack">
-      <div>
-        <div class="k">Wind components</div>
-        <div class="v">${escHtml(windComponentsText)}</div>
-      </div>
-      <div class="status-note">${escHtml(getText("sumWind"))}</div>
-      <div class="status-note">${escHtml(getText("sumRunway"))}</div>
     </div>
   </div>
 

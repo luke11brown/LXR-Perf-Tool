@@ -223,6 +223,19 @@
           <h2>Conditions &amp; Runway</h2>
           <small>AFM §5.3/5.4 distances (630&nbsp;kg, level hard runway), QNH-derived pressure altitude, wind correction + Ops Manual factors.</small>
 
+          <div class="grid metar-select-row" style="margin-top:0.75rem">
+            <div class="field">
+              <label for="savedRunwaySelect">Departure runway preset</label>
+              <select id="savedRunwaySelect">
+                <option value="none" selected>Manual entry</option>
+              </select>
+            </div>
+            <div class="field metar-button-field">
+              <button id="fetchMetarBtn" type="button">Fetch METAR</button>
+            </div>
+          </div>
+          <div class="inline-note" id="metarStatus"></div>
+
           <div class="grid-3">
             <div class="field">
               <label for="fieldElev">Field elevation (ft)</label>
@@ -249,18 +262,6 @@
             </div>
           </div>
 
-          <div class="grid metar-select-row" style="margin-top:0.75rem">
-            <div class="field">
-              <label for="savedRunwaySelect">Departure runway preset</label>
-              <select id="savedRunwaySelect">
-                <option value="none" selected>Manual entry</option>
-              </select>
-            </div>
-            <div class="field metar-button-field">
-              <button id="fetchMetarBtn" type="button">Fetch METAR</button>
-            </div>
-          </div>
-          <div class="inline-note" id="metarStatus"></div>
           <div class="grid" style="margin-top:0.75rem">
             <div class="field">
               <label for="runwayTora">TORA (m)</label>
@@ -385,7 +386,7 @@
             </div>
             <div class="field">
               <label>Arrival weather note</label>
-              <div class="inline-note">Use separate arrival weather for land-aways. VRB is treated as full tailwind for performance.</div>
+              <div class="inline-note">VRB is treated as full tailwind for performance.</div>
             </div>
           </div>
           <div class="grid" style="margin-top:0.6rem">
