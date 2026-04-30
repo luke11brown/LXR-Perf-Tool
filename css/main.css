@@ -156,7 +156,7 @@
     .metar-button-field button {
       width: 100%;
       justify-content: center;
-      min-height: 2.35rem;
+      height: 2.35rem;
     }
 
     @media (max-width: 640px) {
@@ -176,13 +176,18 @@
     }
 
     input,
+    select,
+    button {
+      min-height: 2.35rem;
+    }
+
+    input,
     select {
       background: #0b1118;
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 0.5rem 0.65rem;
       color: var(--data);
-      /* values in green */
       font-variant-numeric: tabular-nums;
     }
 

@@ -172,12 +172,11 @@
       const disabled = useDep.checked;
       ["arrQnh", "arrOat", "arrWindDir", "arrWindSpd"].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.disabled = disabled;
+        if (!el) return;
+        el.disabled = disabled;
+        const field = el.closest(".field");
+        if (field) field.classList.toggle("field-disabled", disabled);
       });
-      const fields = document.getElementById("arrivalWeatherFields");
-      const speedField = document.getElementById("arrivalWindSpeedField");
-      if (fields) fields.classList.toggle("field-disabled", disabled);
-      if (speedField) speedField.classList.toggle("field-disabled", disabled);
       if (disabled) copyDepartureWeatherToArrival();
     }
 

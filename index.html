@@ -317,11 +317,11 @@
               <div class="inline-note" id="windComponents">
                 Headwind 0 kt, crosswind 0 kt (max demonstrated 18 kt).
               </div>
+              <div class="inline-note">VRB is treated as full tailwind for performance; crosswind is not assessed.</div>
               <div class="inline-warning" id="windLimitWarn" style="display:none;"></div>
             </div>
           </div>
 
-          
           <div class="subsection-title">Arrival / landing runway</div>
           <div class="grid metar-select-row" style="margin-top:0.75rem">
             <div class="field">
@@ -335,21 +335,39 @@
             </div>
           </div>
           <div class="inline-note" id="arrivalMetarStatus"></div>
-          <div class="grid" style="margin-top:0.75rem">
+          <div class="grid-3" style="margin-top:0.75rem">
             <div class="field">
               <label for="arrFieldElev">Arrival field elevation (ft)</label>
               <input id="arrFieldElev" type="number" inputmode="decimal" value="200" />
             </div>
             <div class="field">
-              <label for="arrLda">Arrival LDA (m)</label>
-              <input id="arrLda" type="number" inputmode="decimal" value="1330" />
+              <label for="arrQnh">Arrival QNH (hPa)</label>
+              <input id="arrQnh" type="number" inputmode="decimal" value="1013" />
             </div>
+            <div class="field">
+              <label for="arrOat">Arrival OAT (°C)</label>
+              <input id="arrOat" type="number" inputmode="decimal" value="15" />
+            </div>
+          </div>
+          <div class="grid" style="margin-top:0.6rem">
+            <div class="field">
+              <label>Arrival pressure altitude (ft)</label>
+              <input id="arrPa" type="number" readonly />
+            </div>
+            <div class="field">
+              <label>Arrival ISA deviation (°C)</label>
+              <input id="arrIsaDev" type="number" readonly />
+            </div>
+          </div>
+
+          <div class="check-row">
+            <input id="arrUseDepWeather" type="checkbox" checked />
+            <label for="arrUseDepWeather">Use departure QNH, OAT and wind for arrival</label>
           </div>
           <div class="grid" style="margin-top:0.75rem">
             <div class="field">
-              <label for="arrHeading">Arrival runway heading (°T)</label>
-              <input id="arrHeading" type="number" inputmode="decimal" value="137" />
-              <div class="inline-note">Use true heading; arrival wind is resolved against this runway.</div>
+              <label for="arrLda">Arrival LDA (m)</label>
+              <input id="arrLda" type="number" inputmode="decimal" value="1330" />
             </div>
             <div class="field">
               <label for="arrSurface">Arrival surface</label>
@@ -361,43 +379,19 @@
               </select>
             </div>
           </div>
-
-          <div class="check-row">
-            <input id="arrUseDepWeather" type="checkbox" checked />
-            <label for="arrUseDepWeather">Use departure QNH, OAT and wind for arrival</label>
-          </div>
-          <div class="grid-3" id="arrivalWeatherFields" style="margin-top:0.55rem">
+          <div class="grid" style="margin-top:0.75rem">
             <div class="field">
-              <label for="arrQnh">Arrival QNH (hPa)</label>
-              <input id="arrQnh" type="number" inputmode="decimal" value="1013" />
-            </div>
-            <div class="field">
-              <label for="arrOat">Arrival OAT (°C)</label>
-              <input id="arrOat" type="number" inputmode="decimal" value="15" />
+              <label for="arrHeading">Arrival runway heading (°T)</label>
+              <input id="arrHeading" type="number" inputmode="decimal" value="137" />
+              <div class="inline-note">Use true heading; METAR/TAF winds are given in °T.</div>
             </div>
             <div class="field">
               <label for="arrWindDir">Arrival wind direction (°T / from, or VRB)</label>
               <input id="arrWindDir" type="text" inputmode="text" value="137" />
             </div>
-          </div>
-          <div class="grid" style="margin-top:0.55rem">
             <div class="field" id="arrivalWindSpeedField">
               <label for="arrWindSpd">Arrival wind speed (kt)</label>
               <input id="arrWindSpd" type="number" inputmode="decimal" value="0" />
-            </div>
-            <div class="field">
-              <label>Arrival weather note</label>
-              <div class="inline-note">VRB is treated as full tailwind for performance.</div>
-            </div>
-          </div>
-          <div class="grid" style="margin-top:0.6rem">
-            <div class="field">
-              <label>Arrival pressure altitude (ft)</label>
-              <input id="arrPa" type="number" readonly />
-            </div>
-            <div class="field">
-              <label>Arrival ISA deviation (°C)</label>
-              <input id="arrIsaDev" type="number" readonly />
             </div>
           </div>
 
