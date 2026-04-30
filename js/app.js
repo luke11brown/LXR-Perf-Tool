@@ -1360,10 +1360,10 @@
 
   <div class="grid">
     <div class="box perf kv">
-      <div class="k">TORR</div><div class="v">${escHtml(getText("toRun"))} m</div>
-      <div class="k">TODR</div><div class="v">${escHtml(getText("toDist"))} m</div>
-      <div class="k">${declaredStopwayOrClearwayReport ? "TORR check" : "TORA required"}</div><div class="v${classIfBad(reqToraBad)}">${escHtml(requiredToraReport)} m</div>
-      <div class="k">TODR / ASDR checks</div><div class="v${classIfBad(todaAsdaBad)}">${escHtml(getText("reqToda115"))} m / ${escHtml(getText("reqAsda130"))} m</div>
+      <div class="k">TORR (AFM)</div><div class="v">${escHtml(getText("toRun"))} m</div>
+      <div class="k">TODR (AFM)</div><div class="v">${escHtml(getText("toDist"))} m</div>
+      <div class="k">${declaredStopwayOrClearwayReport ? "TORR (OM-C_" : "TORA required"}</div><div class="v${classIfBad(reqToraBad)}">${escHtml(requiredToraReport)} m</div>
+      <div class="k">TODR / ASDR (OM-C))</div><div class="v${classIfBad(todaAsdaBad)}">${escHtml(getText("reqToda115"))} m / ${escHtml(getText("reqAsda130"))} m</div>
     </div>
     <div class="box perf kv">
       <div class="k">ALD</div><div class="v">${escHtml(getText("ldgDist"))} m</div>
