@@ -196,17 +196,7 @@
     }
 
     function updateArrivalWeatherControls() {
-      const useDep = document.getElementById("arrUseDepWeather");
-      if (!useDep) return;
-      if (arrivalUsesDepartureRunway) {
-        useDep.checked = true;
-        useDep.disabled = true;
-      } else {
-        useDep.disabled = false;
-      }
-      const row = useDep.closest(".check-row");
-      if (row) row.style.display = arrivalUsesDepartureRunway ? "none" : "flex";
-      const disabled = useDep.checked;
+      const disabled = arrivalUsesDepartureRunway;
       ["arrQnh", "arrOat", "arrWindDir", "arrWindSpd"].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -225,8 +215,6 @@
       applySurfacePreset("arrSurface", data.surface, true);
       activeArrivalRunwayLabel = label || data.label || "Custom arrival runway";
       arrivalUsesDepartureRunway = false;
-      const useDepWeather = document.getElementById("arrUseDepWeather");
-      if (useDepWeather) useDepWeather.checked = false;
       updateArrivalWeatherControls();
     }
 
@@ -367,8 +355,6 @@
 
       if (isArrival) {
         arrivalUsesDepartureRunway = false;
-        const useDepWeather = document.getElementById("arrUseDepWeather");
-        if (useDepWeather) useDepWeather.checked = false;
         updateArrivalWeatherControls();
       }
 
@@ -377,7 +363,7 @@
       try {
         const metar = await fetchMetarForStation(station);
         applyMetarToFields(metar, target);
-        if (!isArrival && document.getElementById("arrUseDepWeather")?.checked) copyDepartureWeatherToArrival();
+        if (!isArrival && arrivalUsesDepartureRunway) copyDepartureWeatherToArrival();
         calculateAll();
         const ageMinutes = getMetarAgeMinutes(metar.observedAt);
         const staleText = ageMinutes !== null && ageMinutes > METAR_STALE_MINUTES ? " STALE - verify before use." : "";
@@ -737,8 +723,7 @@
       const oat = parseFloat(document.getElementById("oat").value) || 0;
       if (arrivalUsesDepartureRunway) copyDepartureToArrival();
       updateArrivalWeatherControls();
-      const arrivalWeatherUsesDeparture = arrivalUsesDepartureRunway || !!document.getElementById("arrUseDepWeather")?.checked;
-      if (arrivalWeatherUsesDeparture) copyDepartureWeatherToArrival();
+      if (arrivalUsesDepartureRunway) copyDepartureWeatherToArrival();
       const surface = currentSurfaceKey("surface", false);
       const surfaceCfg = GRASS_FACTORS[surface] || GRASS_FACTORS.hard_dry;
       const arrSurface = currentSurfaceKey("arrSurface", true);
@@ -1212,7 +1197,7 @@
     .k { color: #475569; }
     .v { font-weight: 700; }
     .stack { display: grid; gap: 6px; }
-    .chart-img { width: 100%; max-height: 205px; object-fit: contain; }
+    .chart-img { width: 100%; max-height: 250px; object-fit: contain; }
     table { width: 100%; border-collapse: collapse; margin-top: 4px; table-layout: fixed; }
     th, td { border-bottom: 1px solid #e5e7eb; padding: 3px 5px; text-align: left; vertical-align: top; }
     th { background: #eff6ff; color: #075985; text-transform: uppercase; font-size: 9px; }
@@ -1242,8 +1227,7 @@
   </div>
 
   <h2>Aircraft and loading</h2>
-  <div class="grid">
-    <div class="box wb kv">
+  <div class="box wb kv">
       <div class="k">Registration</div><div class="v">${escHtml(getSelectedText("regSelect"))}</div>
       <div class="k">Empty aircraft</div><div class="v">${escHtml(getValue("emptyWeight"))} kg @ ${escHtml(getValue("emptyArm"))} mm</div>
       <div class="k">Upholstery</div><div class="v">${escHtml(getValue("upholsteryWt"))} kg @ ${escHtml(getValue("upholsteryArm"))} mm</div>
@@ -1251,12 +1235,6 @@
       <div class="k">Passenger</div><div class="v">${escHtml(getValue("paxWt"))} kg @ ${escHtml(getValue("paxArm"))} mm</div>
       <div class="k">Baggage</div><div class="v${classIfBad(bagBad)}">${escHtml(getValue("bagWt"))} kg @ 1580 mm</div>
       <div class="k">Fuel</div><div class="v${classIfBad(fuelBad)}">${escHtml(getValue("fuelL"))} L / ${escHtml(getText("fuelKg")) || escHtml(getValue("fuelKg"))} kg (${escHtml(getSelectedText("fuelType"))})</div>
-    </div>
-    <div class="box wb kv">
-      <div class="k">Departure</div><div class="v${classIfBad(towBad)}">${escHtml(getText("tow"))} kg @ ${escHtml(getText("cg"))} mm</div>
-      <div class="k">Arrival</div><div class="v${classIfBad(lwBad)}">${escHtml(getText("lw"))} kg @ ${escHtml(getText("cgArr"))} mm</div>
-      <div class="k">W&B status</div><div class="v${classIfBad(wbBad)}">${escHtml(getText("wbStatusPill"))}</div>
-    </div>
   </div>
 
   <div class="grid">
@@ -1272,6 +1250,7 @@
           <tr class="${lwBad ? "bad-value" : ""}"><td><strong>Total no fuel</strong></td><td class="num">${escHtml(getText("mtMassLW"))}</td><td class="num">${escHtml(getText("mtArmLW"))}</td><td class="num">${escHtml(getText("mtMomLW"))}</td></tr>
         </tfoot>
       </table>
+      <p class="${wbBad ? "bad-value" : "ok"}"><strong>W&amp;B status:</strong> ${escHtml(getText("wbStatusPill"))}</p>
     </div>
     <div class="box wb">
       ${cgChartImg ? `<img class="chart-img" src="${cgChartImg}" alt="Weight and balance envelope">` : `<div class="muted">W&amp;B chart unavailable.</div>`}
@@ -1416,8 +1395,6 @@
           arrivalUsesDepartureRunway = true;
           activeArrivalRunwayLabel = activeRunwayLabel;
           copyDepartureToArrival();
-          const useDepWeather = document.getElementById("arrUseDepWeather");
-          if (useDepWeather) useDepWeather.checked = true;
           updateArrivalWeatherControls();
           updateRunwayEditState();
           calculateAll();
@@ -1428,8 +1405,6 @@
           arrivalUsesDepartureRunway = false;
           activeArrivalRunwayLabel = null;
           arrSurfaceBase = "hard";
-          const useDepWeather = document.getElementById("arrUseDepWeather");
-          if (useDepWeather) useDepWeather.checked = false;
           updateArrivalWeatherControls();
           updateRunwayEditState();
           calculateAll();
@@ -1445,15 +1420,9 @@
         }
       });
 
-      document.getElementById("arrUseDepWeather").addEventListener("change", () => {
-        updateArrivalWeatherControls();
-        updateRunwayEditState();
-        calculateAll();
-      });
-
       ["qnh", "oat", "windDir", "windSpd"].forEach(id => {
         document.getElementById(id).addEventListener("input", () => {
-          if (document.getElementById("arrUseDepWeather")?.checked) copyDepartureWeatherToArrival();
+          if (arrivalUsesDepartureRunway) copyDepartureWeatherToArrival();
         });
       });
 
