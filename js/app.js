@@ -1,12 +1,66 @@
-// ------- Registration data -------
-    const REG_DATA = {
-      "F-HEGB": { weight: 416.3, cg: 707, upholsteryWeight: 3.7, upholsteryArm: 1076 },
-      "F-HEGC": { weight: 415.1, cg: 698, upholsteryWeight: 3.7, upholsteryArm: 1076 },
-      "F-HLDF": { weight: 417.2, cg: 710, upholsteryWeight: 3.7, upholsteryArm: 1076 },
-      "F-HLDG": { weight: 416.6, cg: 707, upholsteryWeight: 3.7, upholsteryArm: 1076 },
-      "F-HTGH": { weight: 414.9, cg: 710, upholsteryWeight: 3.7, upholsteryArm: 1076 },
-      "F-HXCD": { weight: 415.0, cg: 693, upholsteryWeight: 3.7, upholsteryArm: 1076 },
-    };
+    // ------- Data loaded from JSON -------
+    let REG_DATA = {};
+    let ALT_GRID_TOLD = [];
+    let TEMP_DEV_GRID = [];
+    let TO_TABLE = {};
+    let LDG_TABLE = {};
+    let GRASS_FACTORS = {};
+    let ALT_GRID_ROC = [];
+    let ROC_TABLE = {};
+    let WIND_FACTORS = {};
+    let CG_POLY = [];
+    let MAX_XWIND = 0;
+    let MAX_WIND = 0;
+    let MAX_RECOMMENDED_TAILWIND = 0;
+    let WIND_FACTOR_LIMIT_HEAD = 0;
+    let WIND_FACTOR_LIMIT_TAIL = 0;
+    let CG_MIN_MASS = 0;
+    let MAX_MASS = 0;
+    let MAX_FUEL_KG = 0;
+    let MAX_FUEL_L = 0;
+    let MAX_BAG_KG = 0;
+    let CG_MIN = 0;
+    let CG_MAX = 0;
+
+    async function loadJson(path, label) {
+      const jsonUrl = new URL(path, window.location.href).href;
+      console.info(`Loading ${label} from`, jsonUrl);
+      const response = await fetch(jsonUrl, { cache: "no-store" });
+      if (!response.ok) throw new Error(`${label} fetch failed: ${response.status}`);
+      return response.json();
+    }
+
+    async function loadAircraftData() {
+      REG_DATA = await loadJson("./data/aircraft.json", "aircraft data");
+    }
+
+    async function loadPerformanceData() {
+      const data = await loadJson("./data/performance.json", "performance data");
+      const limits = data.limits || {};
+      const windFactorLimits = data.windFactorLimits || {};
+
+      ALT_GRID_TOLD = data.altGridTold || [];
+      TEMP_DEV_GRID = data.tempDevGrid || [];
+      TO_TABLE = data.takeoffTable || {};
+      LDG_TABLE = data.landingTable || {};
+      GRASS_FACTORS = data.surfaceFactors || {};
+      ALT_GRID_ROC = data.altGridRoc || [];
+      ROC_TABLE = data.rocTable || {};
+      WIND_FACTORS = data.windFactors || {};
+      CG_POLY = data.cgEnvelope || [];
+      WIND_FACTOR_LIMIT_HEAD = windFactorLimits.head || 0;
+      WIND_FACTOR_LIMIT_TAIL = windFactorLimits.tail || 0;
+      MAX_XWIND = limits.maxCrosswind || 0;
+      MAX_WIND = limits.maxWind || 0;
+      MAX_RECOMMENDED_TAILWIND = limits.maxRecommendedTailwind || 0;
+      CG_MIN_MASS = limits.cgMinMass || 0;
+      MAX_MASS = limits.maxMass || 0;
+      MAX_FUEL_KG = limits.maxFuelKg || 0;
+      MAX_FUEL_L = limits.maxFuelL || 0;
+      MAX_BAG_KG = limits.maxBagKg || 0;
+      CG_MIN = limits.cgMin || 0;
+      CG_MAX = limits.cgMax || 0;
+    }
 
     const RUNWAY_SAVE_KEY = "lxrPerfTool.savedRunways";
     let PRESET_RUNWAYS = {};
@@ -186,96 +240,6 @@
     function formatArrivalRunwayLabel() {
       return activeArrivalRunwayLabel || (arrivalUsesDepartureRunway ? formatRunwayLabel() : "Custom arrival runway");
     }
-
-    // ------- AFM DATA (630 kg, no wind, hard) -------
-    const ALT_GRID_TOLD = [0, 2000, 4000, 6000]; // ft
-    const TEMP_DEV_GRID = [0, 10, 20]; // ISA, ISA+10, ISA+20
-
-    // Take-off table: [run_ISA, dist_ISA, run_ISA+10, dist_ISA+10, run_ISA+20, dist_ISA+20] m
-    const TO_TABLE = {
-      0: [250, 445, 270, 480, 290, 517],
-      2000: [292, 522, 315, 564, 339, 607],
-      4000: [339, 608, 366, 657, 394, 708],
-      6000: [398, 716, 430, 774, 464, 836],
-    };
-
-    // Landing table: [run_ISA, dist_ISA, run_ISA+10, dist_ISA+10, run_ISA+20, dist_ISA+20] m
-    const LDG_TABLE = {
-      0: [225, 575, 233, 583, 241, 591],
-      2000: [239, 589, 247, 597, 255, 605],
-      4000: [253, 603, 262, 612, 271, 621],
-      6000: [269, 619, 279, 629, 289, 639],
-    };
-
-    // Surface factors and wet-runway flag.
-    // `wetLanding` selects the Ops Manual wet landing requirement (AFM distance ×1.15 ÷0.7).
-    // Legacy `hard` is kept as an alias for saved runway presets from older versions.
-    const GRASS_FACTORS = {
-      hard: { to: 1.0, ldg: 1.0, wetLanding: false, label: "HARD DRY" },
-      hard_dry: { to: 1.0, ldg: 1.0, wetLanding: false, label: "PAVED DRY" },
-      hard_wet: { to: 1.0, ldg: 1.0, wetLanding: true, label: "PAVED WET" },
-      grass_dry: { to: 1.2, ldg: 1.2, wetLanding: false, label: "GRASS DRY" },
-      grass_wet: { to: 1.3, ldg: 1.6, wetLanding: true, label: "GRASS WET" },
-    };
-
-    // Rate of climb table (ISA, ISA+10, ISA+20)
-    const ALT_GRID_ROC = [0, 2000, 4000, 6000, 8000, 10000, 12000, 14000, 16000];
-    const ROC_TABLE = {
-      0: [1040, 990, 950],
-      2000: [930, 880, 840],
-      4000: [820, 780, 740],
-      6000: [710, 670, 630],
-      8000: [600, 570, 530],
-      10000: [500, 460, 430],
-      12000: [390, 350, 320],
-      14000: [280, 250, 220],
-      16000: [170, 140, 110],
-    };
-
-    const MAX_XWIND = 18; // kt max demonstrated crosswind
-    const MAX_WIND = 40; // departure not permitted if wind > 40 kt
-    const MAX_RECOMMENDED_TAILWIND = 5; // kt, AFM note: 5 kt
-    const WIND_FACTOR_LIMIT_HEAD = 14;
-    const WIND_FACTOR_LIMIT_TAIL = 10;
-
-    // Digitised wind-correction factors.
-    // factor = corrected distance / no-wind distance.
-    // Values validated from the four WebPlotDigitizer exports and collapsed to 1D factor curves.
-    const WIND_FACTORS = {
-      takeoff_run: {
-        head: [[0, 1.00], [5, 0.86], [10, 0.747], [14, 0.68]],
-        tail: [[0, 1.00], [5, 1.18], [10, 1.42]],
-      },
-      takeoff_distance: {
-        head: [[0, 1.00], [5, 0.83], [10, 0.70], [14, 0.64]],
-        tail: [[0, 1.00], [5, 1.21], [10, 1.46]],
-      },
-      landing_run: {
-        head: [[0, 1.00], [5, 0.91], [10, 0.81], [14, 0.74]],
-        tail: [[0, 1.00], [5, 1.11], [10, 1.27]],
-      },
-      landing_distance: {
-        head: [[0, 1.00], [5, 0.88], [10, 0.76], [14, 0.68]],
-        tail: [[0, 1.00], [5, 1.14], [10, 1.32]],
-      },
-    };
-
-    // CG envelope polygon: {cg_mm (x), mass_kg (y)}
-    const CG_POLY = [
-      { x: 720, y: 430 },
-      { x: 720, y: 500 },
-      { x: 800, y: 630 },
-      { x: 860, y: 630 },
-      { x: 860, y: 430 },
-    ];
-
-    const CG_MIN_MASS = 430;
-    const MAX_MASS = 630;
-    const MAX_FUEL_KG = 72;
-    const MAX_FUEL_L = 100;
-    const MAX_BAG_KG = 25;
-    const CG_MIN = 720;
-    const CG_MAX = 860;
 
     // Helpers
     function clamp(x, min, max) { return Math.max(min, Math.min(max, x)); }
@@ -1318,6 +1282,18 @@
     }
 
     window.addEventListener("DOMContentLoaded", async () => {
+      try {
+        await Promise.all([
+          loadAircraftData(),
+          loadPerformanceData(),
+          loadRunwayPresets(),
+        ]);
+      } catch (err) {
+        console.error("Could not load required app data:", err);
+        alert("Could not load app data. Check that the data JSON files are available, then reload the page.");
+        return;
+      }
+
       buildCGChart();
       buildPerfCharts();
 
@@ -1345,7 +1321,6 @@
         calculateAll();
       });
 
-      await loadRunwayPresets();
       populateSavedRunwayOptions();
 
       const savedRunwaySelect = document.getElementById("savedRunwaySelect");

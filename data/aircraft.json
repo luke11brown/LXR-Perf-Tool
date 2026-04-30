@@ -1,0 +1,38 @@
+{
+  "F-HEGB": {
+    "weight": 416.3,
+    "cg": 707,
+    "upholsteryWeight": 3.7,
+    "upholsteryArm": 1076
+  },
+  "F-HEGC": {
+    "weight": 415.1,
+    "cg": 698,
+    "upholsteryWeight": 3.7,
+    "upholsteryArm": 1076
+  },
+  "F-HLDF": {
+    "weight": 417.2,
+    "cg": 710,
+    "upholsteryWeight": 3.7,
+    "upholsteryArm": 1076
+  },
+  "F-HLDG": {
+    "weight": 416.6,
+    "cg": 707,
+    "upholsteryWeight": 3.7,
+    "upholsteryArm": 1076
+  },
+  "F-HTGH": {
+    "weight": 414.9,
+    "cg": 710,
+    "upholsteryWeight": 3.7,
+    "upholsteryArm": 1076
+  },
+  "F-HXCD": {
+    "weight": 415.0,
+    "cg": 693,
+    "upholsteryWeight": 3.7,
+    "upholsteryArm": 1076
+  }
+}

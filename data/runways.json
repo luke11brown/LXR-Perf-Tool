@@ -8,7 +8,7 @@
     "asda": 1330,
     "lda": 1330,
     "heading": 137,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
   {
     "id": "LGKM_31",
@@ -19,7 +19,7 @@
     "asda": 1330,
     "lda": 1330,
     "heading": 317,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
   {
     "id": "LGKV_05",
@@ -30,7 +30,7 @@
     "asda": 3000,
     "lda": 3000,
     "heading": 55,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
     {
     "id": "LGKV_23",
@@ -41,7 +41,7 @@
     "asda": 3000,
     "lda": 3000,
     "heading": 235,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
     {
     "id": "LGAL_07",
@@ -52,7 +52,7 @@
     "asda": 2582,
     "lda": 2582,
     "heading": 73,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
     {
     "id": "LGAL_25",
@@ -63,7 +63,7 @@
     "asda": 2582,
     "lda": 2582,
     "heading": 253,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
     {
     "id": "LGLM_04R",
@@ -74,7 +74,7 @@
     "asda": 3016,
     "lda": 3016,
     "heading": 43,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
     {
     "id": "LGLM_22L",
@@ -85,7 +85,7 @@
     "asda": 3016,
     "lda": 3016,
     "heading": 223,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
     {
     "id": "LGTS_10",
@@ -96,7 +96,7 @@
     "asda": 3440,
     "lda": 3440,
     "heading": 104,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
     {
     "id": "LGTS_28",
@@ -107,7 +107,7 @@
     "asda": 3440,
     "lda": 3440,
     "heading": 284,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
     {
     "id": "LGTS_16",
@@ -118,7 +118,7 @@
     "asda": 2424,
     "lda": 2424,
     "heading": 166,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
     {
     "id": "LGTS_34",
@@ -129,7 +129,7 @@
     "asda": 2424,
     "lda": 2424,
     "heading": 346,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
     {
     "id": "LGSK_01",
@@ -140,7 +140,7 @@
     "asda": 1628,
     "lda": 1570,
     "heading": 19,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
     {
     "id": "LGSK_19",
@@ -151,7 +151,7 @@
     "asda": 1628,
     "lda": 1628,
     "heading": 199,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
     {
     "id": "LGSY_17",
@@ -162,7 +162,7 @@
     "asda": 3002,
     "lda": 2837,
     "heading": 176,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
     {
     "id": "LGSY_35",
@@ -173,7 +173,7 @@
     "asda": 3002,
     "lda": 2202,
     "heading": 356,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
     {
     "id": "LGMT_14",
@@ -184,7 +184,7 @@
     "asda": 2406,
     "lda": 2324,
     "heading": 148,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
     {
     "id": "LGMT_32",
@@ -195,7 +195,7 @@
     "asda": 2406,
     "lda": 1871,
     "heading": 328,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
     {
     "id": "LGHI_01",
@@ -206,7 +206,7 @@
     "asda": 1511,
     "lda": 1371,
     "heading": 10,
-    "surface": "hard"
+    "surface": "hard_dry"
   },
     {
     "id": "LGHI_19",
@@ -217,6 +217,6 @@
     "asda": 1511,
     "lda": 1442,
     "heading": 190,
-    "surface": "hard"
+    "surface": "hard_dry"
   }
 ]
