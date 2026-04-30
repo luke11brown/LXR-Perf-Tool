@@ -7,7 +7,7 @@
     "toda": 1330,
     "asda": 1330,
     "lda": 1330,
-    "heading": 131,
+    "heading": 137,
     "surface": "hard"
   },
   {
@@ -18,7 +18,7 @@
     "toda": 1330,
     "asda": 1330,
     "lda": 1330,
-    "heading": 311,
+    "heading": 317,
     "surface": "hard"
   },
   {
@@ -29,7 +29,7 @@
     "toda": 3000,
     "asda": 3000,
     "lda": 3000,
-    "heading": 49,
+    "heading": 55,
     "surface": "hard"
   },
     {
@@ -40,7 +40,7 @@
     "toda": 3000,
     "asda": 3000,
     "lda": 3000,
-    "heading": 229,
+    "heading": 235,
     "surface": "hard"
   },
     {
@@ -51,7 +51,7 @@
     "toda": 2582,
     "asda": 2582,
     "lda": 2582,
-    "heading": 67,
+    "heading": 73,
     "surface": "hard"
   },
     {
@@ -62,7 +62,161 @@
     "toda": 2582,
     "asda": 2582,
     "lda": 2582,
-    "heading": 247,
+    "heading": 253,
+    "surface": "hard"
+  },
+    {
+    "id": "LGLM_04R",
+    "label": "LGLM 04R",
+    "elev": 12,
+    "tora": 3016,
+    "toda": 3016,
+    "asda": 3016,
+    "lda": 3016,
+    "heading": 43,
+    "surface": "hard"
+  },
+    {
+    "id": "LGLM_22L",
+    "label": "LGLM 22L",
+    "elev": 13,
+    "tora": 3016,
+    "toda": 3016,
+    "asda": 3016,
+    "lda": 3016,
+    "heading": 223,
+    "surface": "hard"
+  },
+    {
+    "id": "LGTS_10",
+    "label": "LGTS 10",
+    "elev": 18,
+    "tora": 3440,
+    "toda": 3440,
+    "asda": 3440,
+    "lda": 3440,
+    "heading": 104,
+    "surface": "hard"
+  },
+    {
+    "id": "LGTS_28",
+    "label": "LGTS 28",
+    "elev": 17,
+    "tora": 3440,
+    "toda": 3440,
+    "asda": 3440,
+    "lda": 3440,
+    "heading": 284,
+    "surface": "hard"
+  },
+    {
+    "id": "LGTS_16",
+    "label": "LGTS 16",
+    "elev": 12,
+    "tora": 2424,
+    "toda": 2424,
+    "asda": 2424,
+    "lda": 2424,
+    "heading": 166,
+    "surface": "hard"
+  },
+    {
+    "id": "LGTS_34",
+    "label": "LGTS 34",
+    "elev": 22,
+    "tora": 2424,
+    "toda": 2424,
+    "asda": 2424,
+    "lda": 2424,
+    "heading": 346,
+    "surface": "hard"
+  },
+    {
+    "id": "LGSK_01",
+    "label": "LGSK 01",
+    "elev": 9,
+    "tora": 1628,
+    "toda": 1828,
+    "asda": 1628,
+    "lda": 1570,
+    "heading": 19,
+    "surface": "hard"
+  },
+    {
+    "id": "LGSK_19",
+    "label": "LGSK 19",
+    "elev": 16,
+    "tora": 1628,
+    "toda": 1628,
+    "asda": 1628,
+    "lda": 1628,
+    "heading": 199,
+    "surface": "hard"
+  },
+    {
+    "id": "LGSY_17",
+    "label": "LGSY 17",
+    "elev": 14,
+    "tora": 3002,
+    "toda": 3002,
+    "asda": 3002,
+    "lda": 2837,
+    "heading": 176,
+    "surface": "hard"
+  },
+    {
+    "id": "LGSY_35",
+    "label": "LGSY 35",
+    "elev": 39,
+    "tora": 3002,
+    "toda": 3002,
+    "asda": 3002,
+    "lda": 2202,
+    "heading": 356,
+    "surface": "hard"
+  },
+    {
+    "id": "LGMT_14",
+    "label": "LGMT 14",
+    "elev": 58,
+    "tora": 2406,
+    "toda": 2406,
+    "asda": 2406,
+    "lda": 2324,
+    "heading": 148,
+    "surface": "hard"
+  },
+    {
+    "id": "LGMT_32",
+    "label": "LGMT 32",
+    "elev": 21,
+    "tora": 2406,
+    "toda": 2406,
+    "asda": 2406,
+    "lda": 1871,
+    "heading": 328,
+    "surface": "hard"
+  },
+    {
+    "id": "LGHI_01",
+    "label": "LGHI 01",
+    "elev": 8,
+    "tora": 1511,
+    "toda": 1511,
+    "asda": 1511,
+    "lda": 1371,
+    "heading": 10,
+    "surface": "hard"
+  },
+    {
+    "id": "LGHI_19",
+    "label": "LGHI 19",
+    "elev": 9,
+    "tora": 1511,
+    "toda": 1511,
+    "asda": 1511,
+    "lda": 1442,
+    "heading": 190,
     "surface": "hard"
   }
 ]
