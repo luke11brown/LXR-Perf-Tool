@@ -278,13 +278,15 @@
       margin-top: 0.3rem;
     }
 
-    #windComponents {
+    #depWindComponents,
+    #arrWindComponents {
       display: grid;
       gap: 0.2rem;
       line-height: 1.35;
     }
 
-    #windComponents strong {
+    #depWindComponents strong,
+    #arrWindComponents strong {
       color: var(--text);
       font-size: 0.68rem;
       letter-spacing: 0.12em;
@@ -585,11 +587,12 @@
       position: absolute;
       top: 0;
       bottom: 0;
-      width: 2px;
+      width: 3px;
       background: rgba(226, 237, 246, 0.35);
       transform: translateX(-50%);
       pointer-events: none;
-      z-index: 2;
+      z-index: 4;
+      box-shadow: 0 0 0 1px rgba(7, 11, 16, 0.75);
     }
 
     .runway-tick.tick-to {
@@ -606,7 +609,7 @@
     }
 
     .runway-tick.tick-tora {
-      background: #a855f7;
+      background: rgba(250, 204, 21, 0.95);
     }
 
     .runway-tick.tick-lda {
@@ -668,6 +671,11 @@
 
     .runway-section-row {
       margin-top: 0;
+    }
+
+    .runway-visual-panel .declared-row {
+      min-height: 3.3rem;
+      align-content: flex-start;
     }
 
     .fact-status-ok {

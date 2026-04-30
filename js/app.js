@@ -717,8 +717,10 @@
       const arrCrosswind = arrWind.crosswind;
       const arrTailwind = arrHeadwind < 0 ? -arrHeadwind : 0;
 
-      const windComponentsEl = document.getElementById("windComponents");
-      const windLimitWarn = document.getElementById("windLimitWarn");
+      const depWindComponentsEl = document.getElementById("depWindComponents");
+      const arrWindComponentsEl = document.getElementById("arrWindComponents");
+      const depWindLimitWarn = document.getElementById("depWindLimitWarn");
+      const arrWindLimitWarn = document.getElementById("arrWindLimitWarn");
 
       const headStr =
         headwind >= 0
@@ -728,45 +730,62 @@
         ? "Crosswind not assessed (VRB)"
         : `Crosswind ${round(Math.abs(crosswind), 1)} kt`;
 
-      let xwWarn = "";
-      if (windIsVRB || arrWindIsVRB) {
-        xwWarn = " – VRB treated as full tailwind for performance where entered";
-      } else if (Math.max(Math.abs(crosswind), Math.abs(arrCrosswind)) > MAX_XWIND) {
-        xwWarn = " – ABOVE max demonstrated 18 kt";
-      } else {
-        xwWarn = " – within demonstrated limit";
-      }
-
       const arrHeadStr = arrHeadwind >= 0 ? `Headwind ${round(arrHeadwind, 1)} kt` : `Tailwind ${round(arrTailwind, 1)} kt`;
       const arrXwStr = arrWindIsVRB ? "Crosswind not assessed (VRB)" : `Crosswind ${round(Math.abs(arrCrosswind), 1)} kt`;
-      windComponentsEl.innerHTML = `
-        <div><strong>DEP</strong> ${headStr}, ${xwStr}</div>
-        <div><strong>ARR</strong> ${arrHeadStr}, ${arrXwStr}</div>
-        <div>${xwWarn.replace(/^ – /, "")}</div>
-      `;
+      const depXwNote = windIsVRB
+        ? "VRB treated as full tailwind for performance"
+        : (Math.abs(crosswind) > MAX_XWIND ? "ABOVE max demonstrated 18 kt" : "within demonstrated limit");
+      const arrXwNote = arrWindIsVRB
+        ? "VRB treated as full tailwind for performance"
+        : (Math.abs(arrCrosswind) > MAX_XWIND ? "ABOVE max demonstrated 18 kt" : "within demonstrated limit");
+      if (depWindComponentsEl) {
+        depWindComponentsEl.innerHTML = `
+          <div>${headStr}, ${xwStr}</div>
+          <div>${depXwNote}</div>
+        `;
+      }
+      if (arrWindComponentsEl) {
+        arrWindComponentsEl.innerHTML = `
+          <div>${arrHeadStr}, ${arrXwStr}</div>
+          <div>${arrXwNote}</div>
+        `;
+      }
 
       const tailwindOk = tailwind <= MAX_RECOMMENDED_TAILWIND && arrTailwind <= MAX_RECOMMENDED_TAILWIND;
-      const crosswindOk = (windIsVRB || arrWindIsVRB) ? true : Math.max(Math.abs(crosswind), Math.abs(arrCrosswind)) <= MAX_XWIND;
+      const depCrosswindOk = windIsVRB || Math.abs(crosswind) <= MAX_XWIND;
+      const arrCrosswindOk = arrWindIsVRB || Math.abs(arrCrosswind) <= MAX_XWIND;
+      const crosswindOk = depCrosswindOk && arrCrosswindOk;
       const windOk = windSpd <= MAX_WIND && arrWindSpd <= MAX_WIND && crosswindOk && tailwindOk;
 
-      const windWarnings = [];
-      if (windIsVRB && windSpd > 0) windWarnings.push(`Departure VRB wind treated as full ${round(windSpd, 1)} kt tailwind for performance. Crosswind is not assessed.`);
-      if (arrWindIsVRB && arrWindSpd > 0) windWarnings.push(`Arrival VRB wind treated as full ${round(arrWindSpd, 1)} kt tailwind for performance. Crosswind is not assessed.`);
-      if (!windIsVRB && windSpd > 0 && !Number.isFinite(parsedWindDir)) windWarnings.push("Departure wind direction should be degrees true or VRB.");
-      if (!arrWindIsVRB && arrWindSpd > 0 && !Number.isFinite(arrWind.parsedWindDir)) windWarnings.push("Arrival wind direction should be degrees true or VRB.");
-      if (windSpd > MAX_WIND) windWarnings.push(`Departure not permitted – departure wind speed ${round(windSpd, 1)} kt exceeds 40 kt limit.`);
-      if (arrWindSpd > MAX_WIND) windWarnings.push(`Arrival wind speed ${round(arrWindSpd, 1)} kt exceeds 40 kt limit.`);
-      if (tailwind > MAX_RECOMMENDED_TAILWIND) windWarnings.push(`Departure tailwind ${round(tailwind, 1)} kt exceeds AFM recommended maximum ${MAX_RECOMMENDED_TAILWIND} kt.`);
-      if (arrTailwind > MAX_RECOMMENDED_TAILWIND) windWarnings.push(`Arrival tailwind ${round(arrTailwind, 1)} kt exceeds AFM recommended maximum ${MAX_RECOMMENDED_TAILWIND} kt.`);
-      if (tailwind > WIND_FACTOR_LIMIT_TAIL || arrTailwind > WIND_FACTOR_LIMIT_TAIL) windWarnings.push(`Tailwind correction is capped at ${WIND_FACTOR_LIMIT_TAIL} kt for chart validity.`);
-      if (headwind > WIND_FACTOR_LIMIT_HEAD || arrHeadwind > WIND_FACTOR_LIMIT_HEAD) windWarnings.push(`Headwind correction is capped at ${WIND_FACTOR_LIMIT_HEAD} kt for chart validity.`);
+      const depWindWarnings = [];
+      const arrWindWarnings = [];
+      if (windIsVRB && windSpd > 0) depWindWarnings.push(`VRB wind treated as full ${round(windSpd, 1)} kt tailwind for performance. Crosswind is not assessed.`);
+      if (arrWindIsVRB && arrWindSpd > 0) arrWindWarnings.push(`VRB wind treated as full ${round(arrWindSpd, 1)} kt tailwind for performance. Crosswind is not assessed.`);
+      if (!windIsVRB && windSpd > 0 && !Number.isFinite(parsedWindDir)) depWindWarnings.push("Wind direction should be degrees true or VRB.");
+      if (!arrWindIsVRB && arrWindSpd > 0 && !Number.isFinite(arrWind.parsedWindDir)) arrWindWarnings.push("Wind direction should be degrees true or VRB.");
+      if (!depCrosswindOk) depWindWarnings.push(`Crosswind ${round(Math.abs(crosswind), 1)} kt exceeds demonstrated ${MAX_XWIND} kt.`);
+      if (!arrCrosswindOk) arrWindWarnings.push(`Crosswind ${round(Math.abs(arrCrosswind), 1)} kt exceeds demonstrated ${MAX_XWIND} kt.`);
+      if (windSpd > MAX_WIND) depWindWarnings.push(`Not permitted - wind speed ${round(windSpd, 1)} kt exceeds 40 kt limit.`);
+      if (arrWindSpd > MAX_WIND) arrWindWarnings.push(`Wind speed ${round(arrWindSpd, 1)} kt exceeds 40 kt limit.`);
+      if (tailwind > MAX_RECOMMENDED_TAILWIND) depWindWarnings.push(`Tailwind ${round(tailwind, 1)} kt exceeds AFM recommended maximum ${MAX_RECOMMENDED_TAILWIND} kt.`);
+      if (arrTailwind > MAX_RECOMMENDED_TAILWIND) arrWindWarnings.push(`Tailwind ${round(arrTailwind, 1)} kt exceeds AFM recommended maximum ${MAX_RECOMMENDED_TAILWIND} kt.`);
+      if (tailwind > WIND_FACTOR_LIMIT_TAIL) depWindWarnings.push(`Tailwind correction is capped at ${WIND_FACTOR_LIMIT_TAIL} kt for chart validity.`);
+      if (arrTailwind > WIND_FACTOR_LIMIT_TAIL) arrWindWarnings.push(`Tailwind correction is capped at ${WIND_FACTOR_LIMIT_TAIL} kt for chart validity.`);
+      if (headwind > WIND_FACTOR_LIMIT_HEAD) depWindWarnings.push(`Headwind correction is capped at ${WIND_FACTOR_LIMIT_HEAD} kt for chart validity.`);
+      if (arrHeadwind > WIND_FACTOR_LIMIT_HEAD) arrWindWarnings.push(`Headwind correction is capped at ${WIND_FACTOR_LIMIT_HEAD} kt for chart validity.`);
 
-      if (windWarnings.length > 0) {
-        windLimitWarn.style.display = "block";
-        windLimitWarn.textContent = windWarnings.join(" ");
-      } else {
-        windLimitWarn.style.display = "none";
+      function setPhaseWindWarning(el, warnings) {
+        if (!el) return;
+        if (warnings.length > 0) {
+          el.style.display = "block";
+          el.textContent = warnings.join(" ");
+        } else {
+          el.style.display = "none";
+          el.textContent = "";
+        }
       }
+      setPhaseWindWarning(depWindLimitWarn, depWindWarnings);
+      setPhaseWindWarning(arrWindLimitWarn, arrWindWarnings);
 
       const baseTO = interpTOLD(pa, isaDev, TO_TABLE);
       const baseLDG = interpTOLD(arrPa, arrIsaDev, LDG_TABLE);
@@ -855,7 +874,7 @@
         const el = document.getElementById(id);
         if (!el) return;
         const ratio = dist / availableLength;
-        const xPx = clamp(ratio, 0, 1) * barWidth;
+        const xPx = Math.min(barWidth - 2, Math.max(2, clamp(ratio, 0, 1) * barWidth));
         el.style.left = xPx + "px";
       }
 
@@ -1164,7 +1183,7 @@
   <h2>Conditions, runway and performance</h2>
   <div class="grid">
     <div class="box perf kv">
-      <div class="k">Departure runway</div><div class="v">${escHtml(getText("declRwy"))}</div>
+      <div class="k">Departure runway</div><div class="v">${escHtml(formatRunwayLabel())}</div>
       <div class="k">Surface</div><div class="v">${escHtml(depSurfaceText)}</div>
       <div class="k">Elevation</div><div class="v">${escHtml(getValue("fieldElev"))} ft</div>
       <div class="k">QNH</div><div class="v">${escHtml(getValue("qnh"))} hPa</div>
@@ -1176,7 +1195,7 @@
       <div class="k">ASDA</div><div class="v">${escHtml(getText("declAsda"))}</div>
     </div>
     <div class="box perf kv">
-      <div class="k">Arrival runway</div><div class="v">${escHtml(getText("declArrRwy"))}</div>
+      <div class="k">Arrival runway</div><div class="v">${escHtml(formatArrivalRunwayLabel())}</div>
       <div class="k">Surface</div><div class="v">${escHtml(arrSurfaceText)}</div>
       <div class="k">Elevation</div><div class="v">${escHtml(getValue("arrFieldElev"))} ft</div>
       <div class="k">QNH</div><div class="v">${escHtml(getValue("arrQnh"))} hPa</div>
