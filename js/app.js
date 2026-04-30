@@ -66,6 +66,8 @@
     let activeRunwayLabel = null;
     let activeArrivalRunwayLabel = null;
     let arrivalUsesDepartureRunway = true;
+    let depSurfaceBase = "hard";
+    let arrSurfaceBase = "hard";
     const METAR_STALE_MINUTES = 90;
     const METAR_FETCH_TIMEOUT_MS = 12000;
 
@@ -121,6 +123,29 @@
       });
     }
 
+    function splitSurfaceKey(surfaceKey) {
+      const [base = "hard", condition = "dry"] = String(surfaceKey || "hard_dry").split("_");
+      return { base, condition: condition === "wet" ? "wet" : "dry" };
+    }
+
+    function surfaceKeyFrom(base, condition) {
+      const cleanBase = base === "grass" ? "grass" : "hard";
+      const cleanCondition = condition === "wet" ? "wet" : "dry";
+      return `${cleanBase}_${cleanCondition}`;
+    }
+
+    function applySurfacePreset(selectId, surfaceKey, isArrival = false) {
+      const parsed = splitSurfaceKey(surfaceKey);
+      if (isArrival) arrSurfaceBase = parsed.base;
+      else depSurfaceBase = parsed.base;
+      const select = document.getElementById(selectId);
+      if (select) select.value = parsed.condition;
+    }
+
+    function currentSurfaceKey(selectId, isArrival = false) {
+      return surfaceKeyFrom(isArrival ? arrSurfaceBase : depSurfaceBase, document.getElementById(selectId)?.value);
+    }
+
     function updateRunwayEditState() {
       const depPresetSelected = document.getElementById("savedRunwaySelect")?.value !== "none";
       const arrPresetSelected = document.getElementById("arrivalRunwaySelect")?.value !== "none";
@@ -137,7 +162,7 @@
       document.getElementById("runwayAsda").value = data.asda ?? document.getElementById("runwayAsda").value;
       document.getElementById("runwayLda").value = data.lda ?? document.getElementById("runwayLda").value;
       document.getElementById("rwHeading").value = data.heading ?? document.getElementById("rwHeading").value;
-      document.getElementById("surface").value = data.surface ?? document.getElementById("surface").value;
+      applySurfacePreset("surface", data.surface, false);
       activeRunwayLabel = label || data.label || "Custom runway";
       if (arrivalUsesDepartureRunway) copyDepartureToArrival();
       updateArrivalWeatherControls();
@@ -148,6 +173,7 @@
       document.getElementById("arrFieldElev").value = document.getElementById("fieldElev").value;
       document.getElementById("arrLda").value = document.getElementById("runwayLda").value;
       document.getElementById("arrHeading").value = document.getElementById("rwHeading").value;
+      arrSurfaceBase = depSurfaceBase;
       document.getElementById("arrSurface").value = document.getElementById("surface").value;
       activeArrivalRunwayLabel = activeRunwayLabel;
     }
@@ -185,7 +211,7 @@
       document.getElementById("arrFieldElev").value = data.elev ?? document.getElementById("arrFieldElev").value;
       document.getElementById("arrLda").value = data.lda ?? data.tora ?? document.getElementById("arrLda").value;
       document.getElementById("arrHeading").value = data.heading ?? document.getElementById("arrHeading").value;
-      document.getElementById("arrSurface").value = data.surface ?? document.getElementById("arrSurface").value;
+      applySurfacePreset("arrSurface", data.surface, true);
       activeArrivalRunwayLabel = label || data.label || "Custom arrival runway";
       arrivalUsesDepartureRunway = false;
       const useDepWeather = document.getElementById("arrUseDepWeather");
@@ -699,17 +725,15 @@
       updateArrivalWeatherControls();
       const arrivalWeatherUsesDeparture = arrivalUsesDepartureRunway || !!document.getElementById("arrUseDepWeather")?.checked;
       if (arrivalWeatherUsesDeparture) copyDepartureWeatherToArrival();
-      const surface = document.getElementById("surface").value;
+      const surface = currentSurfaceKey("surface", false);
       const surfaceCfg = GRASS_FACTORS[surface] || GRASS_FACTORS.hard_dry;
-      const arrSurface = document.getElementById("arrSurface").value;
+      const arrSurface = currentSurfaceKey("arrSurface", true);
       const arrSurfaceCfg = GRASS_FACTORS[arrSurface] || GRASS_FACTORS.hard_dry;
       const usingWet = !!arrSurfaceCfg.wetLanding;
       const runwayTora = parseFloat(document.getElementById("runwayTora").value) || 1;
       const runwayToda = parseFloat(document.getElementById("runwayToda").value) || 1;
       const runwayAsda = parseFloat(document.getElementById("runwayAsda").value) || 1;
       const runwayLda = parseFloat(document.getElementById("arrLda").value) || 1;
-      const declaredRunwayLength = Math.max(runwayTora, runwayToda, runwayAsda, runwayLda, 1);
-
       const pa = fieldElev + (1013.25 - qnh) * 30;
       const isaTemp = 15 - 2 * (pa / 1000);
       const isaDev = oat - isaTemp;
@@ -888,20 +912,20 @@
       statusSpan("reqLdaDryStatus", ldaDryOk);
       statusSpan("reqLdaWetStatus", ldaWetOk);
 
-      function setMarker(id, dist, availableLength, barWidth) {
+      function setMarker(id, dist, limitLength, scaleLength, barWidth) {
         const el = document.getElementById(id);
-        const ratio = dist / availableLength;
+        const ratio = dist / scaleLength;
         const widthPx = Math.min(barWidth, Math.max(0, ratio * barWidth));
         el.style.width = widthPx + "px";
 
-        if (dist > availableLength) el.classList.add("overrun");
+        if (dist > limitLength) el.classList.add("overrun");
         else el.classList.remove("overrun");
       }
 
-      function setTick(id, dist, availableLength, barWidth) {
+      function setTick(id, dist, scaleLength, barWidth) {
         const el = document.getElementById(id);
         if (!el) return;
-        const ratio = dist / availableLength;
+        const ratio = dist / scaleLength;
         const xPx = Math.min(barWidth - 2, Math.max(2, clamp(ratio, 0, 1) * barWidth));
         el.style.left = xPx + "px";
       }
@@ -911,16 +935,18 @@
       const landingBar = document.getElementById("landingRunwayBar");
       const takeoffBarWidth = takeoffBar?.clientWidth || 1;
       const landingBarWidth = landingBar?.clientWidth || 1;
+      const takeoffScaleLength = Math.max(runwayTora, runwayToda, runwayAsda, toRun, toDist, activeReqToraVal, 1);
+      const landingScaleLength = Math.max(runwayLda, ldgRun, ldgDist, activeReqLda, 1);
 
-      setMarker("barToRun", toRun, runwayTora, takeoffBarWidth);
-      setMarker("barToDist", toDist, runwayTora, takeoffBarWidth);
-      setTick("tickTakeoffEnd", runwayTora, runwayTora, takeoffBarWidth);
-      setTick("tickReqTora125", activeReqToraVal, runwayTora, takeoffBarWidth);
+      setMarker("barToRun", toRun, runwayTora, takeoffScaleLength, takeoffBarWidth);
+      setMarker("barToDist", toDist, runwayToda, takeoffScaleLength, takeoffBarWidth);
+      setTick("tickTakeoffEnd", runwayTora, takeoffScaleLength, takeoffBarWidth);
+      setTick("tickReqTora125", activeReqToraVal, takeoffScaleLength, takeoffBarWidth);
 
-      setMarker("barLdgRun", ldgRun, runwayLda, landingBarWidth);
-      setMarker("barLdgDist", ldgDist, runwayLda, landingBarWidth);
-      setTick("tickLandingEnd", runwayLda, runwayLda, landingBarWidth);
-      setTick("tickReqLda", activeReqLda, runwayLda, landingBarWidth);
+      setMarker("barLdgRun", ldgRun, runwayLda, landingScaleLength, landingBarWidth);
+      setMarker("barLdgDist", ldgDist, runwayLda, landingScaleLength, landingBarWidth);
+      setTick("tickLandingEnd", runwayLda, landingScaleLength, landingBarWidth);
+      setTick("tickReqLda", activeReqLda, landingScaleLength, landingBarWidth);
 
       document.getElementById("declRwy").textContent = `${formatRunwayLabel()} (${round(rwHeading, 0)}°T)`;
       document.getElementById("declArrRwy").textContent = `${formatArrivalRunwayLabel()} (${round(arrHeading, 0)}°T)`;
@@ -1110,8 +1136,8 @@
       const rowsHtml = momentRows.map((row) => `
         <tr><td>${escHtml(row[0])}</td><td class="num">${escHtml(row[1])}</td><td class="num">${escHtml(row[2])}</td><td class="num">${escHtml(row[3])}</td></tr>
       `).join("");
-      const depSurfaceText = GRASS_FACTORS[getValue("surface")]?.label || getSelectedText("surface") || "CUSTOM";
-      const arrSurfaceText = GRASS_FACTORS[getValue("arrSurface")]?.label || getSelectedText("arrSurface") || "CUSTOM";
+      const depSurfaceText = GRASS_FACTORS[currentSurfaceKey("surface", false)]?.label || "CUSTOM";
+      const arrSurfaceText = GRASS_FACTORS[currentSurfaceKey("arrSurface", true)]?.label || "CUSTOM";
       const cgChartImg = document.getElementById("cgChart")?.toDataURL("image/png") || "";
       const depWindComponentsText = formatWindComponentsForExport("windDir", "windSpd", "rwHeading");
       const arrWindComponentsText = formatWindComponentsForExport("arrWindDir", "arrWindSpd", "arrHeading");
@@ -1349,6 +1375,8 @@
         const selectedId = savedRunwaySelect.value;
         if (selectedId === "none") {
           activeRunwayLabel = null;
+          depSurfaceBase = "hard";
+          if (arrivalUsesDepartureRunway) copyDepartureToArrival();
           updateRunwayEditState();
           calculateAll();
           return;

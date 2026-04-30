@@ -28,7 +28,7 @@
 
     body {
       margin: 0;
-      padding-bottom: 5.5rem;
+      padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
         "Segoe UI", sans-serif;
       background: linear-gradient(180deg, #05070b, #0b0f14 40%, #0b0f14);
@@ -792,7 +792,7 @@
       border-top: 1px solid var(--border);
       background: rgba(5, 7, 11, 0.92);
       backdrop-filter: blur(10px);
-      padding: 0.7rem 1rem;
+      padding: 0.7rem 1rem calc(0.7rem + env(safe-area-inset-bottom, 0px));
       box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.35);
     }
 
@@ -847,17 +847,30 @@
     }
 
     @media (max-width: 640px) {
-      body { padding-bottom: 6.4rem; }
+      body { padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
+      .sticky-calc-footer {
+        padding: 0.5rem 0.8rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+      }
       .sticky-calc-inner {
         align-items: stretch;
         flex-direction: column;
+        gap: 0.45rem;
+      }
+      .sticky-calc-copy {
+        display: none;
       }
       .sticky-actions {
         width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem;
       }
       .sticky-calc-footer button {
         justify-content: center;
-        flex: 1 1 12rem;
+        width: 100%;
+        min-width: 0;
+        padding-left: 0.45rem;
+        padding-right: 0.45rem;
       }
       .sticky-calc-note {
         white-space: normal;

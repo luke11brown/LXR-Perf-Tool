@@ -294,10 +294,8 @@
             <div class="field">
               <label for="surface">Surface</label>
               <select id="surface">
-                <option value="hard_dry">Paved – dry</option>
-                <option value="hard_wet">Paved – wet</option>
-                <option value="grass_dry">Grass – dry</option>
-                <option value="grass_wet">Grass – wet</option>
+                <option value="dry">Dry</option>
+                <option value="wet">Wet</option>
               </select>
             </div>
           </div>
@@ -381,6 +379,10 @@
             </div>
           </div>
           <div class="inline-note" id="arrivalMetarStatus"></div>
+          <div class="check-row">
+            <input id="arrUseDepWeather" type="checkbox" checked />
+            <label for="arrUseDepWeather">Use departure QNH, OAT and wind for arrival</label>
+          </div>
           <div class="grid-3" style="margin-top:0.75rem">
             <div class="field">
               <label for="arrFieldElev">Field elevation (ft)</label>
@@ -406,10 +408,6 @@
             </div>
           </div>
 
-          <div class="check-row">
-            <input id="arrUseDepWeather" type="checkbox" checked />
-            <label for="arrUseDepWeather">Use departure QNH, OAT and wind for arrival</label>
-          </div>
           <div class="grid" style="margin-top:0.75rem">
             <div class="field">
               <label for="arrLda">LDA (m)</label>
@@ -418,10 +416,8 @@
             <div class="field">
               <label for="arrSurface">Surface</label>
               <select id="arrSurface">
-                <option value="hard_dry">Paved – dry</option>
-                <option value="hard_wet">Paved – wet</option>
-                <option value="grass_dry">Grass – dry</option>
-                <option value="grass_wet">Grass – wet</option>
+                <option value="dry">Dry</option>
+                <option value="wet">Wet</option>
               </select>
             </div>
           </div>
