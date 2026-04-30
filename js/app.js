@@ -88,11 +88,17 @@
       }
     }
 
-    function populateRunwaySelect(selectId, noneLabel = "None") {
+    function populateRunwaySelect(selectId, noneLabel = "None", extraOptions = []) {
       const select = document.getElementById(selectId);
       if (!select) return;
       const previousValue = select.value;
       select.innerHTML = `<option value="none">${noneLabel}</option>`;
+      extraOptions.forEach(({ value, label }) => {
+        const opt = document.createElement("option");
+        opt.value = value;
+        opt.textContent = label;
+        select.appendChild(opt);
+      });
 
       const presetIds = Object.keys(PRESET_RUNWAYS);
       if (presetIds.length > 0) {
@@ -113,7 +119,9 @@
 
     function populatePresetRunwayOptions() {
       populateRunwaySelect("savedRunwaySelect", "Manual entry");
-      populateRunwaySelect("arrivalRunwaySelect", "Use departure runway");
+      populateRunwaySelect("arrivalRunwaySelect", "Use departure runway", [
+        { value: "manual", label: "Manual entry" },
+      ]);
     }
 
     function setFieldGroupDisabled(ids, disabled) {
@@ -148,7 +156,8 @@
 
     function updateRunwayEditState() {
       const depPresetSelected = document.getElementById("savedRunwaySelect")?.value !== "none";
-      const arrPresetSelected = document.getElementById("arrivalRunwaySelect")?.value !== "none";
+      const arrivalRunwayValue = document.getElementById("arrivalRunwaySelect")?.value;
+      const arrPresetSelected = arrivalRunwayValue !== "none" && arrivalRunwayValue !== "manual";
 
       setFieldGroupDisabled(["fieldElev", "runwayTora", "runwayToda", "runwayAsda", "runwayLda", "rwHeading"], depPresetSelected);
       setFieldGroupDisabled(["arrFieldElev", "arrLda", "arrHeading"], arrivalUsesDepartureRunway || arrPresetSelected);
@@ -195,6 +204,8 @@
       } else {
         useDep.disabled = false;
       }
+      const row = useDep.closest(".check-row");
+      if (row) row.style.display = arrivalUsesDepartureRunway ? "none" : "flex";
       const disabled = useDep.checked;
       ["arrQnh", "arrOat", "arrWindDir", "arrWindSpd"].forEach(id => {
         const el = document.getElementById(id);
@@ -229,7 +240,7 @@
 
     function getSelectedRunway(selectId) {
       const select = document.getElementById(selectId);
-      if (!select || select.value === "none") return null;
+      if (!select || select.value === "none" || select.value === "manual") return null;
 
       const preset = PRESET_RUNWAYS[select.value];
       if (preset) return preset;
@@ -1327,8 +1338,7 @@
       const reportUrl = URL.createObjectURL(new Blob([html], { type: "text/html" }));
       const win = window.open(reportUrl, "_blank", "noopener");
       if (!win) {
-        URL.revokeObjectURL(reportUrl);
-        alert("Popup blocked. Please allow popups for this page, then try Export PDF again.");
+        window.setTimeout(() => URL.revokeObjectURL(reportUrl), 60000);
         return;
       }
       window.setTimeout(() => URL.revokeObjectURL(reportUrl), 60000);
@@ -1408,6 +1418,18 @@
           copyDepartureToArrival();
           const useDepWeather = document.getElementById("arrUseDepWeather");
           if (useDepWeather) useDepWeather.checked = true;
+          updateArrivalWeatherControls();
+          updateRunwayEditState();
+          calculateAll();
+          return;
+        }
+
+        if (selectedId === "manual") {
+          arrivalUsesDepartureRunway = false;
+          activeArrivalRunwayLabel = null;
+          arrSurfaceBase = "hard";
+          const useDepWeather = document.getElementById("arrUseDepWeather");
+          if (useDepWeather) useDepWeather.checked = false;
           updateArrivalWeatherControls();
           updateRunwayEditState();
           calculateAll();
