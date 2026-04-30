@@ -1155,23 +1155,21 @@
         : `Departure ${runwayLabelForSummary} declared distances (TORA ${round(runwayTora, 0)} m, TODA ${round(runwayToda, 0)} m, ASDA ${round(runwayAsda, 0)} m) or arrival ${arrivalLabelForSummary} LDA ${round(runwayLda, 0)} m are insufficient for current requirements.`;
       setSummaryLine("sumRunway", sumRunwayText, runwayOk);
 
-      const go = wbOk && windOk && runwayOk;
-      const reasons = [];
-      if (!wbOk) reasons.push("W&B outside AFM limits");
-      if (!toOk) reasons.push("take-off distance requirement not met");
-      if (!ldgCriterionOk) reasons.push("landing distance requirement not met");
-      if (!windOk) reasons.push("wind limits exceeded");
-
-      const pill = document.getElementById("sumPill");
-      if (go) {
-        pill.textContent = "Decision: GO – all checks satisfied (still apply judgement & margins).";
-        pill.classList.remove("bad");
-        pill.classList.add("ok");
+      const nonCompliance = [];
+      if (!wbOk) nonCompliance.push("W&B outside AFM limits");
+      if (!toOk) nonCompliance.push("take-off requirement not met");
+      if (!ldgCriterionOk) nonCompliance.push("landing requirement not met");
+      if (!windOk) nonCompliance.push("wind limits or recommendations exceeded");
+      const complianceAlertRow = document.getElementById("complianceAlertRow");
+      const complianceAlert = document.getElementById("complianceAlert");
+      if (nonCompliance.length > 0) {
+        complianceAlert.textContent = `Not compliant for dispatch: ${nonCompliance.join("; ")}.`;
+        complianceAlertRow.style.display = "flex";
       } else {
-        pill.textContent = "Decision: NO-GO – " + reasons.join("; ");
-        pill.classList.remove("ok");
-        pill.classList.add("bad");
+        complianceAlert.textContent = "";
+        complianceAlertRow.style.display = "none";
       }
+
       const rows = [
         ["Empty aircraft", mEmpty, emptyArm, momEmpty],
         ["Upholstery", mUpholstery, upholsteryArm, momUpholstery],
@@ -1258,11 +1256,10 @@
       `).join("");
       const depSurfaceText = GRASS_FACTORS[getValue("surface")]?.label || getSelectedText("surface") || "CUSTOM";
       const arrSurfaceText = GRASS_FACTORS[getValue("arrSurface")]?.label || getSelectedText("arrSurface") || "CUSTOM";
-      const decisionText = getText("sumPill");
-      const decisionClass = decisionText.includes("NO-GO") ? "decision bad-bg" : decisionText.includes("GO") ? "decision ok-bg" : "decision";
       const cgChartImg = document.getElementById("cgChart")?.toDataURL("image/png") || "";
       const depWindComponentsText = formatWindComponentsForExport("windDir", "windSpd", "rwHeading");
       const arrWindComponentsText = formatWindComponentsForExport("arrWindDir", "arrWindSpd", "arrHeading");
+      const complianceText = getText("complianceAlert");
 
       const html = `<!doctype html>
 <html>
@@ -1270,24 +1267,27 @@
   <meta charset="utf-8">
   <title>${reportTitle}</title>
   <style>
-    @page { size: A4; margin: 14mm; }
+    @page { size: A4; margin: 12mm; }
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #111827; margin: 0; font-size: 11px; }
-    h1 { color: #075985; font-size: 18px; margin: 0 0 4px; letter-spacing: 0.04em; text-transform: uppercase; }
-    h2 { background: #e0f2fe; border-left: 4px solid #0284c7; color: #075985; font-size: 12px; margin: 14px 0 6px; letter-spacing: 0.06em; text-transform: uppercase; padding: 5px 7px; }
+    body { font-family: Roboto, Inter, "Segoe UI", Arial, sans-serif; color: #111827; margin: 0; font-size: 10.5px; }
+    h1 { color: #075985; font-size: 17px; margin: 0; letter-spacing: 0.04em; text-transform: uppercase; }
+    h2 { background: #e0f2fe; border-left: 4px solid #0284c7; color: #075985; font-size: 11px; margin: 10px 0 5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 7px; }
+    .report-header { align-items: start; border-bottom: 2px solid #bae6fd; display: grid; grid-template-columns: 1fr auto; gap: 12px; margin-bottom: 6px; padding-bottom: 5px; }
+    .report-meta { color: #475569; font-size: 8.5px; line-height: 1.3; text-align: right; }
     .muted { color: #475569; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; }
-    .box { background: #ffffff; border: 1px solid #bfdbfe; border-top: 3px solid #38bdf8; border-radius: 6px; padding: 8px; break-inside: avoid; }
+    .box { background: #ffffff; border: 1px solid #bfdbfe; border-top: 3px solid #38bdf8; border-radius: 6px; padding: 7px; break-inside: avoid; }
     .box.wb { border-top-color: #22c55e; }
     .box.perf { border-top-color: #8b5cf6; }
     .box.warn { border-top-color: #f59e0b; background: #fffbeb; }
+    .compliance-alert { border: 1px solid #dc2626; border-radius: 6px; background: #fee2e2; color: #991b1b; font-weight: 700; margin-bottom: 8px; padding: 7px 8px; }
     .kv { display: grid; grid-template-columns: 44% 56%; gap: 3px 8px; }
     .k { color: #475569; }
     .v { font-weight: 700; }
     .stack { display: grid; gap: 6px; }
     .chart-img { width: 100%; max-height: 205px; object-fit: contain; }
     table { width: 100%; border-collapse: collapse; margin-top: 4px; table-layout: fixed; }
-    th, td { border-bottom: 1px solid #e5e7eb; padding: 4px 5px; text-align: left; vertical-align: top; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 3px 5px; text-align: left; vertical-align: top; }
     th { background: #eff6ff; color: #075985; text-transform: uppercase; font-size: 9px; }
     td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     .moment-table col.item { width: 34%; }
@@ -1297,16 +1297,18 @@
     .moment-table tfoot td { background: #ecfdf5; color: #166534; font-weight: 700; }
     .ok { color: #047857; font-weight: 700; }
     .bad { color: #b91c1c; font-weight: 700; }
-    .ok-bg { border-color: #16a34a; background: #dcfce7; color: #166534; }
-    .bad-bg { border-color: #dc2626; background: #fee2e2; color: #991b1b; }
-    .decision { border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font-weight: 700; }
     .footer { margin-top: 14px; font-size: 9px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 6px; }
     @media print { button { display:none; } }
   </style>
 </head>
 <body>
-  <h1>${reportTitle}</h1>
-  <div class="muted">Generated ${escHtml(now.toLocaleString())}. Unofficial helper - AFM and Ops Manual remain authoritative.</div>
+  <div class="report-header">
+    <h1>${reportTitle}</h1>
+    <div class="report-meta">
+      <div>Generated ${escHtml(now.toLocaleString())}</div>
+      <div>Unofficial helper. AFM and Ops Manual remain authoritative.</div>
+    </div>
+  </div>
 
   <h2>Aircraft and loading</h2>
   <div class="grid">
@@ -1392,12 +1394,12 @@
 
   <h2>Operational summary</h2>
   <div class="box warn">
+    ${complianceText ? `<div class="compliance-alert">${escHtml(complianceText)}</div>` : ""}
     <p><strong>W&B:</strong> ${escHtml(getText("sumWb"))}</p>
     <p><strong>Take-off:</strong> ${escHtml(getText("sumPerfTo"))}</p>
     <p><strong>Landing:</strong> ${escHtml(getText("sumPerfLdg"))}</p>
     <p><strong>Wind:</strong> ${escHtml(getText("sumWind"))}</p>
     <p><strong>Runway:</strong> ${escHtml(getText("sumRunway"))}</p>
-    <div class="${decisionClass}">${escHtml(decisionText)}</div>
   </div>
 
   <div class="footer">This PDF is a snapshot of the app data. It is not an AFM replacement.</div>

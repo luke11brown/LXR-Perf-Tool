@@ -561,7 +561,7 @@
       <div class="section-title">Operational Summary</div>
       <section class="card">
         <h2>Operational Summary</h2>
-        <small>High-level GO/NO-GO view from AFM, weight &amp; balance, runway and wind checks.</small>
+        <small>Compliance notes from AFM, weight &amp; balance, runway and wind checks.</small>
 
         <div class="res-card" style="margin-bottom:0.5rem;">
           <div class="res-title">Weight &amp; balance</div>
@@ -584,13 +584,13 @@
           <div id="sumRunway" class="res-main"></div>
         </div>
 
-        <div class="row" style="margin-top:0.7rem;">
-          <span class="pill" id="sumPill">Decision: pending</span>
+        <div class="row" id="complianceAlertRow" style="display:none;margin-top:0.7rem;">
+          <span class="pill bad" id="complianceAlert">Compliance alert pending</span>
         </div>
 
         <p class="muted">
-          This summary is for quick cross-check only. Final decision must always reference the AFM, current NOTAMs,
-          local procedures and the HT/CFI when in doubt.
+          This summary is for quick cross-check only. Pilot-in-command decision making must reference the AFM, current
+          NOTAMs and the operations manual when in doubt.
         </p>
       </section>
     </section>
