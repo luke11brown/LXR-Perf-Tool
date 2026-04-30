@@ -474,6 +474,7 @@
 
       const visibilityKm = metar.visibilityM === null || metar.visibilityM === undefined ? null : metar.visibilityM / 1000;
       const ceilingFt = metar.cloudCeilingFt;
+      const noCeilingReported = ceilingFt === null && (metar.cloudLayers || []).length > 0;
       const xwindKt = Math.abs(crosswind);
       const checks = [];
       let ok = true;
@@ -502,11 +503,11 @@
           ? pilotQualification
           : (pilotQualification.startsWith("ir_") ? "ppl_gt100_no_ir" : "student");
         const mins = vfrMinima[vfrQualification][vfrPhase];
-        const ceilingPass = ceilingFt !== null && ceilingFt >= mins.ceilingFt;
+        const ceilingPass = noCeilingReported || (ceilingFt !== null && ceilingFt >= mins.ceilingFt);
         const visPass = visibilityKm !== null && visibilityKm >= mins.visibilityKm;
         const xwindPass = xwindKt <= mins.xwindKt;
         const windPass = windSpd <= mins.maxWindKt;
-        addCheck("Ceiling", ceilingFt === null ? "unknown" : `${round(ceilingFt, 0)} ft`, `${mins.ceilingFt} ft`, ceilingPass);
+        addCheck("Ceiling", noCeilingReported ? "no ceiling reported" : (ceilingFt === null ? "unknown" : `${round(ceilingFt, 0)} ft`), `${mins.ceilingFt} ft`, ceilingPass);
         addCheck("Visibility", formatVisibilityKm(metar.visibilityM), `${mins.visibilityKm} km`, visPass);
         addCheck("XWC", `${round(xwindKt, 1)} kt`, `${mins.xwindKt} kt`, xwindPass);
         addCheck("Surface wind", `${round(windSpd, 1)} kt`, `${mins.maxWindKt} kt`, windPass);
@@ -527,7 +528,7 @@
         const ceilingMin = highIr && sep ? 1000 : (!highIr ? 1500 : null);
         const visibilityMin = highIr && sep ? 3 : (!highIr ? 5 : null);
         if (ceilingMin !== null) {
-          addCheck("Take-off ceiling", ceilingFt === null ? "unknown" : `${round(ceilingFt, 0)} ft`, `${ceilingMin} ft`, ceilingFt !== null && ceilingFt >= ceilingMin);
+          addCheck("Take-off ceiling", noCeilingReported ? "no ceiling reported" : (ceilingFt === null ? "unknown" : `${round(ceilingFt, 0)} ft`), `${ceilingMin} ft`, noCeilingReported || (ceilingFt !== null && ceilingFt >= ceilingMin));
         } else {
           checks.push("Take-off ceiling: check published minima for MEP.");
         }
