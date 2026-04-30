@@ -929,30 +929,68 @@
         el.style.left = xPx + "px";
       }
 
+      function setVisible(id, visible, display = "block") {
+        const el = document.getElementById(id);
+        if (el) el.style.display = visible ? display : "none";
+      }
+
+      function setLegendText(el, text) {
+        if (el?.lastChild) el.lastChild.textContent = text;
+      }
+
+      function setTickLabel(id, text) {
+        const label = document.querySelector(`#${id} .tick-label`);
+        if (label) label.textContent = text;
+      }
+
       const activeReqLda = usingWet ? reqLdaWet : reqLdaDry;
       const takeoffBar = document.getElementById("takeoffRunwayBar");
       const landingBar = document.getElementById("landingRunwayBar");
       const takeoffBarWidth = takeoffBar?.clientWidth || 1;
       const landingBarWidth = landingBar?.clientWidth || 1;
-      const takeoffScaleLength = Math.max(runwayTora, runwayToda, runwayAsda, toRun, toDist, activeReqToraVal, 1);
+      const todrBarVal = declaredStopwayOrClearway ? reqToda115 : toDist;
+      const asdrBarVal = declaredStopwayOrClearway ? reqAsda130 : 0;
+      const takeoffScaleLength = Math.max(runwayTora, runwayToda, runwayAsda, toRun, todrBarVal, asdrBarVal, activeReqToraVal, 1);
       const landingScaleLength = Math.max(runwayLda, ldgRun, ldgDist, activeReqLda, 1);
 
       setMarker("barToRun", toRun, runwayTora, takeoffScaleLength, takeoffBarWidth);
-      setMarker("barToDist", toDist, runwayToda, takeoffScaleLength, takeoffBarWidth);
+      setMarker("barToDist", todrBarVal, declaredStopwayOrClearway ? runwayToda : runwayTora, takeoffScaleLength, takeoffBarWidth);
+      setMarker("barAsdr", asdrBarVal, runwayAsda, takeoffScaleLength, takeoffBarWidth);
       setTick("tickTakeoffEnd", runwayTora, takeoffScaleLength, takeoffBarWidth);
       setTick("tickTodaEnd", runwayToda, takeoffScaleLength, takeoffBarWidth);
+      setTick("tickAsdaEnd", runwayAsda, takeoffScaleLength, takeoffBarWidth);
       setTick("tickReqTora125", activeReqToraVal, takeoffScaleLength, takeoffBarWidth);
 
-      const todaDiffers = Math.abs(runwayToda - runwayTora) > 0.5;
+      const todaDiffersFromTora = Math.abs(runwayToda - runwayTora) > 0.5;
+      const asdaDiffersFromTora = Math.abs(runwayAsda - runwayTora) > 0.5;
+      const asdaDiffersFromToda = Math.abs(runwayAsda - runwayToda) > 0.5;
+      const showTodaTick = todaDiffersFromTora;
+      const showAsdaTick = asdaDiffersFromTora && asdaDiffersFromToda;
       const todaTick = document.getElementById("tickTodaEnd");
+      const asdaTick = document.getElementById("tickAsdaEnd");
       const legendTora = document.getElementById("legendTora");
       const legendToda = document.getElementById("legendToda");
-      if (todaTick) todaTick.style.display = todaDiffers ? "block" : "none";
-      if (legendTora) {
-        legendTora.title = todaDiffers ? "Declared TORA end" : "Declared TORA/TODA end";
-        legendTora.lastChild.textContent = todaDiffers ? "TORA" : "TORA/TODA";
-      }
-      if (legendToda) legendToda.style.display = todaDiffers ? "inline-flex" : "none";
+      const legendAsda = document.getElementById("legendAsda");
+      const legendAsdr = document.getElementById("legendAsdr");
+      const legendToraReq = document.getElementById("legendToraReq");
+      const toraTickLabel = !todaDiffersFromTora && !asdaDiffersFromTora
+        ? "TORA/TODA/ASDA"
+        : (!asdaDiffersFromTora ? "TORA/ASDA" : "TORA");
+      const todaTickLabel = !asdaDiffersFromToda ? "TODA/ASDA" : "TODA";
+
+      setTickLabel("tickTakeoffEnd", toraTickLabel);
+      setTickLabel("tickTodaEnd", todaTickLabel);
+      if (todaTick) todaTick.style.display = showTodaTick ? "block" : "none";
+      if (asdaTick) asdaTick.style.display = showAsdaTick ? "block" : "none";
+      if (legendTora) legendTora.title = "TORA - take-off run available";
+      setLegendText(legendTora, toraTickLabel);
+      setLegendText(legendToda, todaTickLabel);
+      if (legendToda) legendToda.style.display = showTodaTick ? "inline-flex" : "none";
+      if (legendAsda) legendAsda.style.display = showAsdaTick ? "inline-flex" : "none";
+      setVisible("barAsdr", declaredStopwayOrClearway);
+      setVisible("tickReqTora125", !declaredStopwayOrClearway);
+      if (legendAsdr) legendAsdr.style.display = declaredStopwayOrClearway ? "inline-flex" : "none";
+      if (legendToraReq) legendToraReq.style.display = declaredStopwayOrClearway ? "none" : "inline-flex";
 
       setMarker("barLdgRun", ldgRun, runwayLda, landingScaleLength, landingBarWidth);
       setMarker("barLdgDist", ldgDist, runwayLda, landingScaleLength, landingBarWidth);
@@ -982,11 +1020,11 @@
       let takeoffLimiting = [];
       if (!activeTakeoffOk) {
         if (declaredStopwayOrClearway) {
-          if (!toraRunOk) takeoffLimiting.push(`TORA ${round(runwayTora, 0)} m < AFM run ${round(reqToraRun, 0)} m`);
-          if (!toda115Ok) takeoffLimiting.push(`TODA ${round(runwayToda, 0)} m < 1.15 × AFM distance ${round(reqToda115, 0)} m`);
-          if (!asda130Ok) takeoffLimiting.push(`ASDA ${round(runwayAsda, 0)} m < 1.3 × AFM run ${round(reqAsda130, 0)} m`);
+          if (!toraRunOk) takeoffLimiting.push(`TORA ${round(runwayTora, 0)} m < TORR ${round(reqToraRun, 0)} m`);
+          if (!toda115Ok) takeoffLimiting.push(`TODA ${round(runwayToda, 0)} m < TODR ${round(reqToda115, 0)} m`);
+          if (!asda130Ok) takeoffLimiting.push(`ASDA ${round(runwayAsda, 0)} m < ASDR ${round(reqAsda130, 0)} m`);
         } else {
-          takeoffLimiting.push(`required TORA ${round(reqTora125, 0)} m > available ${round(runwayTora, 0)} m`);
+          takeoffLimiting.push(`TORA required ${round(reqTora125, 0)} m > TORA ${round(runwayTora, 0)} m`);
         }
       }
 
@@ -1018,11 +1056,11 @@
       const toOk = activeTakeoffOk;
       const sumPerfToText = declaredStopwayOrClearway
         ? (toOk
-          ? `OK – stopway/clearway declared-distance checks pass: TORA ≥ ${round(reqToraRun, 0)} m, TODA ≥ ${round(reqToda115, 0)} m, ASDA ≥ ${round(reqAsda130, 0)} m.`
-          : `NOT OK – one or more stopway/clearway declared-distance checks fail: TORA ≥ ${round(reqToraRun, 0)} m, TODA ≥ ${round(reqToda115, 0)} m, ASDA ≥ ${round(reqAsda130, 0)} m required.`)
+          ? `OK – non-balanced field declared-distance checks pass: TORA ≥ TORR ${round(reqToraRun, 0)} m, TODA ≥ TODR ${round(reqToda115, 0)} m, ASDA ≥ ASDR ${round(reqAsda130, 0)} m.`
+          : `NOT OK – one or more non-balanced field declared-distance checks fail: TORA ≥ TORR ${round(reqToraRun, 0)} m, TODA ≥ TODR ${round(reqToda115, 0)} m, ASDA ≥ ASDR ${round(reqAsda130, 0)} m required.`)
         : (toOk
-          ? `OK – no stopway/clearway used: Ops Manual TORA check (1.25 × AFM 50 ft = ${round(reqTora125, 0)} m) ≤ available TORA ${round(runwayTora, 0)} m.`
-          : `NOT OK – no stopway/clearway used: Ops Manual TORA check (1.25 × AFM 50 ft = ${round(reqTora125, 0)} m) exceeds available TORA ${round(runwayTora, 0)} m.`);
+          ? `OK – balanced field: TORA required (1.25 × AFM TOD = ${round(reqTora125, 0)} m) ≤ TORA ${round(runwayTora, 0)} m.`
+          : `NOT OK – balanced field: TORA required (1.25 × AFM TOD = ${round(reqTora125, 0)} m) exceeds TORA ${round(runwayTora, 0)} m.`);
       setSummaryLine("sumPerfTo", sumPerfToText, toOk);
 
       const ldgCriterionOk = usingWet ? ldaWetOk : ldaDryOk;
@@ -1301,10 +1339,10 @@
 
   <div class="grid">
     <div class="box perf kv">
-      <div class="k">T/O run</div><div class="v">${escHtml(getText("toRun"))} m</div>
-      <div class="k">T/O distance to 50 ft</div><div class="v">${escHtml(getText("toDist"))} m</div>
-      <div class="k">Required TORA</div><div class="v${classIfBad(reqToraBad)}">${escHtml(requiredToraReport)} m</div>
-      <div class="k">TODA / ASDA checks</div><div class="v${classIfBad(todaAsdaBad)}">${escHtml(getText("reqToda115"))} m / ${escHtml(getText("reqAsda130"))} m</div>
+      <div class="k">TORR</div><div class="v">${escHtml(getText("toRun"))} m</div>
+      <div class="k">TOD</div><div class="v">${escHtml(getText("toDist"))} m</div>
+      <div class="k">${declaredStopwayOrClearwayReport ? "TORR check" : "TORA required"}</div><div class="v${classIfBad(reqToraBad)}">${escHtml(requiredToraReport)} m</div>
+      <div class="k">TODR / ASDR checks</div><div class="v${classIfBad(todaAsdaBad)}">${escHtml(getText("reqToda115"))} m / ${escHtml(getText("reqAsda130"))} m</div>
     </div>
     <div class="box perf kv">
       <div class="k">Landing run</div><div class="v">${escHtml(getText("ldgRun"))} m</div>

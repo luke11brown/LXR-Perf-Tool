@@ -287,7 +287,7 @@
           </div>
           <div class="field" style="margin-top:0.35rem;">
             <div class="inline-note">
-              Enter declared runway distances separately; they may differ for stopway/clearway and landing.
+              Enter declared runway distances separately; they may differ for non-balanced field operations and landing.
             </div>
           </div>
           <div class="grid" style="margin-top:0.75rem">
@@ -327,8 +327,8 @@
           <div class="res-card phase-result">
             <div class="res-title">AFM Take-off (wind-adjusted)</div>
             <div class="res-main">
-              Run: <strong><span id="toRun"></span> m</strong>,
-              50&nbsp;ft: <strong><span id="toDist"></span> m</strong>
+              TORR: <strong><span id="toRun"></span> m</strong>,
+              TOD: <strong><span id="toDist"></span> m</strong>
             </div>
             <div class="res-sub">
               AFM base: flaps T/O, 630&nbsp;kg, level paved runway. Surface factor changes the ground run; the 50&nbsp;ft distance is adjusted by preserving the airborne segment. Wind factors are then applied.
@@ -339,22 +339,22 @@
             <div class="res-title">Ops Manual – Take-off factors</div>
             <div class="res-main">
               <div id="takeoffNoStopwayBlock">
-                <div>If no stopway/clearway is used:</div>
-                <div>Required TORA: <strong><span id="reqTora125"></span> m</strong></div>
-                <div><span class="muted">1.25 × AFM 50&nbsp;ft distance</span></div>
+                <div>Balanced field:</div>
+                <div>TORA required: <strong><span id="reqTora125"></span> m</strong></div>
+                <div><span class="muted">1.25 × AFM TOD</span></div>
                 <div>Status: <span id="reqTora125Status"></span></div>
               </div>
 
               <div id="takeoffStopwayBlock">
-                <div>With stopway and/or clearway available, all applicable declared-distance checks must pass:</div>
-                <div>- TORA ≥ AFM run (<span id="reqToraRun"></span> m)</div>
-                <div>- TODA ≥ 1.15 × AFM 50&nbsp;ft distance (<span id="reqToda115"></span> m)</div>
-                <div>- ASDA ≥ 1.3 × AFM run (<span id="reqAsda130"></span> m)</div>
+                <div>Non-balanced field, all applicable declared-distance checks must pass:</div>
+                <div>- TORA ≥ TORR (<span id="reqToraRun"></span> m)</div>
+                <div>- TODA ≥ TODR, 1.15 × AFM TOD (<span id="reqToda115"></span> m)</div>
+                <div>- ASDA ≥ ASDR, 1.3 × AFM run (<span id="reqAsda130"></span> m)</div>
                 <div>Status: <span id="reqStopwayStatus"></span></div>
               </div>
             </div>
             <div class="res-sub" id="takeoffTrainingNote">
-              Use the 1.25 × AFM 50&nbsp;ft distance TORA check when no stopway/clearway is used. With stopway or clearway, use the declared-distance method.
+              Use the 1.25 × AFM TOD TORA check for balanced field. For non-balanced field, use the declared-distance method.
             </div>
           </div>
 
@@ -495,22 +495,30 @@
 
           <div class="runway-wrapper">
             <div class="runway-bar" id="takeoffRunwayBar">
-              <div class="runway-marker" id="barToRun" style="background:#38bdf8;" title="Take-off ground run"></div>
-              <div class="runway-marker" id="barToDist" style="background:#a855f7;" title="Take-off distance to 50 ft"></div>
-              <div class="runway-tick tick-declared" id="tickTakeoffEnd" title="Declared TORA end"></div>
+              <div class="runway-marker" id="barToRun" style="background:#38bdf8;" title="TORR - take-off run required"></div>
+              <div class="runway-marker" id="barToDist" style="background:#a855f7;" title="TODR - take-off distance required"></div>
+              <div class="runway-marker" id="barAsdr" style="background:#f97316;" title="ASDR - accelerate-stop distance required"></div>
+              <div class="runway-tick tick-declared" id="tickTakeoffEnd" title="TORA - take-off run available">
+                <span class="tick-label" title="TORA - take-off run available">TORA</span>
+              </div>
               <div class="runway-tick tick-toda" id="tickTodaEnd" title="Declared TODA end">
-                <span class="tick-label" title="Declared TODA end">TODA</span>
+                <span class="tick-label" title="TODA - take-off distance available">TODA</span>
+              </div>
+              <div class="runway-tick tick-asda" id="tickAsdaEnd" title="ASDA - accelerate-stop distance available">
+                <span class="tick-label" title="ASDA - accelerate-stop distance available">ASDA</span>
               </div>
               <div class="runway-tick tick-tora" id="tickReqTora125" title="Required take-off runway check">
-                <span class="tick-label" title="Required take-off runway check">REQ TORA</span>
+                <span class="tick-label" title="Required take-off runway check">TORA REQ</span>
               </div>
             </div>
             <div class="runway-legend">
-              <abbr title="Take-off ground run"><span class="leg-swatch sw-to-run"></span>TOR</abbr>
-              <abbr title="Take-off distance to 50 ft"><span class="leg-swatch sw-to-dist"></span>TOD</abbr>
-              <abbr id="legendTora" title="Declared TORA/TODA end"><span class="leg-swatch leg-line leg-declared"></span>TORA/TODA</abbr>
-              <abbr id="legendToda" title="Declared TODA end" style="display:none;"><span class="leg-swatch leg-line leg-toda"></span>TODA</abbr>
-              <abbr title="Required take-off runway check: Ops Manual TORA or declared-distance requirement, depending on stopway/clearway"><span class="leg-swatch leg-line leg-required"></span>REQ TORA</abbr>
+              <abbr title="TORR - take-off run required"><span class="leg-swatch sw-to-run"></span>TORR</abbr>
+              <abbr title="TODR - take-off distance required"><span class="leg-swatch sw-to-dist"></span>TODR</abbr>
+              <abbr id="legendAsdr" title="ASDR - accelerate-stop distance required" style="display:none;"><span class="leg-swatch sw-asdr"></span>ASDR</abbr>
+              <abbr id="legendTora" title="TORA - take-off run available"><span class="leg-swatch leg-line leg-declared"></span>TORA</abbr>
+              <abbr id="legendToda" title="TODA - take-off distance available" style="display:none;"><span class="leg-swatch leg-line leg-toda"></span>TODA</abbr>
+              <abbr id="legendAsda" title="ASDA - accelerate-stop distance available" style="display:none;"><span class="leg-swatch leg-line leg-asda"></span>ASDA</abbr>
+              <abbr id="legendToraReq" title="Balanced field: required take-off run available"><span class="leg-swatch leg-line leg-required"></span>TORA REQ</abbr>
             </div>
           </div>
 

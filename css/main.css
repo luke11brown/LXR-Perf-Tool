@@ -553,7 +553,7 @@
 
     .runway-bar {
       position: relative;
-      height: 38px;
+      height: 50px;
       border-radius: 8px;
       background: #070b10;
       border: 1px solid var(--border);
@@ -619,6 +619,11 @@
       width: 3px;
     }
 
+    .runway-tick.tick-asda {
+      background: #eab308;
+      width: 3px;
+    }
+
     .runway-tick.tick-tora {
       background: rgba(250, 204, 21, 0.95);
     }
@@ -632,6 +637,10 @@
 
     #barToDist {
       top: 22px;
+    }
+
+    #barAsdr {
+      top: 36px;
     }
 
     #barLdgRun {
@@ -688,6 +697,10 @@
       background: #fb923c;
     }
 
+    .leg-asda {
+      background: #eab308;
+    }
+
     .leg-required {
       background: rgba(250, 204, 21, 0.95);
     }
@@ -698,6 +711,10 @@
 
     .sw-to-dist {
       background: #a855f7;
+    }
+
+    .sw-asdr {
+      background: #f97316;
     }
 
     .sw-ldg-run {
