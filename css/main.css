@@ -643,11 +643,11 @@
       top: 36px;
     }
 
-    #barLdgRun {
+    #barLdrDry {
       top: 8px;
     }
 
-    #barLdgDist {
+    #barLdrWet {
       top: 22px;
     }
 
@@ -717,12 +717,12 @@
       background: #f97316;
     }
 
-    .sw-ldg-run {
+    .sw-ldr-dry {
       background: #22c55e;
     }
 
-    .sw-ldg-dist {
-      background: #f97316;
+    .sw-ldr-wet {
+      background: #38bdf8;
     }
 
     .runway-section-row {

@@ -858,20 +858,21 @@
 
       document.getElementById("toRun").textContent = round(toRun, 0);
       document.getElementById("toDist").textContent = round(toDist, 0);
-      document.getElementById("ldgRun").textContent = round(ldgRun, 0);
+      const ldgRunEl = document.getElementById("ldgRun");
+      if (ldgRunEl) ldgRunEl.textContent = round(ldgRun, 0);
       document.getElementById("ldgDist").textContent = round(ldgDist, 0);
 
       const roc = interpRoc(pa, isaDev);
       document.getElementById("roc").textContent = round(roc, 0);
 
       // Ops Manual factored runway requirements.
-      const reqTora125 = toDist * 1.25;       // Ops Manual factor / no stopway-style check
+      const reqTora125 = toDist * 1.25;       // Ops Manual factor / balanced-field check
       const reqToraRun = toRun;               // with stopway: TORA >= AFM run
-      const reqToda115 = toDist * 1.15;       // TODA >= 1.15 * AFM distance
+      const reqToda115 = toDist * 1.15;       // TODA >= 1.15 * TODR
       const reqAsda130 = toRun * 1.3;         // ASDA >= 1.3 * AFM run
 
-      const reqLdaDry = ldgDist / 0.7;        // Ops Manual: AFM landing distance must fit in 70% LDA
-      const reqLdaWet = ldgDist * 1.15 / 0.7; // Ops Manual: wet factor before 70% LDA check
+      const reqLdaDry = ldgDist / 0.7;        // LDR dry: ALD must fit in 70% LDA
+      const reqLdaWet = ldgDist * 1.15 / 0.7; // LDR wet: wet factor before 70% LDA check
 
       document.getElementById("reqTora125").textContent = round(reqTora125, 0);
       document.getElementById("reqToraRun").textContent = round(reqToraRun, 0);
@@ -943,7 +944,6 @@
         if (label) label.textContent = text;
       }
 
-      const activeReqLda = usingWet ? reqLdaWet : reqLdaDry;
       const takeoffBar = document.getElementById("takeoffRunwayBar");
       const landingBar = document.getElementById("landingRunwayBar");
       const takeoffBarWidth = takeoffBar?.clientWidth || 1;
@@ -951,7 +951,7 @@
       const todrBarVal = declaredStopwayOrClearway ? reqToda115 : toDist;
       const asdrBarVal = declaredStopwayOrClearway ? reqAsda130 : 0;
       const takeoffScaleLength = Math.max(runwayTora, runwayToda, runwayAsda, toRun, todrBarVal, asdrBarVal, activeReqToraVal, 1);
-      const landingScaleLength = Math.max(runwayLda, ldgRun, ldgDist, activeReqLda, 1);
+      const landingScaleLength = Math.max(runwayLda, reqLdaDry, reqLdaWet, 1);
 
       setMarker("barToRun", toRun, runwayTora, takeoffScaleLength, takeoffBarWidth);
       setMarker("barToDist", todrBarVal, declaredStopwayOrClearway ? runwayToda : runwayTora, takeoffScaleLength, takeoffBarWidth);
@@ -992,10 +992,9 @@
       if (legendAsdr) legendAsdr.style.display = declaredStopwayOrClearway ? "inline-flex" : "none";
       if (legendToraReq) legendToraReq.style.display = declaredStopwayOrClearway ? "none" : "inline-flex";
 
-      setMarker("barLdgRun", ldgRun, runwayLda, landingScaleLength, landingBarWidth);
-      setMarker("barLdgDist", ldgDist, runwayLda, landingScaleLength, landingBarWidth);
+      setMarker("barLdrDry", reqLdaDry, runwayLda, landingScaleLength, landingBarWidth);
+      setMarker("barLdrWet", reqLdaWet, runwayLda, landingScaleLength, landingBarWidth);
       setTick("tickLandingEnd", runwayLda, landingScaleLength, landingBarWidth);
-      setTick("tickReqLda", activeReqLda, landingScaleLength, landingBarWidth);
 
       document.getElementById("declRwy").textContent = formatRunwayLabel();
       document.getElementById("declArrRwy").textContent = formatArrivalRunwayLabel();
@@ -1039,11 +1038,11 @@
       }
 
       if (activeLdaOk) {
-        landingLimiterText.textContent = `OK — landing requirement within available LDA.`;
+        landingLimiterText.textContent = `OK — active LDR within LDA.`;
         landingLimiterStrip.classList.add("ok");
         landingLimiterStrip.classList.remove("bad");
       } else {
-        landingLimiterText.textContent = `LIMITED — required LDA ${round(activeReqLdaVal, 0)} m > available ${round(runwayLda, 0)} m`;
+        landingLimiterText.textContent = `LIMITED — active LDR ${round(activeReqLdaVal, 0)} m > LDA ${round(runwayLda, 0)} m`;
         landingLimiterStrip.classList.add("bad");
         landingLimiterStrip.classList.remove("ok");
       }
@@ -1059,18 +1058,18 @@
           ? `OK – non-balanced field declared-distance checks pass: TORA ≥ TORR ${round(reqToraRun, 0)} m, TODA ≥ TODR ${round(reqToda115, 0)} m, ASDA ≥ ASDR ${round(reqAsda130, 0)} m.`
           : `NOT OK – one or more non-balanced field declared-distance checks fail: TORA ≥ TORR ${round(reqToraRun, 0)} m, TODA ≥ TODR ${round(reqToda115, 0)} m, ASDA ≥ ASDR ${round(reqAsda130, 0)} m required.`)
         : (toOk
-          ? `OK – balanced field: TORA required (1.25 × AFM TOD = ${round(reqTora125, 0)} m) ≤ TORA ${round(runwayTora, 0)} m.`
-          : `NOT OK – balanced field: TORA required (1.25 × AFM TOD = ${round(reqTora125, 0)} m) exceeds TORA ${round(runwayTora, 0)} m.`);
+          ? `OK – balanced field: TORA required (1.25 × AFM TODR = ${round(reqTora125, 0)} m) ≤ TORA ${round(runwayTora, 0)} m.`
+          : `NOT OK – balanced field: TORA required (1.25 × AFM TODR = ${round(reqTora125, 0)} m) exceeds TORA ${round(runwayTora, 0)} m.`);
       setSummaryLine("sumPerfTo", sumPerfToText, toOk);
 
       const ldgCriterionOk = usingWet ? ldaWetOk : ldaDryOk;
       const sumPerfLdgText = usingWet
         ? (ldgCriterionOk
-          ? `OK – AFM landing distance = ${round(ldgDist, 0)} m; Ops Manual wet LDA check (×1.15 ÷0.7) = ${round(reqLdaWet, 0)} m ≤ available ${round(runwayLda, 0)} m.`
-          : `NOT OK – Ops Manual wet LDA check (AFM ×1.15 ÷0.7 = ${round(reqLdaWet, 0)} m) exceeds available ${round(runwayLda, 0)} m.`)
+          ? `OK – ALD ${round(ldgDist, 0)} m; LDR wet (×1.15 ÷0.7) = ${round(reqLdaWet, 0)} m ≤ LDA ${round(runwayLda, 0)} m.`
+          : `NOT OK – LDR wet (ALD ×1.15 ÷0.7 = ${round(reqLdaWet, 0)} m) exceeds LDA ${round(runwayLda, 0)} m.`)
         : (ldgCriterionOk
-          ? `OK – AFM landing distance = ${round(ldgDist, 0)} m; Ops Manual dry LDA check (÷0.7) = ${round(reqLdaDry, 0)} m ≤ available ${round(runwayLda, 0)} m.`
-          : `NOT OK – Ops Manual dry LDA check (AFM ÷0.7 = ${round(reqLdaDry, 0)} m) exceeds available ${round(runwayLda, 0)} m.`);
+          ? `OK – ALD ${round(ldgDist, 0)} m; LDR dry (÷0.7) = ${round(reqLdaDry, 0)} m ≤ LDA ${round(runwayLda, 0)} m.`
+          : `NOT OK – LDR dry (ALD ÷0.7 = ${round(reqLdaDry, 0)} m) exceeds LDA ${round(runwayLda, 0)} m.`);
       setSummaryLine("sumPerfLdg", sumPerfLdgText, ldgCriterionOk);
 
       const sumWindText = windOk
@@ -1340,15 +1339,14 @@
   <div class="grid">
     <div class="box perf kv">
       <div class="k">TORR</div><div class="v">${escHtml(getText("toRun"))} m</div>
-      <div class="k">TOD</div><div class="v">${escHtml(getText("toDist"))} m</div>
+      <div class="k">TODR</div><div class="v">${escHtml(getText("toDist"))} m</div>
       <div class="k">${declaredStopwayOrClearwayReport ? "TORR check" : "TORA required"}</div><div class="v${classIfBad(reqToraBad)}">${escHtml(requiredToraReport)} m</div>
       <div class="k">TODR / ASDR checks</div><div class="v${classIfBad(todaAsdaBad)}">${escHtml(getText("reqToda115"))} m / ${escHtml(getText("reqAsda130"))} m</div>
     </div>
     <div class="box perf kv">
-      <div class="k">Landing run</div><div class="v">${escHtml(getText("ldgRun"))} m</div>
-      <div class="k">Landing distance from 50 ft</div><div class="v">${escHtml(getText("ldgDist"))} m</div>
-      <div class="k">Required LDA dry</div><div class="v${classIfBad(ldaDryBad)}">${escHtml(getText("reqLdaDry"))} m</div>
-      <div class="k">Required LDA wet</div><div class="v${classIfBad(ldaWetBad)}">${escHtml(getText("reqLdaWet"))} m</div>
+      <div class="k">ALD</div><div class="v">${escHtml(getText("ldgDist"))} m</div>
+      <div class="k">LDR dry</div><div class="v${classIfBad(ldaDryBad)}">${escHtml(getText("reqLdaDry"))} m</div>
+      <div class="k">LDR wet</div><div class="v${classIfBad(ldaWetBad)}">${escHtml(getText("reqLdaWet"))} m</div>
       <div class="k">Rate of climb</div><div class="v">${escHtml(getText("roc"))} ft/min</div>
     </div>
   </div>
