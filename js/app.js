@@ -1243,7 +1243,6 @@
       }
 
       buildCGChart();
-      buildPerfCharts();
 
       document.getElementById("calcBtn").addEventListener("click", calculateAll);
       document.getElementById("exportPdfBtn").addEventListener("click", exportReportToPdf);
