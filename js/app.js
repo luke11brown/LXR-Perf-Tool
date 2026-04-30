@@ -1518,10 +1518,6 @@
     </div>
   </div>
 
-  <div class="box perf kv">
-    <div class="k">Weather minima</div><div class="v">${escHtml(weatherMinimaText || "Not assessed")}</div>
-  </div>
-
   <div class="grid">
     <div class="box perf kv">
       <div class="k">TORR (AFM)</div><div class="v">${escHtml(getText("toRun"))} m</div>
