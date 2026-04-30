@@ -1078,8 +1078,8 @@
               <div class="inline-note">Use true heading; METAR/TAF winds are given in °T.</div>
             </div>
             <div class="field">
-              <label for="windDir">Wind direction (° / from)</label>
-              <input id="windDir" type="number" inputmode="decimal" value="137" />
+              <label for="windDir">Wind direction (°T / from, or VRB)</label>
+              <input id="windDir" type="text" inputmode="text" value="137" />
             </div>
           </div>
 
@@ -1105,7 +1105,7 @@
                 50&nbsp;ft: <strong><span id="toDist"></span> m</strong>
               </div>
               <div class="res-sub">
-                AFM base: flaps T/O, 630&nbsp;kg, level hard surface. Wind factors applied to run and 50&nbsp;ft distance; grass factor applied to run only.
+                AFM base: flaps T/O, 630&nbsp;kg, level hard surface. Surface factor changes the ground run; the 50&nbsp;ft distance is adjusted by preserving the airborne segment. Wind factors are then applied.
               </div>
             </div>
             <div class="res-card">
@@ -1115,7 +1115,7 @@
                 50&nbsp;ft: <strong><span id="ldgDist"></span> m</strong>
               </div>
               <div class="res-sub">
-                AFM base: flaps LDG, -3° approach, 630&nbsp;kg, dry hard surface. Wind factors applied to run and 50&nbsp;ft distance; wet surface applies Ops Manual wet landing requirement.
+                AFM base: flaps LDG, -3° approach, 630&nbsp;kg, dry hard surface. Surface factor changes the ground roll; total landing distance is adjusted accordingly. Wet surface also selects the Ops Manual wet landing requirement.
               </div>
             </div>
           </div>
@@ -2028,12 +2028,23 @@
 
       // Wind
       const rwHeading = parseFloat(document.getElementById("rwHeading").value) || 0;
-      const windDir = parseFloat(document.getElementById("windDir").value) || 0;
+      const windDirRaw = String(document.getElementById("windDir").value || "").trim().toUpperCase();
+      const windIsVRB = windDirRaw === "VRB";
+      const parsedWindDir = parseFloat(windDirRaw);
+      const windDir = Number.isFinite(parsedWindDir) ? parsedWindDir : 0;
       const windSpd = parseFloat(document.getElementById("windSpd").value) || 0;
 
-      const angleRad = ((windDir - rwHeading) * Math.PI) / 180;
-      const headwind = windSpd * Math.cos(angleRad);
-      const crosswind = windSpd * Math.sin(angleRad);
+      let headwind;
+      let crosswind;
+      if (windIsVRB) {
+        // Conservative performance assumption: variable direction could be a full tailwind.
+        headwind = -windSpd;
+        crosswind = 0;
+      } else {
+        const angleRad = ((windDir - rwHeading) * Math.PI) / 180;
+        headwind = windSpd * Math.cos(angleRad);
+        crosswind = windSpd * Math.sin(angleRad);
+      }
       const tailwind = headwind < 0 ? -headwind : 0;
 
       const windComponentsEl = document.getElementById("windComponents");
@@ -2043,10 +2054,14 @@
         headwind >= 0
           ? `Headwind ${round(headwind, 1)} kt`
           : `Tailwind ${round(tailwind, 1)} kt`;
-      const xwStr = `Crosswind ${round(Math.abs(crosswind), 1)} kt`;
+      const xwStr = windIsVRB
+        ? "Crosswind not assessed (VRB)"
+        : `Crosswind ${round(Math.abs(crosswind), 1)} kt`;
 
       let xwWarn = "";
-      if (Math.abs(crosswind) > MAX_XWIND) {
+      if (windIsVRB) {
+        xwWarn = " – variable wind treated as full tailwind for performance";
+      } else if (Math.abs(crosswind) > MAX_XWIND) {
         xwWarn = " – ABOVE max demonstrated 18 kt";
       } else {
         xwWarn = " – within demonstrated limit";
@@ -2055,9 +2070,12 @@
       windComponentsEl.textContent = `${headStr}, ${xwStr}${xwWarn}`;
 
       const tailwindOk = tailwind <= MAX_RECOMMENDED_TAILWIND;
-      const windOk = windSpd <= MAX_WIND && Math.abs(crosswind) <= MAX_XWIND && tailwindOk;
+      const crosswindOk = windIsVRB ? true : Math.abs(crosswind) <= MAX_XWIND;
+      const windOk = windSpd <= MAX_WIND && crosswindOk && tailwindOk;
 
       const windWarnings = [];
+      if (windIsVRB && windSpd > 0) windWarnings.push(`VRB wind treated as full ${round(windSpd, 1)} kt tailwind for performance. Crosswind is not assessed.`);
+      if (!windIsVRB && windSpd > 0 && !Number.isFinite(parsedWindDir)) windWarnings.push("Wind direction should be degrees true or VRB.");
       if (windSpd > MAX_WIND) windWarnings.push(`Departure not permitted – total wind speed ${round(windSpd, 1)} kt exceeds 40 kt limit.`);
       if (tailwind > MAX_RECOMMENDED_TAILWIND) windWarnings.push(`Tailwind ${round(tailwind, 1)} kt exceeds AFM recommended maximum ${MAX_RECOMMENDED_TAILWIND} kt.`);
       if (tailwind > WIND_FACTOR_LIMIT_TAIL) windWarnings.push(`Tailwind correction is capped at ${WIND_FACTOR_LIMIT_TAIL} kt for chart validity.`);
@@ -2075,10 +2093,13 @@
       const baseLDG = interpTOLD(pa, isaDev, LDG_TABLE);
       const grass = surfaceCfg;
 
+      const toAirborneNoWind = Math.max(0, baseTO.dist - baseTO.run);
       const toRunNoWind = baseTO.run * grass.to;
-      const toDistNoWind = baseTO.dist;
+      const toDistNoWind = toRunNoWind + toAirborneNoWind;
+
+      const ldgAirborneNoWind = Math.max(0, baseLDG.dist - baseLDG.run);
       const ldgRunNoWind = baseLDG.run * grass.ldg;
-      const ldgDistNoWind = baseLDG.dist;
+      const ldgDistNoWind = ldgRunNoWind + ldgAirborneNoWind;
 
       const toRun = toRunNoWind * windCorrectionFactor("takeoff_run", headwind);
       const toDist = toDistNoWind * windCorrectionFactor("takeoff_distance", headwind);
@@ -2257,8 +2278,12 @@
       setSummaryLine("sumPerfLdg", sumPerfLdgText, ldgCriterionOk);
 
       const sumWindText = windOk
-        ? `OK – ${headStr}, ${xwStr}; total wind ${round(windSpd, 1)} kt ≤ 40 kt, crosswind within 18 kt demonstrated, tailwind within ${MAX_RECOMMENDED_TAILWIND} kt recommendation.`
-        : `NOT OK – wind limits exceeded/recommendation exceeded (total ${round(windSpd, 1)} kt, crosswind ${round(Math.abs(crosswind), 1)} kt, tailwind ${round(tailwind, 1)} kt).`;
+        ? (windIsVRB
+          ? `OK – VRB treated as ${round(windSpd, 1)} kt tailwind for performance; total wind ≤ 40 kt and tailwind within ${MAX_RECOMMENDED_TAILWIND} kt recommendation. Crosswind not assessed.`
+          : `OK – ${headStr}, ${xwStr}; total wind ${round(windSpd, 1)} kt ≤ 40 kt, crosswind within 18 kt demonstrated, tailwind within ${MAX_RECOMMENDED_TAILWIND} kt recommendation.`)
+        : (windIsVRB
+          ? `NOT OK – VRB treated as ${round(windSpd, 1)} kt tailwind for performance; tailwind/total-wind limits exceeded or recommendation exceeded. Crosswind not assessed.`
+          : `NOT OK – wind limits exceeded/recommendation exceeded (total ${round(windSpd, 1)} kt, crosswind ${round(Math.abs(crosswind), 1)} kt, tailwind ${round(tailwind, 1)} kt).`);
       setSummaryLine("sumWind", sumWindText, windOk);
 
       const runwayOk = toOk && ldgCriterionOk;
@@ -2440,7 +2465,7 @@
       <div class="k">QNH</div><div class="v">${escHtml(getValue("qnh"))} hPa</div>
       <div class="k">Pressure altitude</div><div class="v">${escHtml(getValue("pa"))} ft</div>
       <div class="k">OAT / ISA dev</div><div class="v">${escHtml(getValue("oat"))} °C / ${escHtml(getValue("isaDev"))} °C</div>
-      <div class="k">Wind</div><div class="v">${escHtml(getValue("windDir"))}° / ${escHtml(getValue("windSpd"))} kt; ${escHtml(getText("windComponents"))}</div>
+      <div class="k">Wind</div><div class="v">${escHtml((String(getValue("windDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("windDir")}°T`)} / ${escHtml(getValue("windSpd"))} kt; ${escHtml(getText("windComponents"))}</div>
     </div>
   </div>
 
