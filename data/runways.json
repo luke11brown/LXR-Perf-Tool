@@ -8,7 +8,8 @@
     "asda": 1330,
     "lda": 1330,
     "heading": 137,
-    "surface": "hard_dry"
+    "surface": "hard_dry",
+    "metarStation": "LGKV"
   },
   {
     "id": "LGKM_31",
@@ -19,7 +20,8 @@
     "asda": 1330,
     "lda": 1330,
     "heading": 317,
-    "surface": "hard_dry"
+    "surface": "hard_dry",
+    "metarStation": "LGKV"
   },
   {
     "id": "LGKV_05",

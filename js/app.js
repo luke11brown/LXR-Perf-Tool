@@ -241,6 +241,125 @@
       return activeArrivalRunwayLabel || (arrivalUsesDepartureRunway ? formatRunwayLabel() : "Custom arrival runway");
     }
 
+    function getSelectedRunway(selectId) {
+      const select = document.getElementById(selectId);
+      if (!select || select.value === "none") return null;
+
+      const preset = PRESET_RUNWAYS[select.value];
+      if (preset) return preset;
+
+      return getSavedRunways().find(item => item.id === select.value || item.label === select.value) || null;
+    }
+
+    function getMetarStationFromRunway(runway) {
+      const source = runway?.metarStation || runway?.icao || runway?.id || runway?.label || "";
+      const match = String(source).toUpperCase().match(/\b[A-Z]{4}\b|^[A-Z]{4}/);
+      return match ? match[0] : "";
+    }
+
+    function getRunwayIcao(runway) {
+      const source = runway?.icao || runway?.id || runway?.label || "";
+      const match = String(source).toUpperCase().match(/\b[A-Z]{4}\b|^[A-Z]{4}/);
+      return match ? match[0] : "";
+    }
+
+    function decodeMetarTemperature(value) {
+      if (!value || value === "//") return null;
+      return Number(value.startsWith("M") ? `-${value.slice(1)}` : value);
+    }
+
+    function parseMetar(rawMetar) {
+      const metar = String(rawMetar || "").trim().replace(/\s+/g, " ");
+      const wind = metar.match(/\b(VRB|\d{3})(\d{2,3})(?:G\d{2,3})?(KT|MPS)\b/);
+      const temp = metar.match(/\b(M?\d{2})\/(?:M?\d{2}|\/\/)\b/);
+      const qnh = metar.match(/\bQ(\d{4})\b/);
+      const altimeter = metar.match(/\bA(\d{4})\b/);
+
+      const speedUnit = wind?.[3];
+      const rawSpeed = wind ? Number(wind[2]) : null;
+      const windSpeed = rawSpeed === null ? null : speedUnit === "MPS" ? Math.round(rawSpeed * 1.94384) : rawSpeed;
+      const qnhValue = qnh
+        ? Number(qnh[1])
+        : altimeter
+          ? Math.round((Number(altimeter[1]) / 100) * 33.8639)
+          : null;
+
+      return {
+        raw: metar,
+        windDir: wind ? wind[1] : null,
+        windSpeed,
+        oat: temp ? decodeMetarTemperature(temp[1]) : null,
+        qnh: qnhValue,
+      };
+    }
+
+    async function fetchMetarForStation(station) {
+      const url = `https://tgftp.nws.noaa.gov/data/observations/metar/stations/${encodeURIComponent(station)}.TXT`;
+      let response;
+      try {
+        response = await fetch(url, { cache: "no-store" });
+      } catch (err) {
+        const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
+        response = await fetch(proxyUrl, { cache: "no-store" });
+      }
+      if (!response.ok) throw new Error(`NOAA returned ${response.status}`);
+
+      const text = await response.text();
+      const lines = text.trim().split(/\r?\n/).filter(Boolean);
+      const rawMetar = lines[lines.length - 1] || "";
+      if (!rawMetar.includes(station)) throw new Error("No recent METAR found for station");
+      return parseMetar(rawMetar);
+    }
+
+    function applyMetarToFields(metar, target) {
+      const ids = target === "arrival"
+        ? { qnh: "arrQnh", oat: "arrOat", windDir: "arrWindDir", windSpd: "arrWindSpd" }
+        : { qnh: "qnh", oat: "oat", windDir: "windDir", windSpd: "windSpd" };
+
+      if (metar.qnh !== null) document.getElementById(ids.qnh).value = metar.qnh;
+      if (metar.oat !== null) document.getElementById(ids.oat).value = metar.oat;
+      if (metar.windDir) document.getElementById(ids.windDir).value = metar.windDir;
+      if (metar.windSpeed !== null) document.getElementById(ids.windSpd).value = metar.windSpeed;
+    }
+
+    async function fetchAndApplyMetar(target) {
+      const isArrival = target === "arrival";
+      const status = document.getElementById(isArrival ? "arrivalMetarStatus" : "metarStatus");
+      const button = document.getElementById(isArrival ? "fetchArrivalMetarBtn" : "fetchMetarBtn");
+      const runway = isArrival ? getSelectedRunway("arrivalRunwaySelect") : getSelectedRunway("savedRunwaySelect");
+      const station = getMetarStationFromRunway(runway);
+      const runwayIcao = getRunwayIcao(runway);
+      const stationLabel = runwayIcao && runwayIcao !== station ? `${station} for ${runwayIcao}` : station;
+
+      if (!station) {
+        status.textContent = isArrival
+          ? "Select an arrival runway preset with an ICAO station first."
+          : "Select a runway preset with an ICAO station first.";
+        return;
+      }
+
+      if (isArrival) {
+        arrivalUsesDepartureRunway = false;
+        const useDepWeather = document.getElementById("arrUseDepWeather");
+        if (useDepWeather) useDepWeather.checked = false;
+        updateArrivalWeatherControls();
+      }
+
+      button.disabled = true;
+      status.textContent = `Fetching ${stationLabel} METAR from NOAA...`;
+      try {
+        const metar = await fetchMetarForStation(station);
+        applyMetarToFields(metar, target);
+        if (!isArrival && document.getElementById("arrUseDepWeather")?.checked) copyDepartureWeatherToArrival();
+        calculateAll();
+        status.textContent = `${stationLabel} METAR applied: ${metar.raw}`;
+      } catch (err) {
+        status.textContent = `Could not fetch ${stationLabel} METAR: ${err.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    }
+
     // Helpers
     function clamp(x, min, max) { return Math.max(min, Math.min(max, x)); }
 
@@ -1299,6 +1418,8 @@
 
       document.getElementById("calcBtn").addEventListener("click", calculateAll);
       document.getElementById("exportPdfBtn").addEventListener("click", exportReportToPdf);
+      document.getElementById("fetchMetarBtn").addEventListener("click", () => fetchAndApplyMetar("departure"));
+      document.getElementById("fetchArrivalMetarBtn").addEventListener("click", () => fetchAndApplyMetar("arrival"));
 
       // Registration selector behaviour
       const regSelect = document.getElementById("regSelect");

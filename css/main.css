@@ -351,6 +351,11 @@
       background: #101826;
     }
 
+    button:disabled {
+      cursor: wait;
+      opacity: 0.6;
+    }
+
 
     button span {
       font-size: 1rem;

@@ -264,9 +264,11 @@
             </div>
           </div>
           <div class="button-row">
+            <button id="fetchMetarBtn" type="button">Fetch METAR</button>
             <button id="saveRunwayBtn">Save current runway</button>
             <button id="deleteRunwayBtn">Delete saved runway</button>
           </div>
+          <div class="inline-note" id="metarStatus"></div>
           <div class="grid" style="margin-top:0.75rem">
             <div class="field">
               <label for="runwayTora">TORA (m)</label>
@@ -339,9 +341,11 @@
             </div>
           </div>
           <div class="button-row">
+            <button id="fetchArrivalMetarBtn" type="button">Fetch METAR</button>
             <button id="saveArrivalRunwayBtn">Save arrival runway</button>
             <button id="deleteArrivalRunwayBtn">Delete saved runway</button>
           </div>
+          <div class="inline-note" id="arrivalMetarStatus"></div>
           <div class="grid" style="margin-top:0.75rem">
             <div class="field">
               <label for="arrFieldElev">Arrival field elevation (ft)</label>
