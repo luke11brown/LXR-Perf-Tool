@@ -145,6 +145,20 @@
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
+    .metar-select-row {
+      align-items: end;
+    }
+
+    .metar-button-field {
+      justify-content: flex-end;
+    }
+
+    .metar-button-field button {
+      width: 100%;
+      justify-content: center;
+      min-height: 2.35rem;
+    }
+
     @media (max-width: 640px) {
 
       .grid,

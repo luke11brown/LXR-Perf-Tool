@@ -1250,6 +1250,8 @@
       const arrSurfaceText = GRASS_FACTORS[getValue("arrSurface")]?.label || getSelectedText("arrSurface") || "CUSTOM";
       const decisionText = getText("sumPill");
       const decisionClass = decisionText.includes("NO-GO") ? "decision bad-bg" : decisionText.includes("GO") ? "decision ok-bg" : "decision";
+      const cgChartImg = document.getElementById("cgChart")?.toDataURL("image/png") || "";
+      const windComponentsText = getText("windComponents");
 
       const html = `<!doctype html>
 <html>
@@ -1260,29 +1262,36 @@
     @page { size: A4; margin: 14mm; }
     * { box-sizing: border-box; }
     body { font-family: Arial, Helvetica, sans-serif; color: #111827; margin: 0; font-size: 11px; }
-    h1 { font-size: 18px; margin: 0 0 4px; letter-spacing: 0.04em; text-transform: uppercase; }
-    h2 { font-size: 12px; margin: 14px 0 6px; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; }
+    h1 { color: #075985; font-size: 18px; margin: 0 0 4px; letter-spacing: 0.04em; text-transform: uppercase; }
+    h2 { background: #e0f2fe; border-left: 4px solid #0284c7; color: #075985; font-size: 12px; margin: 14px 0 6px; letter-spacing: 0.06em; text-transform: uppercase; padding: 5px 7px; }
     .muted { color: #475569; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; }
-    .box { border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; break-inside: avoid; }
-    .kv { display: grid; grid-template-columns: 42% 58%; gap: 3px 8px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 10px; }
+    .box { background: #ffffff; border: 1px solid #bfdbfe; border-top: 3px solid #38bdf8; border-radius: 6px; padding: 8px; break-inside: avoid; }
+    .box.wb { border-top-color: #22c55e; }
+    .box.perf { border-top-color: #8b5cf6; }
+    .box.warn { border-top-color: #f59e0b; background: #fffbeb; }
+    .kv { display: grid; grid-template-columns: 44% 56%; gap: 3px 8px; }
     .k { color: #475569; }
     .v { font-weight: 700; }
+    .stack { display: grid; gap: 6px; }
+    .chart-img { width: 100%; max-height: 230px; object-fit: contain; }
+    .status-note { margin-top: 8px; padding: 7px 8px; border: 1px solid #bae6fd; border-radius: 6px; background: #f0f9ff; color: #075985; font-weight: 700; }
     table { width: 100%; border-collapse: collapse; margin-top: 4px; table-layout: fixed; }
     th, td { border-bottom: 1px solid #e5e7eb; padding: 4px 5px; text-align: left; vertical-align: top; }
-    th { color: #475569; text-transform: uppercase; font-size: 9px; }
+    th { background: #eff6ff; color: #075985; text-transform: uppercase; font-size: 9px; }
     td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     .moment-table col.item { width: 34%; }
     .moment-table col.mass { width: 16%; }
     .moment-table col.arm { width: 16%; }
     .moment-table col.moment { width: 34%; }
-    .moment-table tfoot td { font-weight: 700; }
+    .moment-table tfoot td { background: #ecfdf5; color: #166534; font-weight: 700; }
     .ok { color: #047857; font-weight: 700; }
     .bad { color: #b91c1c; font-weight: 700; }
     .ok-bg { border-color: #16a34a; background: #dcfce7; color: #166534; }
     .bad-bg { border-color: #dc2626; background: #fee2e2; color: #991b1b; }
     .decision { border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font-weight: 700; }
-    .footer { margin-top: 14px; font-size: 9px; color: #475569; border-top: 1px solid #cbd5e1; padding-top: 6px; }
+    .footer { margin-top: 14px; font-size: 9px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 6px; }
     @media print { button { display:none; } }
   </style>
 </head>
@@ -1292,7 +1301,7 @@
 
   <h2>Aircraft and loading</h2>
   <div class="grid">
-    <div class="box kv">
+    <div class="box wb kv">
       <div class="k">Registration</div><div class="v">${escHtml(getSelectedText("regSelect"))}</div>
       <div class="k">Empty aircraft</div><div class="v">${escHtml(getValue("emptyWeight"))} kg @ ${escHtml(getValue("emptyArm"))} mm</div>
       <div class="k">Upholstery</div><div class="v">${escHtml(getValue("upholsteryWt"))} kg @ ${escHtml(getValue("upholsteryArm"))} mm</div>
@@ -1301,7 +1310,7 @@
       <div class="k">Baggage</div><div class="v">${escHtml(getValue("bagWt"))} kg @ 1580 mm</div>
       <div class="k">Fuel</div><div class="v">${escHtml(getValue("fuelL"))} L / ${escHtml(getText("fuelKg")) || escHtml(getValue("fuelKg"))} kg (${escHtml(getSelectedText("fuelType"))})</div>
     </div>
-    <div class="box kv">
+    <div class="box wb kv">
       <div class="k">Departure</div><div class="v">${escHtml(getText("tow"))} kg @ ${escHtml(getText("cg"))} mm</div>
       <div class="k">Arrival</div><div class="v">${escHtml(getText("lw"))} kg @ ${escHtml(getText("cgArr"))} mm</div>
       <div class="k">W&B status</div><div class="v">${escHtml(getText("wbStatusPill"))}</div>
@@ -1309,48 +1318,69 @@
   </div>
 
   <h2>Moment breakdown</h2>
-  <table class="moment-table">
-    <colgroup>
-      <col class="item"><col class="mass"><col class="arm"><col class="moment">
-    </colgroup>
-    <thead><tr><th>Item</th><th class="num">Mass kg</th><th class="num">Arm mm</th><th class="num">Moment</th></tr></thead>
-    <tbody>${rowsHtml}</tbody>
-    <tfoot>
-      <tr><td><strong>Total with fuel</strong></td><td class="num">${escHtml(getText("mtMassTO"))}</td><td class="num">${escHtml(getText("mtArmTO"))}</td><td class="num">${escHtml(getText("mtMomTO"))}</td></tr>
-      <tr><td><strong>Total no fuel</strong></td><td class="num">${escHtml(getText("mtMassLW"))}</td><td class="num">${escHtml(getText("mtArmLW"))}</td><td class="num">${escHtml(getText("mtMomLW"))}</td></tr>
-    </tfoot>
-  </table>
+  <div class="grid">
+    <div class="box wb">
+      <table class="moment-table">
+        <colgroup>
+          <col class="item"><col class="mass"><col class="arm"><col class="moment">
+        </colgroup>
+        <thead><tr><th>Item</th><th class="num">Mass kg</th><th class="num">Arm mm</th><th class="num">Moment</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+        <tfoot>
+          <tr><td><strong>Total with fuel</strong></td><td class="num">${escHtml(getText("mtMassTO"))}</td><td class="num">${escHtml(getText("mtArmTO"))}</td><td class="num">${escHtml(getText("mtMomTO"))}</td></tr>
+          <tr><td><strong>Total no fuel</strong></td><td class="num">${escHtml(getText("mtMassLW"))}</td><td class="num">${escHtml(getText("mtArmLW"))}</td><td class="num">${escHtml(getText("mtMomLW"))}</td></tr>
+        </tfoot>
+      </table>
+    </div>
+    <div class="box wb">
+      ${cgChartImg ? `<img class="chart-img" src="${cgChartImg}" alt="Weight and balance envelope">` : `<div class="muted">W&amp;B chart unavailable.</div>`}
+    </div>
+  </div>
 
   <h2>Conditions and runway</h2>
-  <div class="grid">
-    <div class="box kv">
+  <div class="grid-3">
+    <div class="box perf kv">
+      <div class="k">Phase</div><div class="v">Departure</div>
       <div class="k">Departure runway</div><div class="v">${escHtml(getText("declRwy"))}</div>
-      <div class="k">Arrival runway</div><div class="v">${escHtml(getText("declArrRwy"))}</div>
-      <div class="k">Departure surface</div><div class="v">${escHtml(depSurfaceText)}</div>
-      <div class="k">Arrival surface</div><div class="v">${escHtml(arrSurfaceText)}</div>
-      <div class="k">TORA / TODA</div><div class="v">${escHtml(getText("declTora"))} / ${escHtml(getText("declToda"))}</div>
-      <div class="k">ASDA / arrival LDA</div><div class="v">${escHtml(getText("declAsda"))} / ${escHtml(getText("declLda"))}</div>
-    </div>
-    <div class="box kv">
-      <div class="k">Field elevation</div><div class="v">${escHtml(getValue("fieldElev"))} ft</div>
+      <div class="k">Surface</div><div class="v">${escHtml(depSurfaceText)}</div>
+      <div class="k">Elevation</div><div class="v">${escHtml(getValue("fieldElev"))} ft</div>
       <div class="k">QNH</div><div class="v">${escHtml(getValue("qnh"))} hPa</div>
       <div class="k">Pressure altitude</div><div class="v">${escHtml(getValue("pa"))} ft</div>
       <div class="k">OAT / ISA dev</div><div class="v">${escHtml(getValue("oat"))} °C / ${escHtml(getValue("isaDev"))} °C</div>
-      <div class="k">Departure wind</div><div class="v">${escHtml((String(getValue("windDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("windDir")}°T`)} / ${escHtml(getValue("windSpd"))} kt</div>
-      <div class="k">Arrival wind</div><div class="v">${escHtml((String(getValue("arrWindDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("arrWindDir")}°T`)} / ${escHtml(getValue("arrWindSpd"))} kt</div>
-      <div class="k">Wind components</div><div class="v">${escHtml(getText("windComponents"))}</div>
+      <div class="k">Wind</div><div class="v">${escHtml((String(getValue("windDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("windDir")}°T`)} / ${escHtml(getValue("windSpd"))} kt</div>
+      <div class="k">TORA / TODA</div><div class="v">${escHtml(getText("declTora"))} / ${escHtml(getText("declToda"))}</div>
+      <div class="k">ASDA</div><div class="v">${escHtml(getText("declAsda"))}</div>
+    </div>
+    <div class="box perf kv">
+      <div class="k">Phase</div><div class="v">Arrival</div>
+      <div class="k">Arrival runway</div><div class="v">${escHtml(getText("declArrRwy"))}</div>
+      <div class="k">Surface</div><div class="v">${escHtml(arrSurfaceText)}</div>
+      <div class="k">Elevation</div><div class="v">${escHtml(getValue("arrFieldElev"))} ft</div>
+      <div class="k">QNH</div><div class="v">${escHtml(getValue("arrQnh"))} hPa</div>
+      <div class="k">Pressure altitude</div><div class="v">${escHtml(getValue("arrPa"))} ft</div>
+      <div class="k">OAT / ISA dev</div><div class="v">${escHtml(getValue("arrOat"))} °C / ${escHtml(getValue("arrIsaDev"))} °C</div>
+      <div class="k">Wind</div><div class="v">${escHtml((String(getValue("arrWindDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("arrWindDir")}°T`)} / ${escHtml(getValue("arrWindSpd"))} kt</div>
+      <div class="k">LDA</div><div class="v">${escHtml(getText("declLda"))}</div>
+    </div>
+    <div class="box warn stack">
+      <div>
+        <div class="k">Wind components</div>
+        <div class="v">${escHtml(windComponentsText)}</div>
+      </div>
+      <div class="status-note">${escHtml(getText("sumWind"))}</div>
+      <div class="status-note">${escHtml(getText("sumRunway"))}</div>
     </div>
   </div>
 
   <h2>Performance</h2>
   <div class="grid">
-    <div class="box kv">
+    <div class="box perf kv">
       <div class="k">T/O run</div><div class="v">${escHtml(getText("toRun"))} m</div>
       <div class="k">T/O distance to 50 ft</div><div class="v">${escHtml(getText("toDist"))} m</div>
       <div class="k">Required TORA</div><div class="v">${escHtml(getText("reqTora125"))} m</div>
       <div class="k">TODA / ASDA checks</div><div class="v">${escHtml(getText("reqToda115"))} m / ${escHtml(getText("reqAsda130"))} m</div>
     </div>
-    <div class="box kv">
+    <div class="box perf kv">
       <div class="k">Landing run</div><div class="v">${escHtml(getText("ldgRun"))} m</div>
       <div class="k">Landing distance from 50 ft</div><div class="v">${escHtml(getText("ldgDist"))} m</div>
       <div class="k">Required LDA dry</div><div class="v">${escHtml(getText("reqLdaDry"))} m</div>
@@ -1360,7 +1390,7 @@
   </div>
 
   <h2>Operational summary</h2>
-  <div class="box">
+  <div class="box warn">
     <p><strong>W&B:</strong> ${escHtml(getText("sumWb"))}</p>
     <p><strong>Take-off:</strong> ${escHtml(getText("sumPerfTo"))}</p>
     <p><strong>Landing:</strong> ${escHtml(getText("sumPerfLdg"))}</p>

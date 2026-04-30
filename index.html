@@ -249,16 +249,16 @@
             </div>
           </div>
 
-          <div class="grid" style="margin-top:0.75rem">
+          <div class="grid metar-select-row" style="margin-top:0.75rem">
             <div class="field">
               <label for="savedRunwaySelect">Departure runway preset</label>
               <select id="savedRunwaySelect">
                 <option value="none" selected>Manual entry</option>
               </select>
             </div>
-          </div>
-          <div class="button-row">
-            <button id="fetchMetarBtn" type="button">Fetch METAR</button>
+            <div class="field metar-button-field">
+              <button id="fetchMetarBtn" type="button">Fetch METAR</button>
+            </div>
           </div>
           <div class="inline-note" id="metarStatus"></div>
           <div class="grid" style="margin-top:0.75rem">
@@ -306,9 +306,6 @@
               <label for="windDir">Wind direction (°T / from, or VRB)</label>
               <input id="windDir" type="text" inputmode="text" value="137" />
             </div>
-          </div>
-
-          <div class="grid" style="margin-top:0.75rem">
             <div class="field">
               <label for="windSpd">Wind speed (kt)</label>
               <input id="windSpd" type="number" inputmode="decimal" value="0" />
@@ -324,16 +321,16 @@
 
           
           <div class="subsection-title">Arrival / landing runway</div>
-          <div class="grid" style="margin-top:0.75rem">
+          <div class="grid metar-select-row" style="margin-top:0.75rem">
             <div class="field">
               <label for="arrivalRunwaySelect">Arrival runway preset</label>
               <select id="arrivalRunwaySelect">
                 <option value="none" selected>Use departure runway</option>
               </select>
             </div>
-          </div>
-          <div class="button-row">
-            <button id="fetchArrivalMetarBtn" type="button">Fetch METAR</button>
+            <div class="field metar-button-field">
+              <button id="fetchArrivalMetarBtn" type="button">Fetch METAR</button>
+            </div>
           </div>
           <div class="inline-note" id="arrivalMetarStatus"></div>
           <div class="grid" style="margin-top:0.75rem">
