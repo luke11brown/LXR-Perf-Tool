@@ -696,6 +696,16 @@
       text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
     }
 
+    .subsection-title {
+      margin-top: 1rem;
+      padding-top: 0.9rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.18);
+      color: var(--muted);
+      font-size: 0.78rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
     .sticky-calc-footer {
       position: fixed;
       left: 0;
@@ -1097,6 +1107,57 @@
             </div>
           </div>
 
+          
+          <div class="subsection-title">Arrival / landing runway</div>
+          <div class="grid" style="margin-top:0.75rem">
+            <div class="field">
+              <label for="arrivalRunwaySelect">Arrival runway preset / saved</label>
+              <select id="arrivalRunwaySelect">
+                <option value="none" selected>Use departure runway</option>
+              </select>
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="saveArrivalRunwayBtn">Save arrival runway</button>
+            <button id="deleteArrivalRunwayBtn">Delete saved runway</button>
+          </div>
+          <div class="grid" style="margin-top:0.75rem">
+            <div class="field">
+              <label for="arrFieldElev">Arrival field elevation (ft)</label>
+              <input id="arrFieldElev" type="number" inputmode="decimal" value="200" />
+            </div>
+            <div class="field">
+              <label for="arrLda">Arrival LDA (m)</label>
+              <input id="arrLda" type="number" inputmode="decimal" value="1330" />
+            </div>
+          </div>
+          <div class="grid" style="margin-top:0.75rem">
+            <div class="field">
+              <label for="arrHeading">Arrival runway heading (°T)</label>
+              <input id="arrHeading" type="number" inputmode="decimal" value="137" />
+              <div class="inline-note">Uses the same wind input, resolved against the arrival runway heading.</div>
+            </div>
+            <div class="field">
+              <label for="arrSurface">Arrival surface</label>
+              <select id="arrSurface">
+                <option value="hard_dry">Paved / hard – dry</option>
+                <option value="hard_wet">Paved / hard – wet</option>
+                <option value="grass_dry">Grass – dry</option>
+                <option value="grass_wet">Grass – wet</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid" style="margin-top:0.6rem">
+            <div class="field">
+              <label>Arrival pressure altitude (ft)</label>
+              <input id="arrPa" type="number" readonly />
+            </div>
+            <div class="field">
+              <label>Arrival ISA deviation (°C)</label>
+              <input id="arrIsaDev" type="number" readonly />
+            </div>
+          </div>
+
           <div class="results-block">
             <div class="res-card">
               <div class="res-title">AFM Take-off (wind-adjusted)</div>
@@ -1178,11 +1239,12 @@
           <small>Visual comparison of AFM distances vs declared runway plus AFM-style graphs.</small>
 
           <div class="declared-row" id="declaredRow">
-            <span class="k">RWY</span> <span class="v" id="declRwy">—</span>
+            <span class="k">DEP RWY</span> <span class="v" id="declRwy">—</span>
+            <span class="k">ARR RWY</span> <span class="v" id="declArrRwy">—</span>
             <span class="k">TORA</span> <span class="v" id="declTora">—</span>
             <span class="k">TODA</span> <span class="v" id="declToda">—</span>
             <span class="k">ASDA</span> <span class="v" id="declAsda">—</span>
-            <span class="k">LDA</span> <span class="v" id="declLda">—</span>
+            <span class="k">ARR LDA</span> <span class="v" id="declLda">—</span>
             <span class="k">Surface</span> <span class="v" id="declSurface">—</span>
           </div>
 
@@ -1326,6 +1388,8 @@
     let PRESET_RUNWAYS = {};
 
     let activeRunwayLabel = null;
+    let activeArrivalRunwayLabel = null;
+    let arrivalUsesDepartureRunway = true;
 
     function getSavedRunways() {
       try {
@@ -1356,9 +1420,11 @@
       }
     }
 
-    function populateSavedRunwayOptions() {
-      const savedSelect = document.getElementById("savedRunwaySelect");
-      savedSelect.innerHTML = `<option value="none">None</option>`;
+    function populateRunwaySelect(selectId, noneLabel = "None") {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      const previousValue = select.value;
+      select.innerHTML = `<option value="none">${noneLabel}</option>`;
 
       const presetIds = Object.keys(PRESET_RUNWAYS);
       if (presetIds.length > 0) {
@@ -1371,7 +1437,7 @@
           opt.textContent = item.label || id;
           presetGroup.appendChild(opt);
         });
-        savedSelect.appendChild(presetGroup);
+        select.appendChild(presetGroup);
       }
 
       const runways = getSavedRunways();
@@ -1391,7 +1457,13 @@
           savedGroup.appendChild(opt);
         });
       }
-      savedSelect.appendChild(savedGroup);
+      select.appendChild(savedGroup);
+      if ([...select.options].some(opt => opt.value === previousValue)) select.value = previousValue;
+    }
+
+    function populateSavedRunwayOptions() {
+      populateRunwaySelect("savedRunwaySelect", "None");
+      populateRunwaySelect("arrivalRunwaySelect", "Use departure runway");
     }
 
     function setRunwayFields(data, label) {
@@ -1404,6 +1476,26 @@
       document.getElementById("rwHeading").value = data.heading ?? document.getElementById("rwHeading").value;
       document.getElementById("surface").value = data.surface ?? document.getElementById("surface").value;
       activeRunwayLabel = label || data.label || "Custom runway";
+      if (arrivalUsesDepartureRunway) copyDepartureToArrival();
+    }
+
+    function copyDepartureToArrival() {
+      if (!document.getElementById("arrFieldElev")) return;
+      document.getElementById("arrFieldElev").value = document.getElementById("fieldElev").value;
+      document.getElementById("arrLda").value = document.getElementById("runwayLda").value;
+      document.getElementById("arrHeading").value = document.getElementById("rwHeading").value;
+      document.getElementById("arrSurface").value = document.getElementById("surface").value;
+      activeArrivalRunwayLabel = activeRunwayLabel;
+    }
+
+    function setArrivalRunwayFields(data, label) {
+      if (!data) return;
+      document.getElementById("arrFieldElev").value = data.elev ?? document.getElementById("arrFieldElev").value;
+      document.getElementById("arrLda").value = data.lda ?? data.tora ?? document.getElementById("arrLda").value;
+      document.getElementById("arrHeading").value = data.heading ?? document.getElementById("arrHeading").value;
+      document.getElementById("arrSurface").value = data.surface ?? document.getElementById("arrSurface").value;
+      activeArrivalRunwayLabel = label || data.label || "Custom arrival runway";
+      arrivalUsesDepartureRunway = false;
     }
 
     function getCurrentRunwayData() {
@@ -1418,8 +1510,24 @@
       };
     }
 
+    function getCurrentArrivalRunwayData() {
+      return {
+        elev: parseFloat(document.getElementById("arrFieldElev").value) || 0,
+        tora: 0,
+        toda: 0,
+        asda: 0,
+        lda: parseFloat(document.getElementById("arrLda").value) || 0,
+        heading: parseFloat(document.getElementById("arrHeading").value) || 0,
+        surface: document.getElementById("arrSurface").value,
+      };
+    }
+
     function formatRunwayLabel() {
-      return activeRunwayLabel || "Custom runway";
+      return activeRunwayLabel || "Custom departure runway";
+    }
+
+    function formatArrivalRunwayLabel() {
+      return activeArrivalRunwayLabel || (arrivalUsesDepartureRunway ? formatRunwayLabel() : "Custom arrival runway");
     }
 
     // ------- AFM DATA (630 kg, no wind, hard) -------
@@ -1910,6 +2018,25 @@
       el.classList.toggle("summary-line-bad", !ok);
     }
 
+    function computeWindComponentsForHeading(windDirRaw, windSpd, runwayHeading) {
+      const raw = String(windDirRaw || "").trim().toUpperCase();
+      const windIsVRB = raw === "VRB";
+      const parsedWindDir = parseFloat(raw);
+      if (windIsVRB) {
+        return { headwind: -windSpd, crosswind: 0, windIsVRB, parsedWindDir: NaN };
+      }
+      if (!Number.isFinite(parsedWindDir)) {
+        return { headwind: 0, crosswind: 0, windIsVRB: false, parsedWindDir: NaN };
+      }
+      const angleRad = ((parsedWindDir - runwayHeading) * Math.PI) / 180;
+      return {
+        headwind: windSpd * Math.cos(angleRad),
+        crosswind: windSpd * Math.sin(angleRad),
+        windIsVRB: false,
+        parsedWindDir,
+      };
+    }
+
     // ------- Main calc -------
     function calculateAll() {
       // W&B
@@ -2010,13 +2137,16 @@
       const fieldElev = parseFloat(document.getElementById("fieldElev").value) || 0;
       const qnh = parseFloat(document.getElementById("qnh").value) || 1013.25;
       const oat = parseFloat(document.getElementById("oat").value) || 0;
+      if (arrivalUsesDepartureRunway) copyDepartureToArrival();
       const surface = document.getElementById("surface").value;
       const surfaceCfg = GRASS_FACTORS[surface] || GRASS_FACTORS.hard_dry;
-      const usingWet = !!surfaceCfg.wetLanding;
+      const arrSurface = document.getElementById("arrSurface").value;
+      const arrSurfaceCfg = GRASS_FACTORS[arrSurface] || GRASS_FACTORS.hard_dry;
+      const usingWet = !!arrSurfaceCfg.wetLanding;
       const runwayTora = parseFloat(document.getElementById("runwayTora").value) || 1;
       const runwayToda = parseFloat(document.getElementById("runwayToda").value) || 1;
       const runwayAsda = parseFloat(document.getElementById("runwayAsda").value) || 1;
-      const runwayLda = parseFloat(document.getElementById("runwayLda").value) || 1;
+      const runwayLda = parseFloat(document.getElementById("arrLda").value) || 1;
       const declaredRunwayLength = Math.max(runwayTora, runwayToda, runwayAsda, runwayLda, 1);
 
       const pa = fieldElev + (1013.25 - qnh) * 30;
@@ -2026,8 +2156,16 @@
       document.getElementById("pa").value = round(pa, 0);
       document.getElementById("isaDev").value = round(isaDev, 1);
 
+      const arrFieldElev = parseFloat(document.getElementById("arrFieldElev").value) || fieldElev;
+      const arrPa = arrFieldElev + (1013.25 - qnh) * 30;
+      const arrIsaTemp = 15 - 2 * (arrPa / 1000);
+      const arrIsaDev = oat - arrIsaTemp;
+      document.getElementById("arrPa").value = round(arrPa, 0);
+      document.getElementById("arrIsaDev").value = round(arrIsaDev, 1);
+
       // Wind
       const rwHeading = parseFloat(document.getElementById("rwHeading").value) || 0;
+      const arrHeading = parseFloat(document.getElementById("arrHeading").value) || rwHeading;
       const windDirRaw = String(document.getElementById("windDir").value || "").trim().toUpperCase();
       const windIsVRB = windDirRaw === "VRB";
       const parsedWindDir = parseFloat(windDirRaw);
@@ -2046,6 +2184,10 @@
         crosswind = windSpd * Math.sin(angleRad);
       }
       const tailwind = headwind < 0 ? -headwind : 0;
+      const arrWind = computeWindComponentsForHeading(windDirRaw, windSpd, arrHeading);
+      const arrHeadwind = arrWind.headwind;
+      const arrCrosswind = arrWind.crosswind;
+      const arrTailwind = arrHeadwind < 0 ? -arrHeadwind : 0;
 
       const windComponentsEl = document.getElementById("windComponents");
       const windLimitWarn = document.getElementById("windLimitWarn");
@@ -2061,25 +2203,28 @@
       let xwWarn = "";
       if (windIsVRB) {
         xwWarn = " – variable wind treated as full tailwind for performance";
-      } else if (Math.abs(crosswind) > MAX_XWIND) {
+      } else if (Math.max(Math.abs(crosswind), Math.abs(arrCrosswind)) > MAX_XWIND) {
         xwWarn = " – ABOVE max demonstrated 18 kt";
       } else {
         xwWarn = " – within demonstrated limit";
       }
 
-      windComponentsEl.textContent = `${headStr}, ${xwStr}${xwWarn}`;
+      const arrHeadStr = arrHeadwind >= 0 ? `Arr headwind ${round(arrHeadwind, 1)} kt` : `Arr tailwind ${round(arrTailwind, 1)} kt`;
+      const arrXwStr = windIsVRB ? "arrival crosswind not assessed (VRB)" : `arrival crosswind ${round(Math.abs(arrCrosswind), 1)} kt`;
+      windComponentsEl.textContent = `${headStr}, ${xwStr}; ${arrHeadStr}, ${arrXwStr}${xwWarn}`;
 
-      const tailwindOk = tailwind <= MAX_RECOMMENDED_TAILWIND;
-      const crosswindOk = windIsVRB ? true : Math.abs(crosswind) <= MAX_XWIND;
+      const tailwindOk = tailwind <= MAX_RECOMMENDED_TAILWIND && arrTailwind <= MAX_RECOMMENDED_TAILWIND;
+      const crosswindOk = windIsVRB ? true : Math.max(Math.abs(crosswind), Math.abs(arrCrosswind)) <= MAX_XWIND;
       const windOk = windSpd <= MAX_WIND && crosswindOk && tailwindOk;
 
       const windWarnings = [];
-      if (windIsVRB && windSpd > 0) windWarnings.push(`VRB wind treated as full ${round(windSpd, 1)} kt tailwind for performance. Crosswind is not assessed.`);
+      if (windIsVRB && windSpd > 0) windWarnings.push(`VRB wind treated as full ${round(windSpd, 1)} kt tailwind for departure and arrival performance. Crosswind is not assessed.`);
       if (!windIsVRB && windSpd > 0 && !Number.isFinite(parsedWindDir)) windWarnings.push("Wind direction should be degrees true or VRB.");
       if (windSpd > MAX_WIND) windWarnings.push(`Departure not permitted – total wind speed ${round(windSpd, 1)} kt exceeds 40 kt limit.`);
-      if (tailwind > MAX_RECOMMENDED_TAILWIND) windWarnings.push(`Tailwind ${round(tailwind, 1)} kt exceeds AFM recommended maximum ${MAX_RECOMMENDED_TAILWIND} kt.`);
-      if (tailwind > WIND_FACTOR_LIMIT_TAIL) windWarnings.push(`Tailwind correction is capped at ${WIND_FACTOR_LIMIT_TAIL} kt for chart validity.`);
-      if (headwind > WIND_FACTOR_LIMIT_HEAD) windWarnings.push(`Headwind correction is capped at ${WIND_FACTOR_LIMIT_HEAD} kt for chart validity.`);
+      if (tailwind > MAX_RECOMMENDED_TAILWIND) windWarnings.push(`Departure tailwind ${round(tailwind, 1)} kt exceeds AFM recommended maximum ${MAX_RECOMMENDED_TAILWIND} kt.`);
+      if (arrTailwind > MAX_RECOMMENDED_TAILWIND) windWarnings.push(`Arrival tailwind ${round(arrTailwind, 1)} kt exceeds AFM recommended maximum ${MAX_RECOMMENDED_TAILWIND} kt.`);
+      if (tailwind > WIND_FACTOR_LIMIT_TAIL || arrTailwind > WIND_FACTOR_LIMIT_TAIL) windWarnings.push(`Tailwind correction is capped at ${WIND_FACTOR_LIMIT_TAIL} kt for chart validity.`);
+      if (headwind > WIND_FACTOR_LIMIT_HEAD || arrHeadwind > WIND_FACTOR_LIMIT_HEAD) windWarnings.push(`Headwind correction is capped at ${WIND_FACTOR_LIMIT_HEAD} kt for chart validity.`);
 
       if (windWarnings.length > 0) {
         windLimitWarn.style.display = "block";
@@ -2090,21 +2235,22 @@
 
       // Performance
       const baseTO = interpTOLD(pa, isaDev, TO_TABLE);
-      const baseLDG = interpTOLD(pa, isaDev, LDG_TABLE);
+      const baseLDG = interpTOLD(arrPa, arrIsaDev, LDG_TABLE);
       const grass = surfaceCfg;
+      const landingSurface = arrSurfaceCfg;
 
       const toAirborneNoWind = Math.max(0, baseTO.dist - baseTO.run);
       const toRunNoWind = baseTO.run * grass.to;
       const toDistNoWind = toRunNoWind + toAirborneNoWind;
 
       const ldgAirborneNoWind = Math.max(0, baseLDG.dist - baseLDG.run);
-      const ldgRunNoWind = baseLDG.run * grass.ldg;
+      const ldgRunNoWind = baseLDG.run * landingSurface.ldg;
       const ldgDistNoWind = ldgRunNoWind + ldgAirborneNoWind;
 
       const toRun = toRunNoWind * windCorrectionFactor("takeoff_run", headwind);
       const toDist = toDistNoWind * windCorrectionFactor("takeoff_distance", headwind);
-      const ldgRun = ldgRunNoWind * windCorrectionFactor("landing_run", headwind);
-      const ldgDist = ldgDistNoWind * windCorrectionFactor("landing_distance", headwind);
+      const ldgRun = ldgRunNoWind * windCorrectionFactor("landing_run", arrHeadwind);
+      const ldgDist = ldgDistNoWind * windCorrectionFactor("landing_distance", arrHeadwind);
 
       document.getElementById("toRun").textContent = round(toRun, 0);
       document.getElementById("toDist").textContent = round(toDist, 0);
@@ -2166,7 +2312,7 @@
       // Charts markers
       if (toPointDataset && ldgPointDataset && rocPointDataset) {
         toPointDataset.data = [{ x: pa, y: toRun }];
-        ldgPointDataset.data = [{ x: pa, y: ldgRun }];
+        ldgPointDataset.data = [{ x: arrPa, y: ldgRun }];
         rocPointDataset.data = [{ x: pa, y: roc }];
         toChart.update();
         ldgChart.update();
@@ -2210,13 +2356,15 @@
 
       // --- Declared distances row ---
       document.getElementById("declRwy").textContent = `${formatRunwayLabel()} (${round(rwHeading, 0)}°T)`;
+      document.getElementById("declArrRwy").textContent = `${formatArrivalRunwayLabel()} (${round(arrHeading, 0)}°T)`;
       document.getElementById("declTora").textContent = `${round(runwayTora, 0)} m`;
       document.getElementById("declToda").textContent = `${round(runwayToda, 0)} m`;
       document.getElementById("declAsda").textContent = `${round(runwayAsda, 0)} m`;
       document.getElementById("declLda").textContent = `${round(runwayLda, 0)} m`;
 
       const surfaceLabel = surfaceCfg.label || "CUSTOM";
-      document.getElementById("declSurface").textContent = surfaceLabel;
+      const arrSurfaceLabel = arrSurfaceCfg.label || "CUSTOM";
+      document.getElementById("declSurface").textContent = `${surfaceLabel} / ARR ${arrSurfaceLabel}`;
 
       // --- Limiter strip (one-line OPT style) ---
       const limiterStrip = document.getElementById("limiterStrip");
@@ -2288,9 +2436,10 @@
 
       const runwayOk = toOk && ldgCriterionOk;
       const runwayLabelForSummary = formatRunwayLabel();
+      const arrivalLabelForSummary = formatArrivalRunwayLabel();
       const sumRunwayText = runwayOk
-        ? `${runwayLabelForSummary} available TORA ${round(runwayTora, 0)} m, TODA ${round(runwayToda, 0)} m, ASDA ${round(runwayAsda, 0)} m, LDA ${round(runwayLda, 0)} m is sufficient for current requirements.`
-        : `${runwayLabelForSummary} declared distances (TORA ${round(runwayTora, 0)} m, TODA ${round(runwayToda, 0)} m, ASDA ${round(runwayAsda, 0)} m, LDA ${round(runwayLda, 0)} m) are insufficient for current requirements.`;
+        ? `Departure ${runwayLabelForSummary} TORA ${round(runwayTora, 0)} m, TODA ${round(runwayToda, 0)} m, ASDA ${round(runwayAsda, 0)} m and arrival ${arrivalLabelForSummary} LDA ${round(runwayLda, 0)} m are sufficient for current requirements.`
+        : `Departure ${runwayLabelForSummary} declared distances (TORA ${round(runwayTora, 0)} m, TODA ${round(runwayToda, 0)} m, ASDA ${round(runwayAsda, 0)} m) or arrival ${arrivalLabelForSummary} LDA ${round(runwayLda, 0)} m are insufficient for current requirements.`;
       setSummaryLine("sumRunway", sumRunwayText, runwayOk);
 
       // Overall decision
@@ -2455,10 +2604,11 @@
   <h2>Conditions and runway</h2>
   <div class="grid">
     <div class="box kv">
-      <div class="k">Runway</div><div class="v">${escHtml(getText("declRwy"))}</div>
+      <div class="k">Departure runway</div><div class="v">${escHtml(getText("declRwy"))}</div>
+      <div class="k">Arrival runway</div><div class="v">${escHtml(getText("declArrRwy"))}</div>
       <div class="k">Surface</div><div class="v">${escHtml(getText("declSurface"))}</div>
       <div class="k">TORA / TODA</div><div class="v">${escHtml(getText("declTora"))} / ${escHtml(getText("declToda"))}</div>
-      <div class="k">ASDA / LDA</div><div class="v">${escHtml(getText("declAsda"))} / ${escHtml(getText("declLda"))}</div>
+      <div class="k">ASDA / arrival LDA</div><div class="v">${escHtml(getText("declAsda"))} / ${escHtml(getText("declLda"))}</div>
     </div>
     <div class="box kv">
       <div class="k">Field elevation</div><div class="v">${escHtml(getValue("fieldElev"))} ft</div>
@@ -2601,6 +2751,75 @@
         populateSavedRunwayOptions();
         savedRunwaySelect.value = "none";
         activeRunwayLabel = null;
+        alert("Saved runway deleted.");
+        calculateAll();
+      });
+
+      const arrivalRunwaySelect = document.getElementById("arrivalRunwaySelect");
+      const saveArrivalRunwayBtn = document.getElementById("saveArrivalRunwayBtn");
+      const deleteArrivalRunwayBtn = document.getElementById("deleteArrivalRunwayBtn");
+
+      arrivalRunwaySelect.addEventListener("change", () => {
+        const selectedId = arrivalRunwaySelect.value;
+        if (selectedId === "none") {
+          arrivalUsesDepartureRunway = true;
+          activeArrivalRunwayLabel = activeRunwayLabel;
+          copyDepartureToArrival();
+          calculateAll();
+          return;
+        }
+
+        const preset = PRESET_RUNWAYS[selectedId];
+        if (preset) {
+          setArrivalRunwayFields(preset, preset.label);
+          calculateAll();
+          return;
+        }
+
+        const saved = getSavedRunways().find(item => item.id === selectedId);
+        if (saved) {
+          setArrivalRunwayFields(saved, saved.label);
+          calculateAll();
+        }
+      });
+
+      saveArrivalRunwayBtn.addEventListener("click", () => {
+        const label = prompt("Save this arrival runway as:", activeArrivalRunwayLabel || "My arrival runway");
+        if (!label) return;
+        const runways = getSavedRunways();
+        const newRunway = {
+          id: `${Date.now()}`,
+          label: label.trim(),
+          ...getCurrentArrivalRunwayData(),
+        };
+        const existingIndex = runways.findIndex(item => item.label === newRunway.label);
+        if (existingIndex >= 0) {
+          runways[existingIndex] = newRunway;
+        } else {
+          runways.push(newRunway);
+        }
+        saveRunways(runways);
+        populateSavedRunwayOptions();
+        arrivalRunwaySelect.value = newRunway.id;
+        activeArrivalRunwayLabel = newRunway.label;
+        arrivalUsesDepartureRunway = false;
+        alert(`Arrival runway saved: ${newRunway.label}`);
+        calculateAll();
+      });
+
+      deleteArrivalRunwayBtn.addEventListener("click", () => {
+        const selectedId = arrivalRunwaySelect.value;
+        if (selectedId === "none") {
+          alert("Choose a saved arrival runway first.");
+          return;
+        }
+        let runways = getSavedRunways().filter(item => item.id !== selectedId);
+        saveRunways(runways);
+        populateSavedRunwayOptions();
+        arrivalRunwaySelect.value = "none";
+        arrivalUsesDepartureRunway = true;
+        activeArrivalRunwayLabel = activeRunwayLabel;
+        copyDepartureToArrival();
         alert("Saved runway deleted.");
         calculateAll();
       });
