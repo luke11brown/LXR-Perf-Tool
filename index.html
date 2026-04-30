@@ -14,7 +14,7 @@
 <body>
   <header>
     <h1>Elixir W&amp;B + Performance</h1>
-    <p>Unofficial helper based on AFM + Ops Manual factors. <strong>The AFM and Ops Manual are always the
+    <p>Unofficial helper based on AFM + OM-C factors. <strong>The AFM and OM-C are always the
         authority.</strong></p>
   </header>
 
@@ -222,7 +222,7 @@
       <div class="performance-stack">
         <section class="card">
           <h2>Conditions &amp; Runway</h2>
-          <small>AFM §5.3/5.4 distances (630&nbsp;kg, level paved runway), QNH-derived pressure altitude, wind correction + Ops Manual factors.</small>
+          <small>AFM §5.3/5.4 distances (630&nbsp;kg, level paved runway), QNH-derived pressure altitude, wind correction + OM-C factors.</small>
 
           <div class="phase-grid">
             <div class="phase-panel">
@@ -331,12 +331,12 @@
               TODR: <strong><span id="toDist"></span> m</strong>
             </div>
             <div class="res-sub">
-              AFM base: flaps T/O, 630&nbsp;kg, level paved runway. Surface factor changes the ground run; the 50&nbsp;ft distance is adjusted by preserving the airborne segment. Wind correction uses the Ops Manual accountable wind component.
+              AFM base: flaps T/O, 630&nbsp;kg, level paved runway. Surface factor changes the ground run; the 50&nbsp;ft distance is adjusted by preserving the airborne segment. Wind correction uses the OM-C accountable wind component.
             </div>
           </div>
 
           <div class="res-card phase-result">
-            <div class="res-title">Ops Manual – Take-off factors</div>
+            <div class="res-title">OM-C – Take-off factors</div>
             <div class="res-main">
               <div id="takeoffNoStopwayBlock">
                 <div>Balanced field:</div>
@@ -444,24 +444,25 @@
             <div class="res-card phase-result">
               <div class="res-title">AFM Landing (wind-adjusted)</div>
               <div class="res-main">
-                LDR: <strong><span id="ldgDist"></span> m</strong>
+                LDR dry (AFM): <strong><span id="ldgDistDry"></span> m</strong>,
+                LDR wet (AFM): <strong><span id="ldgDistWet"></span> m</strong>
               </div>
               <div class="res-sub">
-                AFM base: flaps LDG, -3° approach, 630&nbsp;kg, dry paved runway. Surface factor changes the ground roll; total landing distance is adjusted accordingly. Wind correction uses the Ops Manual accountable wind component. Wet surface also selects the active Ops Manual wet LDR check.
+                AFM base: flaps LDG, -3° approach, 630&nbsp;kg, dry paved runway. Surface condition changes the ground roll; total landing distance is adjusted accordingly. Wind correction uses the OM-C accountable wind component.
               </div>
             </div>
 
             <div class="res-card phase-result">
-              <div class="res-title">Ops Manual – Landing factors</div>
+              <div class="res-title">OM-C – Landing factors</div>
               <div class="res-main">
-                <div>LDR dry (AFM LDR ÷ 0.7): <strong><span id="reqLdaDry"></span> m</strong></div>
+                <div>LDR dry (OM-C, AFM LDR dry ÷ 0.7): <strong><span id="reqLdaDry"></span> m</strong></div>
                 <div>Status: <span id="reqLdaDryStatus"></span></div>
                 <hr style="border:none;border-top:1px solid rgba(148,163,184,0.3);margin:0.4rem 0;">
-                <div>LDR wet (AFM LDR ×1.15 ÷0.7): <strong><span id="reqLdaWet"></span> m</strong></div>
+                <div>LDR wet (OM-C, AFM LDR wet ×1.15 ÷0.7): <strong><span id="reqLdaWet"></span> m</strong></div>
                 <div>Status: <span id="reqLdaWetStatus"></span></div>
               </div>
               <div class="res-sub">
-                LDR must fit within 70% of LDA; wet landing applies ×1.15 before the 70% check. Both LDR values remain visible for weather awareness.
+                OM-C requires the AFM LDR to fit within 70% of LDA; wet landing applies ×1.15 before the 70% check. Both dry and wet values remain visible for weather awareness.
               </div>
             </div>
             </div>
@@ -469,7 +470,7 @@
 
           <p class="muted">
             AFM performance tables are no-wind, level paved runway at 630&nbsp;kg.
-            This tool applies digitised wind correction factors using 50% of reported headwind or 150% of reported tailwind, then applies the Ops Manual runway factors.
+            This tool applies digitised wind correction factors using 50% of reported headwind or 150% of reported tailwind, then applies the OM-C runway factors.
             Keep margins generous and verify against the AFM.
           </p>
         </section>
@@ -517,7 +518,7 @@
               <abbr id="legendTora" title="TORA - take-off run available"><span class="leg-swatch leg-line leg-declared"></span>TORA</abbr>
               <abbr id="legendToda" title="TODA - take-off distance available" style="display:none;"><span class="leg-swatch leg-line leg-toda"></span>TODA</abbr>
               <abbr id="legendAsda" title="ASDA - accelerate-stop distance available" style="display:none;"><span class="leg-swatch leg-line leg-asda"></span>ASDA</abbr>
-              <abbr id="legendToraReq" title="Balanced field: take-off run required by ops manual"><span class="leg-swatch leg-line leg-required"></span>TORR (OM-C)</abbr>
+              <abbr id="legendToraReq" title="Balanced field: take-off run required by OM-C"><span class="leg-swatch leg-line leg-required"></span>TORR (OM-C)</abbr>
             </div>
           </div>
 
@@ -535,15 +536,23 @@
 
           <div class="runway-wrapper">
             <div class="runway-bar" id="landingRunwayBar">
-              <div class="runway-marker" id="barLdrDry" style="background:#22c55e;" title="LDR dry - landing distance required"></div>
-              <div class="runway-marker" id="barLdrWet" style="background:#38bdf8;" title="LDR wet - landing distance required"></div>
+              <div class="runway-marker" id="barLdrDry" style="background:#22c55e;" title="LDR dry - landing distance required by AFM"></div>
+              <div class="runway-marker" id="barLdrWet" style="background:#38bdf8;" title="LDR wet - landing distance required by AFM"></div>
               <div class="runway-tick tick-declared" id="tickLandingEnd" title="LDA - landing distance available">
                 <span class="tick-label" title="LDA - landing distance available">LDA</span>
               </div>
+              <div class="runway-tick tick-ldr-dry-omc" id="tickLdrDryOmc" title="LDR dry required by OM-C">
+                <span class="tick-label" title="LDR dry required by OM-C">LDR DRY (OM-C)</span>
+              </div>
+              <div class="runway-tick tick-ldr-wet-omc" id="tickLdrWetOmc" title="LDR wet required by OM-C">
+                <span class="tick-label" title="LDR wet required by OM-C">LDR WET (OM-C)</span>
+              </div>
             </div>
             <div class="runway-legend">
-              <abbr title="LDR dry - landing distance required"><span class="leg-swatch sw-ldr-dry"></span>LDR DRY</abbr>
-              <abbr title="LDR wet - landing distance required"><span class="leg-swatch sw-ldr-wet"></span>LDR WET</abbr>
+              <abbr title="LDR dry - landing distance required by AFM"><span class="leg-swatch sw-ldr-dry"></span>LDR DRY (AFM)</abbr>
+              <abbr title="LDR wet - landing distance required by AFM"><span class="leg-swatch sw-ldr-wet"></span>LDR WET (AFM)</abbr>
+              <abbr title="LDR dry required by OM-C"><span class="leg-swatch leg-line leg-ldr-dry-omc"></span>LDR DRY (OM-C)</abbr>
+              <abbr title="LDR wet required by OM-C"><span class="leg-swatch leg-line leg-ldr-wet-omc"></span>LDR WET (OM-C)</abbr>
               <abbr title="LDA - landing distance available"><span class="leg-swatch leg-line leg-declared"></span>LDA</abbr>
             </div>
           </div>

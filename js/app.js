@@ -807,14 +807,14 @@
       if (depWindComponentsEl) {
         depWindComponentsEl.innerHTML = `
           <div>${headStr}, ${xwStr}</div>
-          <div>${formatAccountableWind(performanceHeadwind)} used for AFM correction</div>
+          <div>${formatAccountableWind(performanceHeadwind)} used for AFM correction per OM-C</div>
           <div>${depXwNote}</div>
         `;
       }
       if (arrWindComponentsEl) {
         arrWindComponentsEl.innerHTML = `
           <div>${arrHeadStr}, ${arrXwStr}</div>
-          <div>${formatAccountableWind(arrPerformanceHeadwind)} used for AFM correction</div>
+          <div>${formatAccountableWind(arrPerformanceHeadwind)} used for AFM correction per OM-C</div>
           <div>${arrXwNote}</div>
         `;
       }
@@ -858,38 +858,47 @@
       const baseTO = interpTOLD(pa, isaDev, TO_TABLE);
       const baseLDG = interpTOLD(arrPa, arrIsaDev, LDG_TABLE);
       const grass = surfaceCfg;
-      const landingSurface = arrSurfaceCfg;
+      const landingSurfaceDry = GRASS_FACTORS[surfaceKeyFrom(arrSurfaceBase, "dry")] || arrSurfaceCfg;
+      const landingSurfaceWet = GRASS_FACTORS[surfaceKeyFrom(arrSurfaceBase, "wet")] || arrSurfaceCfg;
 
       const toAirborneNoWind = Math.max(0, baseTO.dist - baseTO.run);
       const toRunNoWind = baseTO.run * grass.to;
       const toDistNoWind = toRunNoWind + toAirborneNoWind;
 
       const ldgAirborneNoWind = Math.max(0, baseLDG.dist - baseLDG.run);
-      const ldgRunNoWind = baseLDG.run * landingSurface.ldg;
-      const ldgDistNoWind = ldgRunNoWind + ldgAirborneNoWind;
+      const ldgRunDryNoWind = baseLDG.run * landingSurfaceDry.ldg;
+      const ldgRunWetNoWind = baseLDG.run * landingSurfaceWet.ldg;
+      const ldgDistDryNoWind = ldgRunDryNoWind + ldgAirborneNoWind;
+      const ldgDistWetNoWind = ldgRunWetNoWind + ldgAirborneNoWind;
 
       const toRun = toRunNoWind * windCorrectionFactor("takeoff_run", performanceHeadwind);
       const toDist = toDistNoWind * windCorrectionFactor("takeoff_distance", performanceHeadwind);
-      const ldgRun = ldgRunNoWind * windCorrectionFactor("landing_run", arrPerformanceHeadwind);
-      const ldgDist = ldgDistNoWind * windCorrectionFactor("landing_distance", arrPerformanceHeadwind);
+      const ldgRunDry = ldgRunDryNoWind * windCorrectionFactor("landing_run", arrPerformanceHeadwind);
+      const ldgRunWet = ldgRunWetNoWind * windCorrectionFactor("landing_run", arrPerformanceHeadwind);
+      const ldgDistDry = ldgDistDryNoWind * windCorrectionFactor("landing_distance", arrPerformanceHeadwind);
+      const ldgDistWet = ldgDistWetNoWind * windCorrectionFactor("landing_distance", arrPerformanceHeadwind);
+      const activeLdgDist = usingWet ? ldgDistWet : ldgDistDry;
 
       document.getElementById("toRun").textContent = round(toRun, 0);
       document.getElementById("toDist").textContent = round(toDist, 0);
       const ldgRunEl = document.getElementById("ldgRun");
-      if (ldgRunEl) ldgRunEl.textContent = round(ldgRun, 0);
-      document.getElementById("ldgDist").textContent = round(ldgDist, 0);
+      if (ldgRunEl) ldgRunEl.textContent = round(usingWet ? ldgRunWet : ldgRunDry, 0);
+      const ldgDistEl = document.getElementById("ldgDist");
+      if (ldgDistEl) ldgDistEl.textContent = round(activeLdgDist, 0);
+      document.getElementById("ldgDistDry").textContent = round(ldgDistDry, 0);
+      document.getElementById("ldgDistWet").textContent = round(ldgDistWet, 0);
 
       const roc = interpRoc(pa, isaDev);
       document.getElementById("roc").textContent = round(roc, 0);
 
-      // Ops Manual factored runway requirements.
-      const reqTora125 = toDist * 1.25;       // Ops Manual factor / balanced-field check
+      // OM-C factored runway requirements.
+      const reqTora125 = toDist * 1.25;       // OM-C factor / balanced-field check
       const reqToraRun = toRun;               // with stopway: TORA >= AFM run
       const reqToda115 = toDist * 1.15;       // TODA >= 1.15 * TODR
       const reqAsda130 = toRun * 1.3;         // ASDA >= 1.3 * AFM run
 
-      const reqLdaDry = ldgDist / 0.7;        // LDR dry: ALD must fit in 70% LDA
-      const reqLdaWet = ldgDist * 1.15 / 0.7; // LDR wet: wet factor before 70% LDA check
+      const reqLdaDry = ldgDistDry / 0.7;        // LDR dry (OM-C): AFM LDR dry must fit in 70% LDA
+      const reqLdaWet = ldgDistWet * 1.15 / 0.7; // LDR wet (OM-C): wet factor before 70% LDA check
 
       document.getElementById("reqTora125").textContent = round(reqTora125, 0);
       document.getElementById("reqToraRun").textContent = round(reqToraRun, 0);
@@ -968,7 +977,7 @@
       const todrBarVal = declaredStopwayOrClearway ? reqToda115 : toDist;
       const asdrBarVal = declaredStopwayOrClearway ? reqAsda130 : 0;
       const takeoffScaleLength = Math.max(runwayTora, runwayToda, runwayAsda, toRun, todrBarVal, asdrBarVal, activeReqToraVal, 1);
-      const landingScaleLength = Math.max(runwayLda, reqLdaDry, reqLdaWet, 1);
+      const landingScaleLength = Math.max(runwayLda, ldgDistDry, ldgDistWet, reqLdaDry, reqLdaWet, 1);
 
       setMarker("barToRun", toRun, runwayTora, takeoffScaleLength, takeoffBarWidth);
       setMarker("barToDist", todrBarVal, declaredStopwayOrClearway ? runwayToda : runwayTora, takeoffScaleLength, takeoffBarWidth);
@@ -1009,9 +1018,11 @@
       if (legendAsdr) legendAsdr.style.display = declaredStopwayOrClearway ? "inline-flex" : "none";
       if (legendToraReq) legendToraReq.style.display = declaredStopwayOrClearway ? "none" : "inline-flex";
 
-      setMarker("barLdrDry", reqLdaDry, runwayLda, landingScaleLength, landingBarWidth);
-      setMarker("barLdrWet", reqLdaWet, runwayLda, landingScaleLength, landingBarWidth);
+      setMarker("barLdrDry", ldgDistDry, runwayLda, landingScaleLength, landingBarWidth);
+      setMarker("barLdrWet", ldgDistWet, runwayLda, landingScaleLength, landingBarWidth);
       setTick("tickLandingEnd", runwayLda, landingScaleLength, landingBarWidth);
+      setTick("tickLdrDryOmc", reqLdaDry, landingScaleLength, landingBarWidth);
+      setTick("tickLdrWetOmc", reqLdaWet, landingScaleLength, landingBarWidth);
 
       document.getElementById("declRwy").textContent = formatRunwayLabel();
       document.getElementById("declArrRwy").textContent = formatArrivalRunwayLabel();
@@ -1055,11 +1066,11 @@
       }
 
       if (activeLdaOk) {
-        landingLimiterText.textContent = `OK — active LDR within LDA.`;
+        landingLimiterText.textContent = `OK — active LDR (OM-C) within LDA.`;
         landingLimiterStrip.classList.add("ok");
         landingLimiterStrip.classList.remove("bad");
       } else {
-        landingLimiterText.textContent = `LIMITED — active LDR ${round(activeReqLdaVal, 0)} m > LDA ${round(runwayLda, 0)} m`;
+        landingLimiterText.textContent = `LIMITED — active LDR (OM-C) ${round(activeReqLdaVal, 0)} m > LDA ${round(runwayLda, 0)} m`;
         landingLimiterStrip.classList.add("bad");
         landingLimiterStrip.classList.remove("ok");
       }
@@ -1082,11 +1093,11 @@
       const ldgCriterionOk = usingWet ? ldaWetOk : ldaDryOk;
       const sumPerfLdgText = usingWet
         ? (ldgCriterionOk
-          ? `OK – ALD ${round(ldgDist, 0)} m; LDR wet (×1.15 ÷0.7) = ${round(reqLdaWet, 0)} m ≤ LDA ${round(runwayLda, 0)} m.`
-          : `NOT OK – LDR wet (ALD ×1.15 ÷0.7 = ${round(reqLdaWet, 0)} m) exceeds LDA ${round(runwayLda, 0)} m.`)
+          ? `OK – LDR wet (AFM) ${round(ldgDistWet, 0)} m; LDR wet (OM-C) ${round(reqLdaWet, 0)} m ≤ LDA ${round(runwayLda, 0)} m.`
+          : `NOT OK – LDR wet (OM-C) ${round(reqLdaWet, 0)} m exceeds LDA ${round(runwayLda, 0)} m.`)
         : (ldgCriterionOk
-          ? `OK – ALD ${round(ldgDist, 0)} m; LDR dry (÷0.7) = ${round(reqLdaDry, 0)} m ≤ LDA ${round(runwayLda, 0)} m.`
-          : `NOT OK – LDR dry (ALD ÷0.7 = ${round(reqLdaDry, 0)} m) exceeds LDA ${round(runwayLda, 0)} m.`);
+          ? `OK – LDR dry (AFM) ${round(ldgDistDry, 0)} m; LDR dry (OM-C) ${round(reqLdaDry, 0)} m ≤ LDA ${round(runwayLda, 0)} m.`
+          : `NOT OK – LDR dry (OM-C) ${round(reqLdaDry, 0)} m exceeds LDA ${round(runwayLda, 0)} m.`);
       setSummaryLine("sumPerfLdg", sumPerfLdgText, ldgCriterionOk);
 
       const sumWindText = windOk
@@ -1191,7 +1202,7 @@
       const creditedText = credited >= 0
         ? `credited HWC ${creditedAbs} kt (50% of reported HWC)`
         : `penalised TWC ${creditedAbs} kt (150% of reported TWC)`;
-      return `Reported: ${along}, ${cross}. Ops Manual performance wind: ${creditedText}`;
+      return `Reported: ${along}, ${cross}. OM-C performance wind: ${creditedText}`;
     }
 
     function escHtml(value) {
@@ -1292,7 +1303,7 @@
     <h1>${reportTitle}</h1>
     <div class="report-meta">
       <div>Generated ${escHtml(now.toLocaleString())}</div>
-      <div>Unofficial helper. AFM and Ops Manual remain authoritative.</div>
+      <div>Unofficial helper. AFM and OM-C remain authoritative.</div>
       <div class="report-actions">
         <button class="report-button" onclick="window.print()">Print / save PDF</button>
       </div>
@@ -1362,13 +1373,14 @@
     <div class="box perf kv">
       <div class="k">TORR (AFM)</div><div class="v">${escHtml(getText("toRun"))} m</div>
       <div class="k">TODR (AFM)</div><div class="v">${escHtml(getText("toDist"))} m</div>
-      <div class="k">${declaredStopwayOrClearwayReport ? "TORR (OM-C_" : "TORA required"}</div><div class="v${classIfBad(reqToraBad)}">${escHtml(requiredToraReport)} m</div>
-      <div class="k">TODR / ASDR (OM-C))</div><div class="v${classIfBad(todaAsdaBad)}">${escHtml(getText("reqToda115"))} m / ${escHtml(getText("reqAsda130"))} m</div>
+      <div class="k">${declaredStopwayOrClearwayReport ? "TORR (OM-C)" : "TORA required (OM-C)"}</div><div class="v${classIfBad(reqToraBad)}">${escHtml(requiredToraReport)} m</div>
+      <div class="k">TODR / ASDR (OM-C)</div><div class="v${classIfBad(todaAsdaBad)}">${escHtml(getText("reqToda115"))} m / ${escHtml(getText("reqAsda130"))} m</div>
     </div>
     <div class="box perf kv">
-      <div class="k">ALD</div><div class="v">${escHtml(getText("ldgDist"))} m</div>
-      <div class="k">LDR dry</div><div class="v${classIfBad(ldaDryBad)}">${escHtml(getText("reqLdaDry"))} m</div>
-      <div class="k">LDR wet</div><div class="v${classIfBad(ldaWetBad)}">${escHtml(getText("reqLdaWet"))} m</div>
+      <div class="k">LDR dry (AFM)</div><div class="v">${escHtml(getText("ldgDistDry"))} m</div>
+      <div class="k">LDR wet (AFM)</div><div class="v">${escHtml(getText("ldgDistWet"))} m</div>
+      <div class="k">LDR dry (OM-C)</div><div class="v${classIfBad(ldaDryBad)}">${escHtml(getText("reqLdaDry"))} m</div>
+      <div class="k">LDR wet (OM-C)</div><div class="v${classIfBad(ldaWetBad)}">${escHtml(getText("reqLdaWet"))} m</div>
       <div class="k">Rate of climb</div><div class="v">${escHtml(getText("roc"))} ft/min</div>
     </div>
   </div>

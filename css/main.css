@@ -631,6 +631,14 @@
     .runway-tick.tick-lda {
       background: rgba(250, 204, 21, 0.85);
     }
+
+    .runway-tick.tick-ldr-dry-omc {
+      background: rgba(250, 204, 21, 0.95);
+    }
+
+    .runway-tick.tick-ldr-wet-omc {
+      background: rgba(14, 165, 233, 0.95);
+    }
     #barToRun {
       top: 8px;
     }
@@ -703,6 +711,14 @@
 
     .leg-required {
       background: rgba(250, 204, 21, 0.95);
+    }
+
+    .leg-ldr-dry-omc {
+      background: rgba(250, 204, 21, 0.95);
+    }
+
+    .leg-ldr-wet-omc {
+      background: rgba(14, 165, 233, 0.95);
     }
 
     .sw-to-run {
