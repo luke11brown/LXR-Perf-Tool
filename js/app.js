@@ -1207,6 +1207,7 @@
     .moment-table col.arm { width: 16%; }
     .moment-table col.moment { width: 34%; }
     .moment-table tfoot td { background: #ecfdf5; color: #166534; font-weight: 700; }
+    .moment-table tfoot tr.bad-value td { background: #fee2e2; color: #b91c1c; font-weight: 800; }
     .ok { color: #047857; font-weight: 700; }
     .bad { color: #b91c1c; font-weight: 700; }
     .bad-value { color: #b91c1c; font-weight: 800; }
@@ -1227,7 +1228,9 @@
   </div>
 
   <h2>Aircraft and loading</h2>
-  <div class="box wb kv">
+  <div class="grid">
+    <div class="stack">
+      <div class="box wb kv">
       <div class="k">Registration</div><div class="v">${escHtml(getSelectedText("regSelect"))}</div>
       <div class="k">Empty aircraft</div><div class="v">${escHtml(getValue("emptyWeight"))} kg @ ${escHtml(getValue("emptyArm"))} mm</div>
       <div class="k">Upholstery</div><div class="v">${escHtml(getValue("upholsteryWt"))} kg @ ${escHtml(getValue("upholsteryArm"))} mm</div>
@@ -1235,10 +1238,8 @@
       <div class="k">Passenger</div><div class="v">${escHtml(getValue("paxWt"))} kg @ ${escHtml(getValue("paxArm"))} mm</div>
       <div class="k">Baggage</div><div class="v${classIfBad(bagBad)}">${escHtml(getValue("bagWt"))} kg @ 1580 mm</div>
       <div class="k">Fuel</div><div class="v${classIfBad(fuelBad)}">${escHtml(getValue("fuelL"))} L / ${escHtml(getText("fuelKg")) || escHtml(getValue("fuelKg"))} kg (${escHtml(getSelectedText("fuelType"))})</div>
-  </div>
-
-  <div class="grid">
-    <div class="box wb">
+      </div>
+      <div class="box wb">
       <table class="moment-table">
         <colgroup>
           <col class="item"><col class="mass"><col class="arm"><col class="moment">
@@ -1251,6 +1252,7 @@
         </tfoot>
       </table>
       <p class="${wbBad ? "bad-value" : "ok"}"><strong>W&amp;B status:</strong> ${escHtml(getText("wbStatusPill"))}</p>
+      </div>
     </div>
     <div class="box wb">
       ${cgChartImg ? `<img class="chart-img" src="${cgChartImg}" alt="Weight and balance envelope">` : `<div class="muted">W&amp;B chart unavailable.</div>`}
