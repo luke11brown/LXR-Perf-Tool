@@ -531,6 +531,10 @@
               label: "AFM envelope",
               data: polyPoints,
               tension: 0,
+              borderColor: "#2563eb",
+              backgroundColor: "rgba(37, 99, 235, 0.14)",
+              borderWidth: 2,
+              pointRadius: 0,
               fill: true,
             },
             cgFuelLineDataset,
@@ -675,8 +679,12 @@
       if (cgDepDataset && cgArrDataset && cgFuelLineDataset) {
         cgDepDataset.data = (isFinite(cgTO) && isFinite(massTO)) ? [{ x: cgTO, y: massTO }] : [];
         cgArrDataset.data = (isFinite(cgLW) && isFinite(massLW)) ? [{ x: cgLW, y: massLW }] : [];
-        cgDepDataset.backgroundColor = (massOkTO && cgBasicTO && insidePolyTO) ? "#38bdf8" : "#ef4444";
-        cgArrDataset.backgroundColor = (massOkLW && cgBasicLW && insidePolyLW) ? "#22c55e" : "#ef4444";
+        cgDepDataset.backgroundColor = (massOkTO && cgBasicTO && insidePolyTO) ? "#f97316" : "#ef4444";
+        cgDepDataset.borderColor = "#ffffff";
+        cgDepDataset.borderWidth = 2;
+        cgArrDataset.backgroundColor = (massOkLW && cgBasicLW && insidePolyLW) ? "#a855f7" : "#ef4444";
+        cgArrDataset.borderColor = "#ffffff";
+        cgArrDataset.borderWidth = 2;
         cgFuelLineDataset.data =
           (isFinite(cgTO) && isFinite(massTO) && isFinite(cgLW) && isFinite(massLW))
             ? [{ x: cgTO, y: massTO }, { x: cgLW, y: massLW }]
