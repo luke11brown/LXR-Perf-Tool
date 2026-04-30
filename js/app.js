@@ -1,4 +1,3 @@
-    // ------- Data loaded from JSON -------
     let REG_DATA = {};
     let ALT_GRID_TOLD = [];
     let TEMP_DEV_GRID = [];
@@ -62,24 +61,13 @@
       CG_MAX = limits.cgMax || 0;
     }
 
-    const RUNWAY_SAVE_KEY = "lxrPerfTool.savedRunways";
     let PRESET_RUNWAYS = {};
 
     let activeRunwayLabel = null;
     let activeArrivalRunwayLabel = null;
     let arrivalUsesDepartureRunway = true;
-
-    function getSavedRunways() {
-      try {
-        return JSON.parse(localStorage.getItem(RUNWAY_SAVE_KEY) || "[]");
-      } catch (err) {
-        return [];
-      }
-    }
-
-    function saveRunways(list) {
-      localStorage.setItem(RUNWAY_SAVE_KEY, JSON.stringify(list));
-    }
+    const METAR_STALE_MINUTES = 90;
+    const METAR_FETCH_TIMEOUT_MS = 12000;
 
     async function loadRunwayPresets() {
       try {
@@ -118,30 +106,27 @@
         select.appendChild(presetGroup);
       }
 
-      const runways = getSavedRunways();
-      const savedGroup = document.createElement("optgroup");
-      savedGroup.label = "Saved";
-      if (runways.length === 0) {
-        const emptyOpt = document.createElement("option");
-        emptyOpt.value = "none";
-        emptyOpt.textContent = "No saved runways yet";
-        emptyOpt.disabled = true;
-        savedGroup.appendChild(emptyOpt);
-      } else {
-        runways.forEach((item) => {
-          const opt = document.createElement("option");
-          opt.value = item.id || item.label;
-          opt.textContent = item.label || `Saved runway`;
-          savedGroup.appendChild(opt);
-        });
-      }
-      select.appendChild(savedGroup);
       if ([...select.options].some(opt => opt.value === previousValue)) select.value = previousValue;
     }
 
-    function populateSavedRunwayOptions() {
-      populateRunwaySelect("savedRunwaySelect", "None");
+    function populatePresetRunwayOptions() {
+      populateRunwaySelect("savedRunwaySelect", "Manual entry");
       populateRunwaySelect("arrivalRunwaySelect", "Use departure runway");
+    }
+
+    function setFieldGroupDisabled(ids, disabled) {
+      ids.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = disabled;
+      });
+    }
+
+    function updateRunwayEditState() {
+      const depPresetSelected = document.getElementById("savedRunwaySelect")?.value !== "none";
+      const arrPresetSelected = document.getElementById("arrivalRunwaySelect")?.value !== "none";
+
+      setFieldGroupDisabled(["fieldElev", "runwayTora", "runwayToda", "runwayAsda", "runwayLda", "surface", "rwHeading"], depPresetSelected);
+      setFieldGroupDisabled(["arrFieldElev", "arrLda", "arrSurface", "arrHeading"], arrivalUsesDepartureRunway || arrPresetSelected);
     }
 
     function setRunwayFields(data, label) {
@@ -209,30 +194,6 @@
       updateArrivalWeatherControls();
     }
 
-    function getCurrentRunwayData() {
-      return {
-        elev: parseFloat(document.getElementById("fieldElev").value) || 0,
-        tora: parseFloat(document.getElementById("runwayTora").value) || 0,
-        toda: parseFloat(document.getElementById("runwayToda").value) || 0,
-        asda: parseFloat(document.getElementById("runwayAsda").value) || 0,
-        lda: parseFloat(document.getElementById("runwayLda").value) || 0,
-        heading: parseFloat(document.getElementById("rwHeading").value) || 0,
-        surface: document.getElementById("surface").value,
-      };
-    }
-
-    function getCurrentArrivalRunwayData() {
-      return {
-        elev: parseFloat(document.getElementById("arrFieldElev").value) || 0,
-        tora: 0,
-        toda: 0,
-        asda: 0,
-        lda: parseFloat(document.getElementById("arrLda").value) || 0,
-        heading: parseFloat(document.getElementById("arrHeading").value) || 0,
-        surface: document.getElementById("arrSurface").value,
-      };
-    }
-
     function formatRunwayLabel() {
       return activeRunwayLabel || "Custom departure runway";
     }
@@ -247,8 +208,7 @@
 
       const preset = PRESET_RUNWAYS[select.value];
       if (preset) return preset;
-
-      return getSavedRunways().find(item => item.id === select.value || item.label === select.value) || null;
+      return null;
     }
 
     function getMetarStationFromRunway(runway) {
@@ -268,7 +228,27 @@
       return Number(value.startsWith("M") ? `-${value.slice(1)}` : value);
     }
 
-    function parseMetar(rawMetar) {
+    function parseMetarTimestamp(line) {
+      const match = String(line || "").match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
+      if (!match) return null;
+      const [, year, month, day, hour, minute] = match;
+      return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)));
+    }
+
+    function getMetarAgeMinutes(observedAt) {
+      if (!(observedAt instanceof Date) || Number.isNaN(observedAt.getTime())) return null;
+      return Math.max(0, Math.round((Date.now() - observedAt.getTime()) / 60000));
+    }
+
+    function formatMetarAge(ageMinutes) {
+      if (ageMinutes === null) return "age unknown";
+      if (ageMinutes < 60) return `${ageMinutes} min old`;
+      const hours = Math.floor(ageMinutes / 60);
+      const minutes = ageMinutes % 60;
+      return `${hours}h ${minutes}m old`;
+    }
+
+    function parseMetar(rawMetar, observedLine = "") {
       const metar = String(rawMetar || "").trim().replace(/\s+/g, " ");
       const wind = metar.match(/\b(VRB|\d{3})(\d{2,3})(?:G\d{2,3})?(KT|MPS)\b/);
       const temp = metar.match(/\b(M?\d{2})\/(?:M?\d{2}|\/\/)\b/);
@@ -286,6 +266,7 @@
 
       return {
         raw: metar,
+        observedAt: parseMetarTimestamp(observedLine),
         windDir: wind ? wind[1] : null,
         windSpeed,
         oat: temp ? decodeMetarTemperature(temp[1]) : null,
@@ -293,14 +274,24 @@
       };
     }
 
+    async function fetchWithTimeout(url) {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), METAR_FETCH_TIMEOUT_MS);
+      try {
+        return await fetch(url, { cache: "no-store", signal: controller.signal });
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    }
+
     async function fetchMetarForStation(station) {
-      const url = `https://tgftp.nws.noaa.gov/data/observations/metar/stations/${encodeURIComponent(station)}.TXT`;
+      const noaaUrl = `https://tgftp.nws.noaa.gov/data/observations/metar/stations/${encodeURIComponent(station)}.TXT`;
+      const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(noaaUrl)}`;
       let response;
       try {
-        response = await fetch(url, { cache: "no-store" });
+        response = await fetchWithTimeout(proxyUrl);
       } catch (err) {
-        const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
-        response = await fetch(proxyUrl, { cache: "no-store" });
+        response = await fetchWithTimeout(noaaUrl);
       }
       if (!response.ok) throw new Error(`NOAA returned ${response.status}`);
 
@@ -308,7 +299,7 @@
       const lines = text.trim().split(/\r?\n/).filter(Boolean);
       const rawMetar = lines[lines.length - 1] || "";
       if (!rawMetar.includes(station)) throw new Error("No recent METAR found for station");
-      return parseMetar(rawMetar);
+      return parseMetar(rawMetar, lines[0]);
     }
 
     function applyMetarToFields(metar, target) {
@@ -352,7 +343,9 @@
         applyMetarToFields(metar, target);
         if (!isArrival && document.getElementById("arrUseDepWeather")?.checked) copyDepartureWeatherToArrival();
         calculateAll();
-        status.textContent = `${stationLabel} METAR applied: ${metar.raw}`;
+        const ageMinutes = getMetarAgeMinutes(metar.observedAt);
+        const staleText = ageMinutes !== null && ageMinutes > METAR_STALE_MINUTES ? " STALE - verify before use." : "";
+        status.textContent = `${stationLabel} METAR applied (${formatMetarAge(ageMinutes)}).${staleText} ${metar.raw}`;
       } catch (err) {
         status.textContent = `Could not fetch ${stationLabel} METAR: ${err.message}`;
       } finally {
@@ -360,7 +353,6 @@
       }
     }
 
-    // Helpers
     function clamp(x, min, max) { return Math.max(min, Math.min(max, x)); }
 
     function lerp(x, x0, x1, y0, y1) {
@@ -394,7 +386,6 @@
       return Math.round(x * f) / f;
     }
 
-    // Point-in-polygon (ray casting)
     function pointInPoly(px, py, poly) {
       let inside = false;
       for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
@@ -408,7 +399,6 @@
       return inside;
     }
 
-    // Interpolate takeoff/landing table
     function interpTOLD(pa, isaDev, table) {
       const paClamped = clamp(pa, ALT_GRID_TOLD[0], ALT_GRID_TOLD[ALT_GRID_TOLD.length - 1]);
       const devClamped = clamp(isaDev, TEMP_DEV_GRID[0], TEMP_DEV_GRID[TEMP_DEV_GRID.length - 1]);
@@ -499,7 +489,6 @@
       return lerp(paClamped, a0, a1, roc_a0, roc_a1);
     }
 
-    // ------- Charts -------
     let cgChart, toChart, ldgChart, rocChart;
     let cgDepDataset, cgArrDataset, toPointDataset, ldgPointDataset, rocPointDataset;
 
@@ -600,7 +589,7 @@
 
       toPointDataset = {
         type: "scatter",
-        label: "Your condition",
+        label: "Current condition",
         data: [],
         yAxisID: "y1",
         pointRadius: 5,
@@ -655,7 +644,7 @@
 
       ldgPointDataset = {
         type: "scatter",
-        label: "Your condition",
+        label: "Current condition",
         data: [],
         yAxisID: "y1",
         pointRadius: 5,
@@ -710,7 +699,7 @@
 
       rocPointDataset = {
         type: "scatter",
-        label: "Your condition",
+        label: "Current condition",
         data: [],
         pointRadius: 5,
         pointHoverRadius: 6,
@@ -739,7 +728,7 @@
       if (graphsBlock) {
         graphsBlock.addEventListener("toggle", () => {
           if (graphsBlock.open) {
-            // Let layout settle, then resize charts
+            // The details element needs a frame to finish opening before Chart.js can measure it.
             requestAnimationFrame(() => {
               try { toChart && toChart.resize(); } catch (e) { }
               try { ldgChart && ldgChart.resize(); } catch (e) { }
@@ -750,7 +739,6 @@
       }
     }
 
-    // Helper to set summary line text & colour
     function setSummaryLine(id, text, ok) {
       const el = document.getElementById(id);
       el.textContent = text;
@@ -777,9 +765,7 @@
       };
     }
 
-    // ------- Main calc -------
     function calculateAll() {
-      // W&B
       const emptyWeight = parseFloat(document.getElementById("emptyWeight").value) || 0;
       const emptyArm = parseFloat(document.getElementById("emptyArm").value) || 0;
       const upholsteryWt = parseFloat(document.getElementById("upholsteryWt").value) || 0;
@@ -866,14 +852,12 @@
         wbStatusPill.classList.add("bad");
       }
 
-      // Update CG chart
       if (cgDepDataset && cgArrDataset) {
         cgDepDataset.data = (isFinite(cgTO) && isFinite(massTO)) ? [{ x: cgTO, y: massTO }] : [];
         cgArrDataset.data = (isFinite(cgLW) && isFinite(massLW)) ? [{ x: cgLW, y: massLW }] : [];
         cgChart.update();
       }
 
-      // Atmosphere
       const fieldElev = parseFloat(document.getElementById("fieldElev").value) || 0;
       const qnh = parseFloat(document.getElementById("qnh").value) || 1013.25;
       const oat = parseFloat(document.getElementById("oat").value) || 0;
@@ -908,7 +892,6 @@
       document.getElementById("arrPa").value = round(arrPa, 0);
       document.getElementById("arrIsaDev").value = round(arrIsaDev, 1);
 
-      // Wind
       const rwHeading = parseFloat(document.getElementById("rwHeading").value) || 0;
       const arrHeading = parseFloat(document.getElementById("arrHeading").value) || rwHeading;
       const windDirRaw = String(document.getElementById("windDir").value || "").trim().toUpperCase();
@@ -948,10 +931,14 @@
         xwWarn = " – within demonstrated limit";
       }
 
-      const arrHeadStr = arrHeadwind >= 0 ? `Arr headwind ${round(arrHeadwind, 1)} kt` : `Arr tailwind ${round(arrTailwind, 1)} kt`;
-      const arrXwStr = arrWindIsVRB ? "arrival crosswind not assessed (VRB)" : `arrival crosswind ${round(Math.abs(arrCrosswind), 1)} kt`;
+      const arrHeadStr = arrHeadwind >= 0 ? `Headwind ${round(arrHeadwind, 1)} kt` : `Tailwind ${round(arrTailwind, 1)} kt`;
+      const arrXwStr = arrWindIsVRB ? "Crosswind not assessed (VRB)" : `Crosswind ${round(Math.abs(arrCrosswind), 1)} kt`;
       const arrWeatherNote = arrivalWeatherUsesDeparture ? "same weather" : "separate arrival weather";
-      windComponentsEl.textContent = `${headStr}, ${xwStr}; ${arrHeadStr}, ${arrXwStr} (${arrWeatherNote})${xwWarn}`;
+      windComponentsEl.innerHTML = `
+        <div><strong>DEP</strong> ${headStr}, ${xwStr}</div>
+        <div><strong>ARR</strong> ${arrHeadStr}, ${arrXwStr} (${arrWeatherNote})</div>
+        <div>${xwWarn.replace(/^ – /, "")}</div>
+      `;
 
       const tailwindOk = tailwind <= MAX_RECOMMENDED_TAILWIND && arrTailwind <= MAX_RECOMMENDED_TAILWIND;
       const crosswindOk = (windIsVRB || arrWindIsVRB) ? true : Math.max(Math.abs(crosswind), Math.abs(arrCrosswind)) <= MAX_XWIND;
@@ -976,7 +963,6 @@
         windLimitWarn.style.display = "none";
       }
 
-      // Performance
       const baseTO = interpTOLD(pa, isaDev, TO_TABLE);
       const baseLDG = interpTOLD(arrPa, arrIsaDev, LDG_TABLE);
       const grass = surfaceCfg;
@@ -1003,8 +989,8 @@
       const roc = interpRoc(pa, isaDev);
       document.getElementById("roc").textContent = round(roc, 0);
 
-      // Ops Manual flight-training factors
-      const reqTora125 = toDist * 1.25;       // Ops Manual training factor / no stopway-style check
+      // Ops Manual factored runway requirements.
+      const reqTora125 = toDist * 1.25;       // Ops Manual factor / no stopway-style check
       const reqToraRun = toRun;               // with stopway: TORA >= AFM run
       const reqToda115 = toDist * 1.15;       // TODA >= 1.15 * AFM distance
       const reqAsda130 = toRun * 1.3;         // ASDA >= 1.3 * AFM run
@@ -1012,7 +998,6 @@
       const reqLdaDry = ldgDist / 0.7;        // Ops Manual: AFM landing distance must fit in 70% LDA
       const reqLdaWet = ldgDist * 1.15 / 0.7; // Ops Manual: wet factor before 70% LDA check
 
-      // Populate numbers
       document.getElementById("reqTora125").textContent = round(reqTora125, 0);
       document.getElementById("reqToraRun").textContent = round(reqToraRun, 0);
       document.getElementById("reqToda115").textContent = round(reqToda115, 0);
@@ -1021,7 +1006,6 @@
       document.getElementById("reqLdaDry").textContent = round(reqLdaDry, 0);
       document.getElementById("reqLdaWet").textContent = round(reqLdaWet, 0);
 
-      // Status vs runway
       function statusSpan(elId, ok) {
         const el = document.getElementById(elId);
         el.textContent = ok ? "OK" : "NOT OK";
@@ -1052,7 +1036,6 @@
       statusSpan("reqLdaDryStatus", ldaDryOk);
       statusSpan("reqLdaWetStatus", ldaWetOk);
 
-      // Charts markers
       if (toPointDataset && ldgPointDataset && rocPointDataset) {
         toPointDataset.data = [{ x: pa, y: toRun }];
         ldgPointDataset.data = [{ x: arrPa, y: ldgRun }];
@@ -1062,7 +1045,6 @@
         rocChart.update();
       }
 
-      // Runway bar
       const bar = document.getElementById("runwayBar");
       const barWidth = bar.clientWidth || 1;
 
@@ -1089,15 +1071,12 @@
         el.style.left = xPx + "px";
       }
 
-      // Ticks
       setTick("tickRunwayEnd", runwayTora);
       setTick("tickReqTora125", activeReqToraVal);
 
-      // active LDA tick uses wet/dry selection
       const activeReqLda = usingWet ? reqLdaWet : reqLdaDry;
       setTick("tickReqLda", activeReqLda);
 
-      // --- Declared distances row ---
       document.getElementById("declRwy").textContent = `${formatRunwayLabel()} (${round(rwHeading, 0)}°T)`;
       document.getElementById("declArrRwy").textContent = `${formatArrivalRunwayLabel()} (${round(arrHeading, 0)}°T)`;
       document.getElementById("declTora").textContent = `${round(runwayTora, 0)} m`;
@@ -1107,13 +1086,11 @@
 
       const surfaceLabel = surfaceCfg.label || "CUSTOM";
       const arrSurfaceLabel = arrSurfaceCfg.label || "CUSTOM";
-      document.getElementById("declSurface").textContent = `${surfaceLabel} / ARR ${arrSurfaceLabel}`;
+      document.getElementById("declSurface").textContent = `DEP: ${surfaceLabel} / ARR: ${arrSurfaceLabel}`;
 
-      // --- Limiter strip (one-line OPT style) ---
       const limiterStrip = document.getElementById("limiterStrip");
       const limiterText = document.getElementById("limiterText");
 
-      // Determine active landing requirement used
       const activeReqLdaVal = usingWet ? reqLdaWet : reqLdaDry;
       const activeLdaOk = usingWet ? ldaWetOk : ldaDryOk;
 
@@ -1141,7 +1118,6 @@
 
 
 
-      // ------- Operational summary -------
       const sumWbText = wbOk
         ? `OK – TOW ${round(massTO, 1)} kg at ${round(cgTO, 0)} mm; landing weight ${round(massLW, 1)} kg at ${round(cgLW, 0)} mm. Fuel and baggage within AFM limits.`
         : `NOT OK – check masses, CG envelope, fuel (≤ ${MAX_FUEL_KG} kg / ${MAX_FUEL_L} L) and baggage (≤ ${MAX_BAG_KG} kg).`;
@@ -1157,7 +1133,6 @@
           : `NOT OK – no stopway/clearway used: Ops Manual TORA check (1.25 × AFM 50 ft = ${round(reqTora125, 0)} m) exceeds available TORA ${round(runwayTora, 0)} m.`);
       setSummaryLine("sumPerfTo", sumPerfToText, toOk);
 
-      // Decide which landing requirement to emphasise: dry vs wet
       const ldgCriterionOk = usingWet ? ldaWetOk : ldaDryOk;
       const sumPerfLdgText = usingWet
         ? (ldgCriterionOk
@@ -1181,7 +1156,6 @@
         : `Departure ${runwayLabelForSummary} declared distances (TORA ${round(runwayTora, 0)} m, TODA ${round(runwayToda, 0)} m, ASDA ${round(runwayAsda, 0)} m) or arrival ${arrivalLabelForSummary} LDA ${round(runwayLda, 0)} m are insufficient for current requirements.`;
       setSummaryLine("sumRunway", sumRunwayText, runwayOk);
 
-      // Overall decision
       const go = wbOk && windOk && runwayOk;
       const reasons = [];
       if (!wbOk) reasons.push("W&B outside AFM limits");
@@ -1272,6 +1246,10 @@
       const rowsHtml = momentRows.map((row) => `
         <tr><td>${escHtml(row[0])}</td><td class="num">${escHtml(row[1])}</td><td class="num">${escHtml(row[2])}</td><td class="num">${escHtml(row[3])}</td></tr>
       `).join("");
+      const depSurfaceText = GRASS_FACTORS[getValue("surface")]?.label || getSelectedText("surface") || "CUSTOM";
+      const arrSurfaceText = GRASS_FACTORS[getValue("arrSurface")]?.label || getSelectedText("arrSurface") || "CUSTOM";
+      const decisionText = getText("sumPill");
+      const decisionClass = decisionText.includes("NO-GO") ? "decision bad-bg" : decisionText.includes("GO") ? "decision ok-bg" : "decision";
 
       const html = `<!doctype html>
 <html>
@@ -1301,6 +1279,9 @@
     .moment-table tfoot td { font-weight: 700; }
     .ok { color: #047857; font-weight: 700; }
     .bad { color: #b91c1c; font-weight: 700; }
+    .ok-bg { border-color: #16a34a; background: #dcfce7; color: #166534; }
+    .bad-bg { border-color: #dc2626; background: #fee2e2; color: #991b1b; }
+    .decision { border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font-weight: 700; }
     .footer { margin-top: 14px; font-size: 9px; color: #475569; border-top: 1px solid #cbd5e1; padding-top: 6px; }
     @media print { button { display:none; } }
   </style>
@@ -1345,7 +1326,8 @@
     <div class="box kv">
       <div class="k">Departure runway</div><div class="v">${escHtml(getText("declRwy"))}</div>
       <div class="k">Arrival runway</div><div class="v">${escHtml(getText("declArrRwy"))}</div>
-      <div class="k">Surface</div><div class="v">${escHtml(getText("declSurface"))}</div>
+      <div class="k">Departure surface</div><div class="v">${escHtml(depSurfaceText)}</div>
+      <div class="k">Arrival surface</div><div class="v">${escHtml(arrSurfaceText)}</div>
       <div class="k">TORA / TODA</div><div class="v">${escHtml(getText("declTora"))} / ${escHtml(getText("declToda"))}</div>
       <div class="k">ASDA / arrival LDA</div><div class="v">${escHtml(getText("declAsda"))} / ${escHtml(getText("declLda"))}</div>
     </div>
@@ -1354,7 +1336,9 @@
       <div class="k">QNH</div><div class="v">${escHtml(getValue("qnh"))} hPa</div>
       <div class="k">Pressure altitude</div><div class="v">${escHtml(getValue("pa"))} ft</div>
       <div class="k">OAT / ISA dev</div><div class="v">${escHtml(getValue("oat"))} °C / ${escHtml(getValue("isaDev"))} °C</div>
-      <div class="k">Wind</div><div class="v">${escHtml((String(getValue("windDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("windDir")}°T`)} / ${escHtml(getValue("windSpd"))} kt; ${escHtml(getText("windComponents"))}</div>
+      <div class="k">Departure wind</div><div class="v">${escHtml((String(getValue("windDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("windDir")}°T`)} / ${escHtml(getValue("windSpd"))} kt</div>
+      <div class="k">Arrival wind</div><div class="v">${escHtml((String(getValue("arrWindDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("arrWindDir")}°T`)} / ${escHtml(getValue("arrWindSpd"))} kt</div>
+      <div class="k">Wind components</div><div class="v">${escHtml(getText("windComponents"))}</div>
     </div>
   </div>
 
@@ -1382,7 +1366,7 @@
     <p><strong>Landing:</strong> ${escHtml(getText("sumPerfLdg"))}</p>
     <p><strong>Wind:</strong> ${escHtml(getText("sumWind"))}</p>
     <p><strong>Runway:</strong> ${escHtml(getText("sumRunway"))}</p>
-    <p><strong>Decision:</strong> ${escHtml(getText("sumPill"))}</p>
+    <div class="${decisionClass}">${escHtml(decisionText)}</div>
   </div>
 
   <div class="footer">This PDF is a snapshot of the app data. It is not an AFM replacement.</div>
@@ -1421,7 +1405,6 @@
       document.getElementById("fetchMetarBtn").addEventListener("click", () => fetchAndApplyMetar("departure"));
       document.getElementById("fetchArrivalMetarBtn").addEventListener("click", () => fetchAndApplyMetar("arrival"));
 
-      // Registration selector behaviour
       const regSelect = document.getElementById("regSelect");
       const regInfo = document.getElementById("regInfo");
 
@@ -1442,16 +1425,15 @@
         calculateAll();
       });
 
-      populateSavedRunwayOptions();
+      populatePresetRunwayOptions();
 
       const savedRunwaySelect = document.getElementById("savedRunwaySelect");
-      const saveRunwayBtn = document.getElementById("saveRunwayBtn");
-      const deleteRunwayBtn = document.getElementById("deleteRunwayBtn");
 
       savedRunwaySelect.addEventListener("change", () => {
         const selectedId = savedRunwaySelect.value;
         if (selectedId === "none") {
           activeRunwayLabel = null;
+          updateRunwayEditState();
           calculateAll();
           return;
         }
@@ -1459,57 +1441,13 @@
         const preset = PRESET_RUNWAYS[selectedId];
         if (preset) {
           setRunwayFields(preset, preset.label);
+          updateRunwayEditState();
           calculateAll();
           return;
         }
-
-        const saved = getSavedRunways().find(item => item.id === selectedId);
-        if (saved) {
-          setRunwayFields(saved, saved.label);
-          calculateAll();
-        }
-      });
-
-      saveRunwayBtn.addEventListener("click", () => {
-        const label = prompt("Save this runway as:", activeRunwayLabel || "My runway");
-        if (!label) return;
-        const runways = getSavedRunways();
-        const newRunway = {
-          id: `${Date.now()}`,
-          label: label.trim(),
-          ...getCurrentRunwayData(),
-        };
-        const existingIndex = runways.findIndex(item => item.label === newRunway.label);
-        if (existingIndex >= 0) {
-          runways[existingIndex] = newRunway;
-        } else {
-          runways.push(newRunway);
-        }
-        saveRunways(runways);
-        populateSavedRunwayOptions();
-        savedRunwaySelect.value = newRunway.id;
-        activeRunwayLabel = newRunway.label;
-        alert(`Runway saved: ${newRunway.label}`);
-      });
-
-      deleteRunwayBtn.addEventListener("click", () => {
-        const selectedId = savedRunwaySelect.value;
-        if (selectedId === "none") {
-          alert("Choose a saved runway first.");
-          return;
-        }
-        let runways = getSavedRunways().filter(item => item.id !== selectedId);
-        saveRunways(runways);
-        populateSavedRunwayOptions();
-        savedRunwaySelect.value = "none";
-        activeRunwayLabel = null;
-        alert("Saved runway deleted.");
-        calculateAll();
       });
 
       const arrivalRunwaySelect = document.getElementById("arrivalRunwaySelect");
-      const saveArrivalRunwayBtn = document.getElementById("saveArrivalRunwayBtn");
-      const deleteArrivalRunwayBtn = document.getElementById("deleteArrivalRunwayBtn");
 
       arrivalRunwaySelect.addEventListener("change", () => {
         const selectedId = arrivalRunwaySelect.value;
@@ -1520,6 +1458,7 @@
           const useDepWeather = document.getElementById("arrUseDepWeather");
           if (useDepWeather) useDepWeather.checked = true;
           updateArrivalWeatherControls();
+          updateRunwayEditState();
           calculateAll();
           return;
         }
@@ -1527,64 +1466,15 @@
         const preset = PRESET_RUNWAYS[selectedId];
         if (preset) {
           setArrivalRunwayFields(preset, preset.label);
+          updateRunwayEditState();
           calculateAll();
           return;
         }
-
-        const saved = getSavedRunways().find(item => item.id === selectedId);
-        if (saved) {
-          setArrivalRunwayFields(saved, saved.label);
-          calculateAll();
-        }
-      });
-
-      saveArrivalRunwayBtn.addEventListener("click", () => {
-        const label = prompt("Save this arrival runway as:", activeArrivalRunwayLabel || "My arrival runway");
-        if (!label) return;
-        const runways = getSavedRunways();
-        const newRunway = {
-          id: `${Date.now()}`,
-          label: label.trim(),
-          ...getCurrentArrivalRunwayData(),
-        };
-        const existingIndex = runways.findIndex(item => item.label === newRunway.label);
-        if (existingIndex >= 0) {
-          runways[existingIndex] = newRunway;
-        } else {
-          runways.push(newRunway);
-        }
-        saveRunways(runways);
-        populateSavedRunwayOptions();
-        arrivalRunwaySelect.value = newRunway.id;
-        activeArrivalRunwayLabel = newRunway.label;
-        arrivalUsesDepartureRunway = false;
-        updateArrivalWeatherControls();
-        alert(`Arrival runway saved: ${newRunway.label}`);
-        calculateAll();
-      });
-
-      deleteArrivalRunwayBtn.addEventListener("click", () => {
-        const selectedId = arrivalRunwaySelect.value;
-        if (selectedId === "none") {
-          alert("Choose a saved arrival runway first.");
-          return;
-        }
-        let runways = getSavedRunways().filter(item => item.id !== selectedId);
-        saveRunways(runways);
-        populateSavedRunwayOptions();
-        arrivalRunwaySelect.value = "none";
-        arrivalUsesDepartureRunway = true;
-        activeArrivalRunwayLabel = activeRunwayLabel;
-        copyDepartureToArrival();
-        const useDepWeather = document.getElementById("arrUseDepWeather");
-        if (useDepWeather) useDepWeather.checked = true;
-        updateArrivalWeatherControls();
-        alert("Saved runway deleted.");
-        calculateAll();
       });
 
       document.getElementById("arrUseDepWeather").addEventListener("change", () => {
         updateArrivalWeatherControls();
+        updateRunwayEditState();
         calculateAll();
       });
 
@@ -1595,6 +1485,7 @@
       });
 
       updateArrivalWeatherControls();
+      updateRunwayEditState();
       calculateAll();
       window.addEventListener("resize", calculateAll);
     });

@@ -202,6 +202,19 @@
       margin-top: 0.3rem;
     }
 
+    #windComponents {
+      display: grid;
+      gap: 0.2rem;
+      line-height: 1.35;
+    }
+
+    #windComponents strong {
+      color: var(--text);
+      font-size: 0.68rem;
+      letter-spacing: 0.12em;
+      margin-right: 0.25rem;
+    }
+
     .button-row {
       display: flex;
       justify-content: flex-end;
@@ -220,30 +233,23 @@
       position: relative;
       z-index: 1;
       align-items: stretch;
-
       flex-wrap: wrap;
-      /* <-- key */
     }
 
     .collapse-inline {
       flex: 1 1 16rem;
-      /* <-- key: can shrink/grow */
       min-width: 16rem;
       overflow: visible;
     }
 
     .action-row button {
       flex: 0 0 auto;
-      /* <-- key */
       white-space: nowrap;
       margin-left: auto;
-      /* keeps it to the right on same line */
     }
 
-    /* When opened, let the breakdown become a full-width row above the button */
     .collapse-inline[open] {
       flex-basis: 100%;
-      /* <-- key */
       border-radius: 0.9rem;
       padding-bottom: 0.6rem;
     }

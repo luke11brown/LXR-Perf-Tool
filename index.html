@@ -6,7 +6,6 @@
   <title>Elixir W&B & Performance (Unofficial)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Chart.js for graphs -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="./css/main.css" />
 </head>
@@ -14,16 +13,14 @@
 <body>
   <header>
     <h1>Elixir W&amp;B + Performance</h1>
-    <p>Unofficial helper based on your AFM + Ops Manual flight-training factors. <strong>AFM and your Ops Manual are always the
+    <p>Unofficial helper based on AFM + Ops Manual factors. <strong>The AFM and Ops Manual are always the
         authority.</strong></p>
   </header>
 
   <main>
-    <!-- =============== W&B SECTION =============== -->
     <section class="section-block">
       <div class="section-title">Weight &amp; Balance</div>
       <div class="section-grid">
-        <!-- Inputs -->
         <section class="card">
           <h2>Loading</h2>
           <small>Select a registration to auto-fill empty mass &amp; CG, then adjust loading.</small>
@@ -44,7 +41,7 @@
             <div class="field">
               <label>Reg info</label>
               <div class="inline-note" id="regInfo">
-                Select an Elixir registration to fill empty mass &amp; CG from the school list.
+                Select an Elixir registration to fill empty mass &amp; CG from the aircraft data.
               </div>
             </div>
           </div>
@@ -205,7 +202,6 @@
           </div>
         </section>
 
-        <!-- CG envelope graph -->
         <section class="card">
           <h2>Loading Verification</h2>
           <small>Mass–CG envelope from AFM: points (430/720, 500/720, 630/800, 630/860).</small>
@@ -220,14 +216,12 @@
       </div>
     </section>
 
-    <!-- =============== PERFORMANCE SECTION =============== -->
     <section class="section-block">
       <div class="section-title">Performance</div>
       <div class="section-grid">
-        <!-- Atmosphere, runway, wind + numeric perf -->
         <section class="card">
           <h2>Conditions &amp; Runway</h2>
-          <small>AFM §5.3/5.4 distances (630&nbsp;kg, level hard runway), QNH-derived pressure altitude, wind correction + school factors.</small>
+          <small>AFM §5.3/5.4 distances (630&nbsp;kg, level hard runway), QNH-derived pressure altitude, wind correction + Ops Manual factors.</small>
 
           <div class="grid-3">
             <div class="field">
@@ -257,16 +251,14 @@
 
           <div class="grid" style="margin-top:0.75rem">
             <div class="field">
-              <label for="savedRunwaySelect">Runway preset / saved</label>
+              <label for="savedRunwaySelect">Departure runway preset</label>
               <select id="savedRunwaySelect">
-                <option value="none" selected>None</option>
+                <option value="none" selected>Manual entry</option>
               </select>
             </div>
           </div>
           <div class="button-row">
             <button id="fetchMetarBtn" type="button">Fetch METAR</button>
-            <button id="saveRunwayBtn">Save current runway</button>
-            <button id="deleteRunwayBtn">Delete saved runway</button>
           </div>
           <div class="inline-note" id="metarStatus"></div>
           <div class="grid" style="margin-top:0.75rem">
@@ -334,7 +326,7 @@
           <div class="subsection-title">Arrival / landing runway</div>
           <div class="grid" style="margin-top:0.75rem">
             <div class="field">
-              <label for="arrivalRunwaySelect">Arrival runway preset / saved</label>
+              <label for="arrivalRunwaySelect">Arrival runway preset</label>
               <select id="arrivalRunwaySelect">
                 <option value="none" selected>Use departure runway</option>
               </select>
@@ -342,8 +334,6 @@
           </div>
           <div class="button-row">
             <button id="fetchArrivalMetarBtn" type="button">Fetch METAR</button>
-            <button id="saveArrivalRunwayBtn">Save arrival runway</button>
-            <button id="deleteArrivalRunwayBtn">Delete saved runway</button>
           </div>
           <div class="inline-note" id="arrivalMetarStatus"></div>
           <div class="grid" style="margin-top:0.75rem">
@@ -435,10 +425,9 @@
             </div>
           </div>
 
-          <!-- Ops Manual / flight-training factored requirements -->
           <div class="results-block">
             <div class="res-card">
-              <div class="res-title">Ops Manual – Take-off training factors</div>
+              <div class="res-title">Ops Manual – Take-off factors</div>
               <div class="res-main">
                 <div id="takeoffNoStopwayBlock">
                   <div>If no stopway/clearway is used:</div>
@@ -456,21 +445,21 @@
                 </div>
               </div>
               <div class="res-sub" id="takeoffTrainingNote">
-                Ops Manual flight-training factors: use the 1.25 × AFM 50&nbsp;ft distance TORA check when no stopway/clearway is used. Where stopway and/or clearway is available, use the declared-distance method: TORA, TODA and ASDA checks as shown.
+                Ops Manual factors: use the 1.25 × AFM 50&nbsp;ft distance TORA check when no stopway/clearway is used. Where stopway and/or clearway is available, use the declared-distance method: TORA, TODA and ASDA checks as shown.
               </div>
             </div>
 
             <div class="res-card">
-              <div class="res-title">Ops Manual – Landing training factors</div>
+              <div class="res-title">Ops Manual – Landing factors</div>
               <div class="res-main">
-                <div>Required LDA dry (training factor, AFM 50 ft ÷ 0.7): <strong><span id="reqLdaDry"></span> m</strong></div>
+                <div>Required LDA dry (Ops Manual factor, AFM 50 ft ÷ 0.7): <strong><span id="reqLdaDry"></span> m</strong></div>
                 <div>Status: <span id="reqLdaDryStatus"></span></div>
                 <hr style="border:none;border-top:1px solid rgba(148,163,184,0.3);margin:0.4rem 0;">
-                <div>Required LDA wet (training factor, AFM 50 ft ×1.15 ÷0.7): <strong><span id="reqLdaWet"></span> m</strong></div>
+                <div>Required LDA wet (Ops Manual factor, AFM 50 ft ×1.15 ÷0.7): <strong><span id="reqLdaWet"></span> m</strong></div>
                 <div>Status: <span id="reqLdaWetStatus"></span></div>
               </div>
               <div class="res-sub">
-                Ops Manual flight-training factors: dry landing distance must fit within 70% of LDA; wet landing applies ×1.15 before the 70% check.
+                Ops Manual factors: dry landing distance must fit within 70% of LDA; wet landing applies ×1.15 before the 70% check.
               </div>
             </div>
           </div>
@@ -482,12 +471,11 @@
 
           <p class="muted">
             AFM performance tables are no-wind, level hard runway at 630&nbsp;kg.
-            This tool applies digitised wind correction factors to the displayed AFM distances, then applies the flight-training factors from your Ops Manual.
+            This tool applies digitised wind correction factors to the displayed AFM distances, then applies the Ops Manual factors.
             Keep margins generous and verify against the AFM.
           </p>
         </section>
 
-        <!-- Runway diagram + perf graphs -->
         <section class="card">
           <h2>Runway Diagram &amp; Graphs</h2>
           <small>Visual comparison of AFM distances vs declared runway plus AFM-style graphs.</small>
@@ -513,7 +501,6 @@
               <div class="runway-marker" id="barToDist" style="background:#a855f7;"></div>
               <div class="runway-marker" id="barLdgRun" style="background:#22c55e;"></div>
               <div class="runway-marker" id="barLdgDist" style="background:#f97316;"></div>
-              <!-- Marker ticks -->
               <div class="runway-tick" id="tickRunwayEnd" title="Runway end"></div>
               <div class="runway-tick tick-tora" id="tickReqTora125">
                 <span class="tick-label">REQ TORA</span>
@@ -572,7 +559,6 @@
       </div>
     </section>
 
-    <!-- =============== OPERATIONAL SUMMARY =============== -->
     <section class="section-block">
       <div class="section-title">Operational Summary</div>
       <section class="card">
