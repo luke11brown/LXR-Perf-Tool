@@ -651,12 +651,8 @@
       top: 36px;
     }
 
-    #barLdrDry {
-      top: 8px;
-    }
-
-    #barLdrWet {
-      top: 22px;
+    #barLdrAfm {
+      top: 15px;
     }
 
     .runway-marker.overrun {
@@ -733,6 +729,7 @@
       background: #f97316;
     }
 
+    .sw-ldr-afm,
     .sw-ldr-dry {
       background: #22c55e;
     }

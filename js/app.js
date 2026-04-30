@@ -1018,8 +1018,21 @@
       if (legendAsdr) legendAsdr.style.display = declaredStopwayOrClearway ? "inline-flex" : "none";
       if (legendToraReq) legendToraReq.style.display = declaredStopwayOrClearway ? "none" : "inline-flex";
 
-      setMarker("barLdrDry", ldgDistDry, runwayLda, landingScaleLength, landingBarWidth);
-      setMarker("barLdrWet", ldgDistWet, runwayLda, landingScaleLength, landingBarWidth);
+      setMarker("barLdrAfm", activeLdgDist, runwayLda, landingScaleLength, landingBarWidth);
+      const barLdrAfm = document.getElementById("barLdrAfm");
+      const legendLdrAfm = document.getElementById("legendLdrAfm");
+      const activeLdrColor = usingWet ? "#38bdf8" : "#22c55e";
+      const activeLdrLabel = usingWet ? "LDR WET (AFM)" : "LDR DRY (AFM)";
+      if (barLdrAfm) {
+        barLdrAfm.style.background = activeLdrColor;
+        barLdrAfm.title = `${activeLdrLabel} - landing distance required by AFM`;
+      }
+      if (legendLdrAfm) {
+        const swatch = legendLdrAfm.querySelector(".leg-swatch");
+        if (swatch) swatch.style.background = activeLdrColor;
+        legendLdrAfm.title = `${activeLdrLabel} - landing distance required by AFM`;
+        setLegendText(legendLdrAfm, activeLdrLabel);
+      }
       setTick("tickLandingEnd", runwayLda, landingScaleLength, landingBarWidth);
       setTick("tickLdrDryOmc", reqLdaDry, landingScaleLength, landingBarWidth);
       setTick("tickLdrWetOmc", reqLdaWet, landingScaleLength, landingBarWidth);
