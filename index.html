@@ -40,6 +40,7 @@
 
     body {
       margin: 0;
+      padding-bottom: 5.5rem;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
         "Segoe UI", sans-serif;
       background: linear-gradient(180deg, #05070b, #0b0f14 40%, #0b0f14);
@@ -391,6 +392,13 @@
       color: #fecaca;
     }
 
+    #wbStatusPill {
+      max-width: 100%;
+      white-space: normal;
+      line-height: 1.35;
+      padding-right: 0.7rem;
+    }
+
     .results-block {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -687,13 +695,95 @@
       color: rgba(250, 204, 21, 0.95);
       text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
     }
+
+    .sticky-calc-footer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 50;
+      border-top: 1px solid var(--border);
+      background: rgba(5, 7, 11, 0.92);
+      backdrop-filter: blur(10px);
+      padding: 0.7rem 1rem;
+      box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .sticky-calc-inner {
+      max-width: 1180px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+    }
+
+    .sticky-calc-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      min-width: 0;
+    }
+
+    .sticky-calc-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--text);
+    }
+
+    .sticky-calc-note {
+      color: var(--muted);
+      font-size: 0.72rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sticky-actions {
+      display: flex;
+      gap: 0.6rem;
+      flex: 0 0 auto;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .sticky-calc-footer button {
+      flex: 0 0 auto;
+      border-color: rgba(56, 189, 248, 0.55);
+      background: rgba(11, 17, 24, 0.95);
+    }
+
+    .sticky-calc-footer button.secondary {
+      color: var(--muted);
+      border-color: rgba(148, 163, 184, 0.45);
+    }
+
+    @media (max-width: 640px) {
+      body { padding-bottom: 6.4rem; }
+      .sticky-calc-inner {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .sticky-actions {
+        width: 100%;
+      }
+      .sticky-calc-footer button {
+        justify-content: center;
+        flex: 1 1 12rem;
+      }
+      .sticky-calc-note {
+        white-space: normal;
+      }
+    }
+
   </style>
 </head>
 
 <body>
   <header>
     <h1>Elixir W&amp;B + Performance</h1>
-    <p>Unofficial helper based on your AFM + ops factors. <strong>AFM and your Ops Manual are always the
+    <p>Unofficial helper based on your AFM + Ops Manual flight-training factors. <strong>AFM and your Ops Manual are always the
         authority.</strong></p>
   </header>
 
@@ -730,7 +820,7 @@
 
           <div class="grid" style="margin-top:0.6rem">
             <div class="field">
-              <label for="emptyWeight">Empty weight (kg)</label>
+              <label for="emptyWeight">Empty aircraft weight (kg)</label>
               <input id="emptyWeight" type="number" inputmode="decimal" value="360" />
             </div>
             <div class="field">
@@ -739,10 +829,22 @@
             </div>
           </div>
 
+          <div class="grid" style="margin-top:0.6rem">
+            <div class="field">
+              <label for="upholsteryWt">Upholstery weight (kg)</label>
+              <input id="upholsteryWt" type="number" inputmode="decimal" value="3.7" />
+            </div>
+            <div class="field">
+              <label for="upholsteryArm">Upholstery arm (mm)</label>
+              <input id="upholsteryArm" type="number" inputmode="decimal" value="1076" />
+              <div class="inline-note">Use this only if the aircraft weighing report lists upholstery as a separate item.</div>
+            </div>
+          </div>
+
           <div class="grid-3" style="margin-top:0.75rem">
             <div class="field">
               <label for="pilotWt">Pilot (kg)</label>
-              <input id="pilotWt" type="number" inputmode="decimal" value="95" />
+              <input id="pilotWt" type="number" inputmode="decimal" value="90" />
             </div>
             <div class="field">
               <label for="pilotArm">Pilot arm (mm)</label>
@@ -753,7 +855,7 @@
             </div>
             <div class="field">
               <label for="paxWt">Passenger (kg)</label>
-              <input id="paxWt" type="number" inputmode="decimal" value="90" />
+              <input id="paxWt" type="number" inputmode="decimal" value="85" />
             </div>
             <div class="field">
               <label for="paxArm">Passenger arm (mm)</label>
@@ -776,7 +878,7 @@
           <div class="grid" style="margin-top:0.75rem">
             <div class="field">
               <label for="fuelL">Fuel (L usable)</label>
-              <input id="fuelL" type="number" inputmode="decimal" value="60" />
+              <input id="fuelL" type="number" inputmode="decimal" value="50" />
               <div id="fuelWarn" class="inline-warning" style="display:none;"></div>
             </div>
             <div class="field">
@@ -869,7 +971,6 @@
                 </div>
               </div>
             </details>
-            <button id="calcBtn"><span>⟲</span> Calculate &amp; update</button>
           </div>
         </section>
 
@@ -895,12 +996,16 @@
         <!-- Atmosphere, runway, wind + numeric perf -->
         <section class="card">
           <h2>Conditions &amp; Runway</h2>
-          <small>AFM §5.3/5.4 distances (630&nbsp;kg, no wind, level hard runway) + school factors.</small>
+          <small>AFM §5.3/5.4 distances (630&nbsp;kg, level hard runway), QNH-derived pressure altitude, wind correction + school factors.</small>
 
-          <div class="grid">
+          <div class="grid-3">
             <div class="field">
               <label for="fieldElev">Field elevation (ft)</label>
               <input id="fieldElev" type="number" inputmode="decimal" value="200" />
+            </div>
+            <div class="field">
+              <label for="qnh">QNH (hPa)</label>
+              <input id="qnh" type="number" inputmode="decimal" value="1013" />
             </div>
             <div class="field">
               <label for="oat">OAT at field (°C)</label>
@@ -958,7 +1063,8 @@
             <div class="field">
               <label for="surface">Surface</label>
               <select id="surface">
-                <option value="hard">Hard / paved</option>
+                <option value="hard_dry">Paved / hard – dry</option>
+                <option value="hard_wet">Paved / hard – wet</option>
                 <option value="grass_dry">Grass – dry</option>
                 <option value="grass_wet">Grass – wet</option>
               </select>
@@ -967,8 +1073,9 @@
 
           <div class="grid" style="margin-top:0.75rem">
             <div class="field">
-              <label for="rwHeading">Runway heading (°)</label>
+              <label for="rwHeading">Runway heading (°T)</label>
               <input id="rwHeading" type="number" inputmode="decimal" value="137" />
+              <div class="inline-note">Use true heading; METAR/TAF winds are given in °T.</div>
             </div>
             <div class="field">
               <label for="windDir">Wind direction (° / from)</label>
@@ -992,71 +1099,76 @@
 
           <div class="results-block">
             <div class="res-card">
-              <div class="res-title">AFM Take-off (unfactored)</div>
+              <div class="res-title">AFM Take-off (wind-adjusted)</div>
               <div class="res-main">
                 Run: <strong><span id="toRun"></span> m</strong>,
-                15&nbsp;m: <strong><span id="toDist"></span> m</strong>
+                50&nbsp;ft: <strong><span id="toDist"></span> m</strong>
               </div>
               <div class="res-sub">
-                AFM: flaps T/O, 630&nbsp;kg, no wind, level hard surface. Grass factors applied to run only.
+                AFM base: flaps T/O, 630&nbsp;kg, level hard surface. Wind factors applied to run and 50&nbsp;ft distance; grass factor applied to run only.
               </div>
             </div>
             <div class="res-card">
-              <div class="res-title">AFM Landing (unfactored)</div>
+              <div class="res-title">AFM Landing (wind-adjusted)</div>
               <div class="res-main">
                 Run: <strong><span id="ldgRun"></span> m</strong>,
-                15&nbsp;m: <strong><span id="ldgDist"></span> m</strong>
+                50&nbsp;ft: <strong><span id="ldgDist"></span> m</strong>
               </div>
               <div class="res-sub">
-                AFM: flaps LDG, -3° approach, 630&nbsp;kg, no wind, dry hard surface.
+                AFM base: flaps LDG, -3° approach, 630&nbsp;kg, dry hard surface. Wind factors applied to run and 50&nbsp;ft distance; wet surface applies Ops Manual wet landing requirement.
               </div>
             </div>
           </div>
 
-          <!-- Regulatory / factored -->
+          <!-- Ops Manual / flight-training factored requirements -->
           <div class="results-block">
             <div class="res-card">
-              <div class="res-title">Regulatory – Take-off</div>
+              <div class="res-title">Ops Manual – Take-off training factors</div>
               <div class="res-main">
-                <div>Required TORA (no stopway, AFM 15 m × 1.25): <strong><span id="reqTora125"></span> m</strong></div>
-                <div>Status: <span id="reqTora125Status"></span></div>
-                <hr style="border:none;border-top:1px solid rgba(148,163,184,0.3);margin:0.4rem 0;">
-                <div>With stopway/clearway available:</div>
-                <div>- TORA ≥ AFM run (<span id="reqToraRun"></span> m)</div>
-                <div>- TODA ≥ 1.15 × AFM distance (<span id="reqToda115"></span> m)</div>
-                <div>- ASDA ≥ 1.3 × AFM run (<span id="reqAsda130"></span> m)</div>
-                <div>Status: <span id="reqStopwayStatus"></span></div>
+                <div id="takeoffNoStopwayBlock">
+                  <div>If no stopway/clearway is used:</div>
+                  <div>Required TORA: <strong><span id="reqTora125"></span> m</strong></div>
+                  <div><span class="muted">1.25 × AFM 50&nbsp;ft distance</span></div>
+                  <div>Status: <span id="reqTora125Status"></span></div>
+                </div>
+
+                <div id="takeoffStopwayBlock">
+                  <div>With stopway and/or clearway available, all applicable declared-distance checks must pass:</div>
+                  <div>- TORA ≥ AFM run (<span id="reqToraRun"></span> m)</div>
+                  <div>- TODA ≥ 1.15 × AFM 50&nbsp;ft distance (<span id="reqToda115"></span> m)</div>
+                  <div>- ASDA ≥ 1.3 × AFM run (<span id="reqAsda130"></span> m)</div>
+                  <div>Status: <span id="reqStopwayStatus"></span></div>
+                </div>
               </div>
-              <div class="res-sub">
-                From your performance notes: 1.25 factor if no stopway; 1.15/1.3 factors when stopway/clearway / ASDA
-                used.
+              <div class="res-sub" id="takeoffTrainingNote">
+                Ops Manual flight-training factors: use the 1.25 × AFM 50&nbsp;ft distance TORA check when no stopway/clearway is used. Where stopway and/or clearway is available, use the declared-distance method: TORA, TODA and ASDA checks as shown.
               </div>
             </div>
 
             <div class="res-card">
-              <div class="res-title">Regulatory – Landing</div>
+              <div class="res-title">Ops Manual – Landing training factors</div>
               <div class="res-main">
-                <div>Required LDA dry (AFM 15 m ÷ 0.7): <strong><span id="reqLdaDry"></span> m</strong></div>
+                <div>Required LDA dry (training factor, AFM 50 ft ÷ 0.7): <strong><span id="reqLdaDry"></span> m</strong></div>
                 <div>Status: <span id="reqLdaDryStatus"></span></div>
                 <hr style="border:none;border-top:1px solid rgba(148,163,184,0.3);margin:0.4rem 0;">
-                <div>Required LDA wet (AFM 15 m ×1.15 ÷0.7): <strong><span id="reqLdaWet"></span> m</strong></div>
+                <div>Required LDA wet (training factor, AFM 50 ft ×1.15 ÷0.7): <strong><span id="reqLdaWet"></span> m</strong></div>
                 <div>Status: <span id="reqLdaWetStatus"></span></div>
               </div>
               <div class="res-sub">
-                Ops notes: dry within 70% of LDA; if wet, multiply AFM distance by 1.15 first.
+                Ops Manual flight-training factors: dry landing distance must fit within 70% of LDA; wet landing applies ×1.15 before the 70% check.
               </div>
             </div>
           </div>
 
           <div class="row">
-            <div>Rate of climb (max continuous, 140&nbsp;km/h):</div>
+            <div>Rate of climb (max continuous, 76&nbsp;kt):</div>
             <div>Vz ≈ <strong><span id="roc"></span> ft/min</strong></div>
           </div>
 
           <p class="muted">
             AFM performance tables are no-wind, level hard runway at 630&nbsp;kg.
-            This tool adds your factors but does not automatically apply 50% headwind / 150% tailwind corrections to
-            distances – keep margins generous.
+            This tool applies digitised wind correction factors to the displayed AFM distances, then applies the flight-training factors from your Ops Manual.
+            Keep margins generous and verify against the AFM.
           </p>
         </section>
 
@@ -1096,9 +1208,9 @@
             </div>
             <div class="runway-legend">
               <span><span class="leg-swatch sw-to-run"></span>Take-off run</span>
-              <span><span class="leg-swatch sw-to-dist"></span>Take-off distance to 15&nbsp;m</span>
+              <span><span class="leg-swatch sw-to-dist"></span>Take-off distance to 50&nbsp;ft</span>
               <span><span class="leg-swatch sw-ldg-run"></span>Landing run</span>
-              <span><span class="leg-swatch sw-ldg-dist"></span>Landing distance from 15&nbsp;m</span>
+              <span><span class="leg-swatch sw-ldg-dist"></span>Landing distance from 50&nbsp;ft</span>
             </div>
             <div class="runway-legend">
               <span><span class="leg-swatch"
@@ -1184,15 +1296,30 @@
     </section>
   </main>
 
+
+
+  <footer class="sticky-calc-footer">
+    <div class="sticky-calc-inner">
+      <div class="sticky-calc-copy">
+        <div class="sticky-calc-title">Calculate</div>
+        <div class="sticky-calc-note">Updates W&amp;B, QNH pressure altitude, wind-corrected performance and summary.</div>
+      </div>
+      <div class="sticky-actions">
+        <button id="exportPdfBtn" class="secondary"><span>⇩</span> Export PDF</button>
+        <button id="calcBtn"><span>⟲</span> Calculate &amp; update</button>
+      </div>
+    </div>
+  </footer>
+
   <script>
     // ------- Registration data -------
     const REG_DATA = {
-      "F-HEGB": { weight: 416.3, cg: 707 },
-      "F-HEGC": { weight: 415.1, cg: 698 },
-      "F-HLDF": { weight: 417.2, cg: 710 },
-      "F-HLDG": { weight: 416.6, cg: 707 },
-      "F-HTGH": { weight: 414.9, cg: 710 },
-      "F-HXCD": { weight: 415.0, cg: 693 },
+      "F-HEGB": { weight: 416.3, cg: 707, upholsteryWeight: 3.7, upholsteryArm: 1076 },
+      "F-HEGC": { weight: 415.1, cg: 698, upholsteryWeight: 3.7, upholsteryArm: 1076 },
+      "F-HLDF": { weight: 417.2, cg: 710, upholsteryWeight: 3.7, upholsteryArm: 1076 },
+      "F-HLDG": { weight: 416.6, cg: 707, upholsteryWeight: 3.7, upholsteryArm: 1076 },
+      "F-HTGH": { weight: 414.9, cg: 710, upholsteryWeight: 3.7, upholsteryArm: 1076 },
+      "F-HXCD": { weight: 415.0, cg: 693, upholsteryWeight: 3.7, upholsteryArm: 1076 },
     };
 
     const RUNWAY_SAVE_KEY = "lxrPerfTool.savedRunways";
@@ -1315,11 +1442,15 @@
       6000: [269, 619, 279, 629, 289, 639],
     };
 
-    // Grass factors
+    // Surface factors and wet-runway flag.
+    // `wetLanding` selects the Ops Manual wet landing requirement (AFM distance ×1.15 ÷0.7).
+    // Legacy `hard` is kept as an alias for saved runway presets from older versions.
     const GRASS_FACTORS = {
-      hard: { to: 1.0, ldg: 1.0 },
-      grass_dry: { to: 1.2, ldg: 1.2 },
-      grass_wet: { to: 1.3, ldg: 1.6 },
+      hard: { to: 1.0, ldg: 1.0, wetLanding: false, label: "HARD DRY" },
+      hard_dry: { to: 1.0, ldg: 1.0, wetLanding: false, label: "PAVED DRY" },
+      hard_wet: { to: 1.0, ldg: 1.0, wetLanding: true, label: "PAVED WET" },
+      grass_dry: { to: 1.2, ldg: 1.2, wetLanding: false, label: "GRASS DRY" },
+      grass_wet: { to: 1.3, ldg: 1.6, wetLanding: true, label: "GRASS WET" },
     };
 
     // Rate of climb table (ISA, ISA+10, ISA+20)
@@ -1338,6 +1469,31 @@
 
     const MAX_XWIND = 18; // kt max demonstrated crosswind
     const MAX_WIND = 40; // departure not permitted if wind > 40 kt
+    const MAX_RECOMMENDED_TAILWIND = 5; // kt, AFM note: 5 kt
+    const WIND_FACTOR_LIMIT_HEAD = 14;
+    const WIND_FACTOR_LIMIT_TAIL = 10;
+
+    // Digitised wind-correction factors.
+    // factor = corrected distance / no-wind distance.
+    // Values validated from the four WebPlotDigitizer exports and collapsed to 1D factor curves.
+    const WIND_FACTORS = {
+      takeoff_run: {
+        head: [[0, 1.00], [5, 0.86], [10, 0.747], [14, 0.68]],
+        tail: [[0, 1.00], [5, 1.18], [10, 1.42]],
+      },
+      takeoff_distance: {
+        head: [[0, 1.00], [5, 0.83], [10, 0.70], [14, 0.64]],
+        tail: [[0, 1.00], [5, 1.21], [10, 1.46]],
+      },
+      landing_run: {
+        head: [[0, 1.00], [5, 0.91], [10, 0.81], [14, 0.74]],
+        tail: [[0, 1.00], [5, 1.11], [10, 1.27]],
+      },
+      landing_distance: {
+        head: [[0, 1.00], [5, 0.88], [10, 0.76], [14, 0.68]],
+        tail: [[0, 1.00], [5, 1.14], [10, 1.32]],
+      },
+    };
 
     // CG envelope polygon: {cg_mm (x), mass_kg (y)}
     const CG_POLY = [
@@ -1363,6 +1519,26 @@
       if (x1 === x0) return y0;
       const t = (x - x0) / (x1 - x0);
       return y0 + t * (y1 - y0);
+    }
+
+    function interpPoints(x, points) {
+      if (!points || points.length === 0) return 1;
+      if (x <= points[0][0]) return points[0][1];
+      for (let i = 0; i < points.length - 1; i++) {
+        const [x0, y0] = points[i];
+        const [x1, y1] = points[i + 1];
+        if (x >= x0 && x <= x1) return lerp(x, x0, x1, y0, y1);
+      }
+      return points[points.length - 1][1];
+    }
+
+    function windCorrectionFactor(metric, headwindComponent) {
+      const cfg = WIND_FACTORS[metric];
+      if (!cfg) return 1;
+      if (headwindComponent >= 0) {
+        return interpPoints(clamp(headwindComponent, 0, WIND_FACTOR_LIMIT_HEAD), cfg.head);
+      }
+      return interpPoints(clamp(-headwindComponent, 0, WIND_FACTOR_LIMIT_TAIL), cfg.tail);
     }
 
     function round(x, decimals = 0) {
@@ -1591,21 +1767,21 @@
             { label: "Run ISA+10", data: toISA10_run, tension: 0.2, yAxisID: "y1" },
             { label: "Run ISA+20", data: toISA20_run, tension: 0.2, yAxisID: "y1" },
             {
-              label: "15 m dist ISA",
+              label: "50 ft dist ISA",
               data: toISA_dist,
               borderDash: [4, 3],
               tension: 0.2,
               yAxisID: "y2",
             },
             {
-              label: "15 m dist ISA+10",
+              label: "50 ft dist ISA+10",
               data: toISA10_dist,
               borderDash: [4, 3],
               tension: 0.2,
               yAxisID: "y2",
             },
             {
-              label: "15 m dist ISA+20",
+              label: "50 ft dist ISA+20",
               data: toISA20_dist,
               borderDash: [4, 3],
               tension: 0.2,
@@ -1621,7 +1797,7 @@
             y1: { position: "left", title: { display: true, text: "T/O run (m)" } },
             y2: {
               position: "right",
-              title: { display: true, text: "T/O distance to 15 m (m)" },
+              title: { display: true, text: "T/O distance to 50 ft (m)" },
               grid: { drawOnChartArea: false },
             },
           },
@@ -1646,21 +1822,21 @@
             { label: "Run ISA+10", data: ldgISA10_run, tension: 0.2, yAxisID: "y1" },
             { label: "Run ISA+20", data: ldgISA20_run, tension: 0.2, yAxisID: "y1" },
             {
-              label: "15 m dist ISA",
+              label: "50 ft dist ISA",
               data: ldgISA_dist,
               borderDash: [4, 3],
               tension: 0.2,
               yAxisID: "y2",
             },
             {
-              label: "15 m dist ISA+10",
+              label: "50 ft dist ISA+10",
               data: ldgISA10_dist,
               borderDash: [4, 3],
               tension: 0.2,
               yAxisID: "y2",
             },
             {
-              label: "15 m dist ISA+20",
+              label: "50 ft dist ISA+20",
               data: ldgISA20_dist,
               borderDash: [4, 3],
               tension: 0.2,
@@ -1676,7 +1852,7 @@
             y1: { position: "left", title: { display: true, text: "Landing run (m)" } },
             y2: {
               position: "right",
-              title: { display: true, text: "Landing distance 15 m (m)" },
+              title: { display: true, text: "Landing distance 50 ft (m)" },
               grid: { drawOnChartArea: false },
             },
           },
@@ -1739,6 +1915,8 @@
       // W&B
       const emptyWeight = parseFloat(document.getElementById("emptyWeight").value) || 0;
       const emptyArm = parseFloat(document.getElementById("emptyArm").value) || 0;
+      const upholsteryWt = parseFloat(document.getElementById("upholsteryWt").value) || 0;
+      const upholsteryArm = parseFloat(document.getElementById("upholsteryArm").value) || emptyArm;
       const pilotWt = parseFloat(document.getElementById("pilotWt").value) || 0;
       const pilotArm = parseFloat(document.getElementById("pilotArm").value) || 0;
       const paxWt = parseFloat(document.getElementById("paxWt").value) || 0;
@@ -1766,23 +1944,25 @@
       function moment(mass, arm) { return mass * arm; }
 
       const mEmpty = emptyWeight;
+      const mUpholstery = upholsteryWt;
       const mPilot = pilotWt;
       const mPax = paxWt;
       const mBag = bagWt;
       const mFuel = fuelKg;
 
       const momEmpty = moment(mEmpty, emptyArm);
+      const momUpholstery = moment(mUpholstery, upholsteryArm);
       const momPilot = moment(mPilot, pilotArm);
       const momPax = moment(mPax, paxArm);
       const momBag = moment(mBag, bagArm);
       const momFuel = moment(mFuel, 774);
 
-      const massTO = mEmpty + mPilot + mPax + mBag + mFuel;
-      const momTO = momEmpty + momPilot + momPax + momBag + momFuel;
+      const massTO = mEmpty + mUpholstery + mPilot + mPax + mBag + mFuel;
+      const momTO = momEmpty + momUpholstery + momPilot + momPax + momBag + momFuel;
       const cgTO = momTO / (massTO || 1);
 
-      const massLW = mEmpty + mPilot + mPax + mBag;
-      const momLW = momEmpty + momPilot + momPax + momBag;
+      const massLW = mEmpty + mUpholstery + mPilot + mPax + mBag;
+      const momLW = momEmpty + momUpholstery + momPilot + momPax + momBag;
       const cgLW = momLW / (massLW || 1);
 
       document.getElementById("tow").textContent = round(massTO, 1);
@@ -1828,16 +2008,18 @@
 
       // Atmosphere
       const fieldElev = parseFloat(document.getElementById("fieldElev").value) || 0;
+      const qnh = parseFloat(document.getElementById("qnh").value) || 1013.25;
       const oat = parseFloat(document.getElementById("oat").value) || 0;
       const surface = document.getElementById("surface").value;
-      const usingWet = (surface === "grass_wet");
+      const surfaceCfg = GRASS_FACTORS[surface] || GRASS_FACTORS.hard_dry;
+      const usingWet = !!surfaceCfg.wetLanding;
       const runwayTora = parseFloat(document.getElementById("runwayTora").value) || 1;
       const runwayToda = parseFloat(document.getElementById("runwayToda").value) || 1;
       const runwayAsda = parseFloat(document.getElementById("runwayAsda").value) || 1;
       const runwayLda = parseFloat(document.getElementById("runwayLda").value) || 1;
       const declaredRunwayLength = Math.max(runwayTora, runwayToda, runwayAsda, runwayLda, 1);
 
-      const pa = fieldElev; // approx PA
+      const pa = fieldElev + (1013.25 - qnh) * 30;
       const isaTemp = 15 - 2 * (pa / 1000);
       const isaDev = oat - isaTemp;
 
@@ -1872,11 +2054,18 @@
 
       windComponentsEl.textContent = `${headStr}, ${xwStr}${xwWarn}`;
 
-      const windOk = windSpd <= MAX_WIND && Math.abs(crosswind) <= MAX_XWIND;
+      const tailwindOk = tailwind <= MAX_RECOMMENDED_TAILWIND;
+      const windOk = windSpd <= MAX_WIND && Math.abs(crosswind) <= MAX_XWIND && tailwindOk;
 
-      if (windSpd > MAX_WIND) {
+      const windWarnings = [];
+      if (windSpd > MAX_WIND) windWarnings.push(`Departure not permitted – total wind speed ${round(windSpd, 1)} kt exceeds 40 kt limit.`);
+      if (tailwind > MAX_RECOMMENDED_TAILWIND) windWarnings.push(`Tailwind ${round(tailwind, 1)} kt exceeds AFM recommended maximum ${MAX_RECOMMENDED_TAILWIND} kt.`);
+      if (tailwind > WIND_FACTOR_LIMIT_TAIL) windWarnings.push(`Tailwind correction is capped at ${WIND_FACTOR_LIMIT_TAIL} kt for chart validity.`);
+      if (headwind > WIND_FACTOR_LIMIT_HEAD) windWarnings.push(`Headwind correction is capped at ${WIND_FACTOR_LIMIT_HEAD} kt for chart validity.`);
+
+      if (windWarnings.length > 0) {
         windLimitWarn.style.display = "block";
-        windLimitWarn.textContent = `Departure not permitted – total wind speed ${round(windSpd, 1)} kt exceeds 40 kt limit.`;
+        windLimitWarn.textContent = windWarnings.join(" ");
       } else {
         windLimitWarn.style.display = "none";
       }
@@ -1884,12 +2073,17 @@
       // Performance
       const baseTO = interpTOLD(pa, isaDev, TO_TABLE);
       const baseLDG = interpTOLD(pa, isaDev, LDG_TABLE);
-      const grass = GRASS_FACTORS[surface] || GRASS_FACTORS.hard;
+      const grass = surfaceCfg;
 
-      const toRun = baseTO.run * grass.to;
-      const toDist = baseTO.dist;
-      const ldgRun = baseLDG.run * grass.ldg;
-      const ldgDist = baseLDG.dist;
+      const toRunNoWind = baseTO.run * grass.to;
+      const toDistNoWind = baseTO.dist;
+      const ldgRunNoWind = baseLDG.run * grass.ldg;
+      const ldgDistNoWind = baseLDG.dist;
+
+      const toRun = toRunNoWind * windCorrectionFactor("takeoff_run", headwind);
+      const toDist = toDistNoWind * windCorrectionFactor("takeoff_distance", headwind);
+      const ldgRun = ldgRunNoWind * windCorrectionFactor("landing_run", headwind);
+      const ldgDist = ldgDistNoWind * windCorrectionFactor("landing_distance", headwind);
 
       document.getElementById("toRun").textContent = round(toRun, 0);
       document.getElementById("toDist").textContent = round(toDist, 0);
@@ -1899,14 +2093,14 @@
       const roc = interpRoc(pa, isaDev);
       document.getElementById("roc").textContent = round(roc, 0);
 
-      // Regulatory factors
-      const reqTora125 = toDist * 1.25;       // no stopway case
+      // Ops Manual flight-training factors
+      const reqTora125 = toDist * 1.25;       // Ops Manual training factor / no stopway-style check
       const reqToraRun = toRun;               // with stopway: TORA >= AFM run
       const reqToda115 = toDist * 1.15;       // TODA >= 1.15 * AFM distance
       const reqAsda130 = toRun * 1.3;         // ASDA >= 1.3 * AFM run
 
-      const reqLdaDry = ldgDist / 0.7;        // AFM must fit in 70% LDA
-      const reqLdaWet = ldgDist * 1.15 / 0.7; // plus 1.15 factor for wet
+      const reqLdaDry = ldgDist / 0.7;        // Ops Manual: AFM landing distance must fit in 70% LDA
+      const reqLdaWet = ldgDist * 1.15 / 0.7; // Ops Manual: wet factor before 70% LDA check
 
       // Populate numbers
       document.getElementById("reqTora125").textContent = round(reqTora125, 0);
@@ -1928,7 +2122,17 @@
       const toraRunOk = reqToraRun <= runwayTora;
       const toda115Ok = reqToda115 <= runwayToda;
       const asda130Ok = reqAsda130 <= runwayAsda;
+      const declaredStopwayOrClearway = runwayToda > runwayTora || runwayAsda > runwayTora;
       const stopwayOk = toraRunOk && toda115Ok && asda130Ok;
+      const activeTakeoffOk = declaredStopwayOrClearway ? stopwayOk : tora125Ok;
+      const activeReqToraVal = declaredStopwayOrClearway ? reqToraRun : reqTora125;
+
+      const noStopwayBlock = document.getElementById("takeoffNoStopwayBlock");
+      const stopwayBlock = document.getElementById("takeoffStopwayBlock");
+      if (noStopwayBlock && stopwayBlock) {
+        noStopwayBlock.style.display = declaredStopwayOrClearway ? "none" : "block";
+        stopwayBlock.style.display = declaredStopwayOrClearway ? "block" : "none";
+      }
 
       const ldaDryOk = reqLdaDry <= runwayLda;
       const ldaWetOk = reqLdaWet <= runwayLda;
@@ -1940,8 +2144,8 @@
 
       // Charts markers
       if (toPointDataset && ldgPointDataset && rocPointDataset) {
-        toPointDataset.data = [{ x: pa, y: baseTO.run }];
-        ldgPointDataset.data = [{ x: pa, y: baseLDG.run }];
+        toPointDataset.data = [{ x: pa, y: toRun }];
+        ldgPointDataset.data = [{ x: pa, y: ldgRun }];
         rocPointDataset.data = [{ x: pa, y: roc }];
         toChart.update();
         ldgChart.update();
@@ -1977,22 +2181,20 @@
 
       // Ticks
       setTick("tickRunwayEnd", runwayTora);
-      setTick("tickReqTora125", reqTora125);
+      setTick("tickReqTora125", activeReqToraVal);
 
       // active LDA tick uses wet/dry selection
       const activeReqLda = usingWet ? reqLdaWet : reqLdaDry;
       setTick("tickReqLda", activeReqLda);
 
       // --- Declared distances row ---
-      document.getElementById("declRwy").textContent = `${formatRunwayLabel()} (${round(rwHeading, 0)}°)`;
+      document.getElementById("declRwy").textContent = `${formatRunwayLabel()} (${round(rwHeading, 0)}°T)`;
       document.getElementById("declTora").textContent = `${round(runwayTora, 0)} m`;
       document.getElementById("declToda").textContent = `${round(runwayToda, 0)} m`;
       document.getElementById("declAsda").textContent = `${round(runwayAsda, 0)} m`;
       document.getElementById("declLda").textContent = `${round(runwayLda, 0)} m`;
 
-      const surfaceLabel =
-        surface === "hard" ? "HARD" :
-          surface === "grass_dry" ? "GRASS DRY" : "GRASS WET";
+      const surfaceLabel = surfaceCfg.label || "CUSTOM";
       document.getElementById("declSurface").textContent = surfaceLabel;
 
       // --- Limiter strip (one-line OPT style) ---
@@ -2004,7 +2206,15 @@
       const activeLdaOk = usingWet ? ldaWetOk : ldaDryOk;
 
       let limiting = [];
-      if (!tora125Ok) limiting.push(`Take-off: REQ TORA ${round(reqTora125, 0)} > AVAIL ${round(runwayTora, 0)} m`);
+      if (!activeTakeoffOk) {
+        if (declaredStopwayOrClearway) {
+          if (!toraRunOk) limiting.push(`Take-off: TORA ${round(runwayTora, 0)} m < AFM run ${round(reqToraRun, 0)} m`);
+          if (!toda115Ok) limiting.push(`Take-off: TODA ${round(runwayToda, 0)} m < 1.15 × AFM distance ${round(reqToda115, 0)} m`);
+          if (!asda130Ok) limiting.push(`Take-off: ASDA ${round(runwayAsda, 0)} m < 1.3 × AFM run ${round(reqAsda130, 0)} m`);
+        } else {
+          limiting.push(`Take-off: required TORA ${round(reqTora125, 0)} m > available ${round(runwayTora, 0)} m`);
+        }
+      }
       if (!activeLdaOk) limiting.push(`Landing: REQ LDA ${round(activeReqLdaVal, 0)} > AVAIL ${round(runwayLda, 0)} m`);
 
       if (limiting.length === 0) {
@@ -2025,26 +2235,30 @@
         : `NOT OK – check masses, CG envelope, fuel (≤ ${MAX_FUEL_KG} kg / ${MAX_FUEL_L} L) and baggage (≤ ${MAX_BAG_KG} kg).`;
       setSummaryLine("sumWb", sumWbText, wbOk);
 
-      const toOk = tora125Ok; // main criterion for no-stopway case
-      const sumPerfToText = toOk
-        ? `OK – AFM T/O distance to 15 m = ${round(toDist, 0)} m; required TORA (×1.25) = ${round(reqTora125, 0)} m ≤ available ${round(runwayTora, 0)} m.`
-        : `NOT OK – required TORA (AFM 15 m ×1.25 = ${round(reqTora125, 0)} m) exceeds available ${round(runwayTora, 0)} m.`;
+      const toOk = activeTakeoffOk;
+      const sumPerfToText = declaredStopwayOrClearway
+        ? (toOk
+          ? `OK – stopway/clearway declared-distance checks pass: TORA ≥ ${round(reqToraRun, 0)} m, TODA ≥ ${round(reqToda115, 0)} m, ASDA ≥ ${round(reqAsda130, 0)} m.`
+          : `NOT OK – one or more stopway/clearway declared-distance checks fail: TORA ≥ ${round(reqToraRun, 0)} m, TODA ≥ ${round(reqToda115, 0)} m, ASDA ≥ ${round(reqAsda130, 0)} m required.`)
+        : (toOk
+          ? `OK – no stopway/clearway used: Ops Manual TORA check (1.25 × AFM 50 ft = ${round(reqTora125, 0)} m) ≤ available TORA ${round(runwayTora, 0)} m.`
+          : `NOT OK – no stopway/clearway used: Ops Manual TORA check (1.25 × AFM 50 ft = ${round(reqTora125, 0)} m) exceeds available TORA ${round(runwayTora, 0)} m.`);
       setSummaryLine("sumPerfTo", sumPerfToText, toOk);
 
       // Decide which landing requirement to emphasise: dry vs wet
       const ldgCriterionOk = usingWet ? ldaWetOk : ldaDryOk;
       const sumPerfLdgText = usingWet
         ? (ldgCriterionOk
-          ? `OK – AFM landing distance = ${round(ldgDist, 0)} m; required LDA wet (×1.15 ÷0.7) = ${round(reqLdaWet, 0)} m ≤ available ${round(runwayLda, 0)} m.`
-          : `NOT OK – required LDA wet (AFM ×1.15 ÷0.7 = ${round(reqLdaWet, 0)} m) exceeds available ${round(runwayLda, 0)} m.`)
+          ? `OK – AFM landing distance = ${round(ldgDist, 0)} m; Ops Manual wet LDA check (×1.15 ÷0.7) = ${round(reqLdaWet, 0)} m ≤ available ${round(runwayLda, 0)} m.`
+          : `NOT OK – Ops Manual wet LDA check (AFM ×1.15 ÷0.7 = ${round(reqLdaWet, 0)} m) exceeds available ${round(runwayLda, 0)} m.`)
         : (ldgCriterionOk
-          ? `OK – AFM landing distance = ${round(ldgDist, 0)} m; required LDA dry (÷0.7) = ${round(reqLdaDry, 0)} m ≤ available ${round(runwayLda, 0)} m.`
-          : `NOT OK – required LDA dry (AFM ÷0.7 = ${round(reqLdaDry, 0)} m) exceeds available ${round(runwayLda, 0)} m.`);
+          ? `OK – AFM landing distance = ${round(ldgDist, 0)} m; Ops Manual dry LDA check (÷0.7) = ${round(reqLdaDry, 0)} m ≤ available ${round(runwayLda, 0)} m.`
+          : `NOT OK – Ops Manual dry LDA check (AFM ÷0.7 = ${round(reqLdaDry, 0)} m) exceeds available ${round(runwayLda, 0)} m.`);
       setSummaryLine("sumPerfLdg", sumPerfLdgText, ldgCriterionOk);
 
       const sumWindText = windOk
-        ? `OK – ${headStr}, ${xwStr}; total wind ${round(windSpd, 1)} kt ≤ 40 kt and crosswind within 18 kt demonstrated.`
-        : `NOT OK – wind limits exceeded (total ${round(windSpd, 1)} kt, crosswind ${round(Math.abs(crosswind), 1)} kt; limit 40 kt and 18 kt crosswind).`;
+        ? `OK – ${headStr}, ${xwStr}; total wind ${round(windSpd, 1)} kt ≤ 40 kt, crosswind within 18 kt demonstrated, tailwind within ${MAX_RECOMMENDED_TAILWIND} kt recommendation.`
+        : `NOT OK – wind limits exceeded/recommendation exceeded (total ${round(windSpd, 1)} kt, crosswind ${round(Math.abs(crosswind), 1)} kt, tailwind ${round(tailwind, 1)} kt).`;
       setSummaryLine("sumWind", sumWindText, windOk);
 
       const runwayOk = toOk && ldgCriterionOk;
@@ -2074,6 +2288,7 @@
       }
       const rows = [
         ["Empty aircraft", mEmpty, emptyArm, momEmpty],
+        ["Upholstery", mUpholstery, upholsteryArm, momUpholstery],
         ["Pilot", mPilot, pilotArm, momPilot],
         ["Passenger", mPax, paxArm, momPax],
         ["Baggage", mBag, bagArm, momBag],
@@ -2105,11 +2320,178 @@
       }
     }
 
+
+    function getText(id) {
+      const el = document.getElementById(id);
+      return el ? (el.textContent || "").trim() : "";
+    }
+
+    function getValue(id) {
+      const el = document.getElementById(id);
+      return el ? el.value : "";
+    }
+
+    function getSelectedText(id) {
+      const el = document.getElementById(id);
+      if (!el || el.selectedIndex < 0) return "";
+      return el.options[el.selectedIndex].textContent.trim();
+    }
+
+    function collectMomentRowsForExport() {
+      return Array.from(document.querySelectorAll("#momentTable tr")).map((tr) =>
+        Array.from(tr.children).map((td) => td.textContent.trim())
+      );
+    }
+
+    function escHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+      }[ch]));
+    }
+
+    function exportReportToPdf() {
+      calculateAll();
+
+      const momentRows = collectMomentRowsForExport();
+      const now = new Date();
+      const reportTitle = "Elixir W&B + Performance Report";
+
+      const rowsHtml = momentRows.map((row) => `
+        <tr><td>${escHtml(row[0])}</td><td class="num">${escHtml(row[1])}</td><td class="num">${escHtml(row[2])}</td><td class="num">${escHtml(row[3])}</td></tr>
+      `).join("");
+
+      const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${reportTitle}</title>
+  <style>
+    @page { size: A4; margin: 14mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #111827; margin: 0; font-size: 11px; }
+    h1 { font-size: 18px; margin: 0 0 4px; letter-spacing: 0.04em; text-transform: uppercase; }
+    h2 { font-size: 12px; margin: 14px 0 6px; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; }
+    .muted { color: #475569; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; }
+    .box { border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; break-inside: avoid; }
+    .kv { display: grid; grid-template-columns: 42% 58%; gap: 3px 8px; }
+    .k { color: #475569; }
+    .v { font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; margin-top: 4px; table-layout: fixed; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 4px 5px; text-align: left; vertical-align: top; }
+    th { color: #475569; text-transform: uppercase; font-size: 9px; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .moment-table col.item { width: 34%; }
+    .moment-table col.mass { width: 16%; }
+    .moment-table col.arm { width: 16%; }
+    .moment-table col.moment { width: 34%; }
+    .moment-table tfoot td { font-weight: 700; }
+    .ok { color: #047857; font-weight: 700; }
+    .bad { color: #b91c1c; font-weight: 700; }
+    .footer { margin-top: 14px; font-size: 9px; color: #475569; border-top: 1px solid #cbd5e1; padding-top: 6px; }
+    @media print { button { display:none; } }
+  </style>
+</head>
+<body>
+  <h1>${reportTitle}</h1>
+  <div class="muted">Generated ${escHtml(now.toLocaleString())}. Unofficial helper - AFM and Ops Manual remain authoritative.</div>
+
+  <h2>Aircraft and loading</h2>
+  <div class="grid">
+    <div class="box kv">
+      <div class="k">Registration</div><div class="v">${escHtml(getSelectedText("regSelect"))}</div>
+      <div class="k">Empty aircraft</div><div class="v">${escHtml(getValue("emptyWeight"))} kg @ ${escHtml(getValue("emptyArm"))} mm</div>
+      <div class="k">Upholstery</div><div class="v">${escHtml(getValue("upholsteryWt"))} kg @ ${escHtml(getValue("upholsteryArm"))} mm</div>
+      <div class="k">Pilot</div><div class="v">${escHtml(getValue("pilotWt"))} kg @ ${escHtml(getValue("pilotArm"))} mm</div>
+      <div class="k">Passenger</div><div class="v">${escHtml(getValue("paxWt"))} kg @ ${escHtml(getValue("paxArm"))} mm</div>
+      <div class="k">Baggage</div><div class="v">${escHtml(getValue("bagWt"))} kg @ 1580 mm</div>
+      <div class="k">Fuel</div><div class="v">${escHtml(getValue("fuelL"))} L / ${escHtml(getText("fuelKg")) || escHtml(getValue("fuelKg"))} kg (${escHtml(getSelectedText("fuelType"))})</div>
+    </div>
+    <div class="box kv">
+      <div class="k">Departure</div><div class="v">${escHtml(getText("tow"))} kg @ ${escHtml(getText("cg"))} mm</div>
+      <div class="k">Arrival</div><div class="v">${escHtml(getText("lw"))} kg @ ${escHtml(getText("cgArr"))} mm</div>
+      <div class="k">W&B status</div><div class="v">${escHtml(getText("wbStatusPill"))}</div>
+    </div>
+  </div>
+
+  <h2>Moment breakdown</h2>
+  <table class="moment-table">
+    <colgroup>
+      <col class="item"><col class="mass"><col class="arm"><col class="moment">
+    </colgroup>
+    <thead><tr><th>Item</th><th class="num">Mass kg</th><th class="num">Arm mm</th><th class="num">Moment</th></tr></thead>
+    <tbody>${rowsHtml}</tbody>
+    <tfoot>
+      <tr><td><strong>Total with fuel</strong></td><td class="num">${escHtml(getText("mtMassTO"))}</td><td class="num">${escHtml(getText("mtArmTO"))}</td><td class="num">${escHtml(getText("mtMomTO"))}</td></tr>
+      <tr><td><strong>Total no fuel</strong></td><td class="num">${escHtml(getText("mtMassLW"))}</td><td class="num">${escHtml(getText("mtArmLW"))}</td><td class="num">${escHtml(getText("mtMomLW"))}</td></tr>
+    </tfoot>
+  </table>
+
+  <h2>Conditions and runway</h2>
+  <div class="grid">
+    <div class="box kv">
+      <div class="k">Runway</div><div class="v">${escHtml(getText("declRwy"))}</div>
+      <div class="k">Surface</div><div class="v">${escHtml(getText("declSurface"))}</div>
+      <div class="k">TORA / TODA</div><div class="v">${escHtml(getText("declTora"))} / ${escHtml(getText("declToda"))}</div>
+      <div class="k">ASDA / LDA</div><div class="v">${escHtml(getText("declAsda"))} / ${escHtml(getText("declLda"))}</div>
+    </div>
+    <div class="box kv">
+      <div class="k">Field elevation</div><div class="v">${escHtml(getValue("fieldElev"))} ft</div>
+      <div class="k">QNH</div><div class="v">${escHtml(getValue("qnh"))} hPa</div>
+      <div class="k">Pressure altitude</div><div class="v">${escHtml(getValue("pa"))} ft</div>
+      <div class="k">OAT / ISA dev</div><div class="v">${escHtml(getValue("oat"))} °C / ${escHtml(getValue("isaDev"))} °C</div>
+      <div class="k">Wind</div><div class="v">${escHtml(getValue("windDir"))}° / ${escHtml(getValue("windSpd"))} kt; ${escHtml(getText("windComponents"))}</div>
+    </div>
+  </div>
+
+  <h2>Performance</h2>
+  <div class="grid">
+    <div class="box kv">
+      <div class="k">T/O run</div><div class="v">${escHtml(getText("toRun"))} m</div>
+      <div class="k">T/O distance to 50 ft</div><div class="v">${escHtml(getText("toDist"))} m</div>
+      <div class="k">Required TORA</div><div class="v">${escHtml(getText("reqTora125"))} m</div>
+      <div class="k">TODA / ASDA checks</div><div class="v">${escHtml(getText("reqToda115"))} m / ${escHtml(getText("reqAsda130"))} m</div>
+    </div>
+    <div class="box kv">
+      <div class="k">Landing run</div><div class="v">${escHtml(getText("ldgRun"))} m</div>
+      <div class="k">Landing distance from 50 ft</div><div class="v">${escHtml(getText("ldgDist"))} m</div>
+      <div class="k">Required LDA dry</div><div class="v">${escHtml(getText("reqLdaDry"))} m</div>
+      <div class="k">Required LDA wet</div><div class="v">${escHtml(getText("reqLdaWet"))} m</div>
+      <div class="k">Rate of climb</div><div class="v">${escHtml(getText("roc"))} ft/min</div>
+    </div>
+  </div>
+
+  <h2>Operational summary</h2>
+  <div class="box">
+    <p><strong>W&B:</strong> ${escHtml(getText("sumWb"))}</p>
+    <p><strong>Take-off:</strong> ${escHtml(getText("sumPerfTo"))}</p>
+    <p><strong>Landing:</strong> ${escHtml(getText("sumPerfLdg"))}</p>
+    <p><strong>Wind:</strong> ${escHtml(getText("sumWind"))}</p>
+    <p><strong>Runway:</strong> ${escHtml(getText("sumRunway"))}</p>
+    <p><strong>Decision:</strong> ${escHtml(getText("sumPill"))}</p>
+  </div>
+
+  <div class="footer">This PDF is a snapshot of the app data. It is not an AFM replacement.</div>
+  <script>window.onload = () => { window.print(); };<\/script>
+</body>
+</html>`;
+
+      const win = window.open("", "_blank");
+      if (!win) {
+        alert("Popup blocked. Please allow popups for this page, then try Export PDF again.");
+        return;
+      }
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+    }
+
     window.addEventListener("DOMContentLoaded", async () => {
       buildCGChart();
       buildPerfCharts();
 
       document.getElementById("calcBtn").addEventListener("click", calculateAll);
+      document.getElementById("exportPdfBtn").addEventListener("click", exportReportToPdf);
 
       // Registration selector behaviour
       const regSelect = document.getElementById("regSelect");
@@ -2119,11 +2501,15 @@
         const reg = regSelect.value;
         const data = REG_DATA[reg];
         if (data) {
+          const upholsteryWeight = data.upholsteryWeight !== undefined ? data.upholsteryWeight : 3.7;
+          const upholsteryArm = data.upholsteryArm !== undefined ? data.upholsteryArm : 1076;
           document.getElementById("emptyWeight").value = data.weight;
           document.getElementById("emptyArm").value = data.cg;
-          regInfo.textContent = `${reg}: empty mass ${data.weight} kg, empty CG ${data.cg} mm.`;
+          document.getElementById("upholsteryWt").value = upholsteryWeight;
+          document.getElementById("upholsteryArm").value = upholsteryArm;
+          regInfo.textContent = `${reg}: empty mass ${data.weight} kg, empty CG ${data.cg} mm; upholstery ${upholsteryWeight} kg @ ${upholsteryArm} mm.`;
         } else {
-          regInfo.textContent = "Custom/manual – enter empty mass and CG from the aircraft documents.";
+          regInfo.textContent = "Custom/manual – enter empty mass, CG and upholstery details from the aircraft documents.";
         }
         calculateAll();
       });
