@@ -219,10 +219,14 @@
 
     <section class="section-block">
       <div class="section-title">Performance</div>
-      <div class="section-grid">
+      <div class="performance-stack">
         <section class="card">
           <h2>Conditions &amp; Runway</h2>
-          <small>AFM §5.3/5.4 distances (630&nbsp;kg, level hard runway), QNH-derived pressure altitude, wind correction + Ops Manual factors.</small>
+          <small>AFM §5.3/5.4 distances (630&nbsp;kg, level paved runway), QNH-derived pressure altitude, wind correction + Ops Manual factors.</small>
+
+          <div class="phase-grid">
+            <div class="phase-panel">
+              <div class="phase-title">Departure / take-off</div>
 
           <div class="grid metar-select-row" style="margin-top:0.75rem">
             <div class="field">
@@ -290,8 +294,8 @@
             <div class="field">
               <label for="surface">Surface</label>
               <select id="surface">
-                <option value="hard_dry">Paved / hard – dry</option>
-                <option value="hard_wet">Paved / hard – wet</option>
+                <option value="hard_dry">Paved – dry</option>
+                <option value="hard_wet">Paved – wet</option>
                 <option value="grass_dry">Grass – dry</option>
                 <option value="grass_wet">Grass – wet</option>
               </select>
@@ -322,7 +326,49 @@
             </div>
           </div>
 
-          <div class="subsection-title">Arrival / landing runway</div>
+          <div class="res-card phase-result">
+            <div class="res-title">AFM Take-off (wind-adjusted)</div>
+            <div class="res-main">
+              Run: <strong><span id="toRun"></span> m</strong>,
+              50&nbsp;ft: <strong><span id="toDist"></span> m</strong>
+            </div>
+            <div class="res-sub">
+              AFM base: flaps T/O, 630&nbsp;kg, level paved runway. Surface factor changes the ground run; the 50&nbsp;ft distance is adjusted by preserving the airborne segment. Wind factors are then applied.
+            </div>
+          </div>
+
+          <div class="res-card phase-result">
+            <div class="res-title">Ops Manual – Take-off factors</div>
+            <div class="res-main">
+              <div id="takeoffNoStopwayBlock">
+                <div>If no stopway/clearway is used:</div>
+                <div>Required TORA: <strong><span id="reqTora125"></span> m</strong></div>
+                <div><span class="muted">1.25 × AFM 50&nbsp;ft distance</span></div>
+                <div>Status: <span id="reqTora125Status"></span></div>
+              </div>
+
+              <div id="takeoffStopwayBlock">
+                <div>With stopway and/or clearway available, all applicable declared-distance checks must pass:</div>
+                <div>- TORA ≥ AFM run (<span id="reqToraRun"></span> m)</div>
+                <div>- TODA ≥ 1.15 × AFM 50&nbsp;ft distance (<span id="reqToda115"></span> m)</div>
+                <div>- ASDA ≥ 1.3 × AFM run (<span id="reqAsda130"></span> m)</div>
+                <div>Status: <span id="reqStopwayStatus"></span></div>
+              </div>
+            </div>
+            <div class="res-sub" id="takeoffTrainingNote">
+              Use the 1.25 × AFM 50&nbsp;ft distance TORA check when no stopway/clearway is used. With stopway or clearway, use the declared-distance method.
+            </div>
+          </div>
+
+          <div class="row">
+            <div>Rate of climb (max continuous, 76&nbsp;kt):</div>
+            <div>Vz ≈ <strong><span id="roc"></span> ft/min</strong></div>
+          </div>
+            </div>
+
+            <div class="phase-panel">
+              <div class="phase-title">Arrival / landing</div>
+
           <div class="grid metar-select-row" style="margin-top:0.75rem">
             <div class="field">
               <label for="arrivalRunwaySelect">Arrival runway preset</label>
@@ -372,8 +418,8 @@
             <div class="field">
               <label for="arrSurface">Arrival surface</label>
               <select id="arrSurface">
-                <option value="hard_dry">Paved / hard – dry</option>
-                <option value="hard_wet">Paved / hard – wet</option>
+                <option value="hard_dry">Paved – dry</option>
+                <option value="hard_wet">Paved – wet</option>
                 <option value="grass_dry">Grass – dry</option>
                 <option value="grass_wet">Grass – wet</option>
               </select>
@@ -395,54 +441,18 @@
             </div>
           </div>
 
-          <div class="results-block">
-            <div class="res-card">
-              <div class="res-title">AFM Take-off (wind-adjusted)</div>
-              <div class="res-main">
-                Run: <strong><span id="toRun"></span> m</strong>,
-                50&nbsp;ft: <strong><span id="toDist"></span> m</strong>
-              </div>
-              <div class="res-sub">
-                AFM base: flaps T/O, 630&nbsp;kg, level hard surface. Surface factor changes the ground run; the 50&nbsp;ft distance is adjusted by preserving the airborne segment. Wind factors are then applied.
-              </div>
-            </div>
-            <div class="res-card">
+            <div class="res-card phase-result">
               <div class="res-title">AFM Landing (wind-adjusted)</div>
               <div class="res-main">
                 Run: <strong><span id="ldgRun"></span> m</strong>,
                 50&nbsp;ft: <strong><span id="ldgDist"></span> m</strong>
               </div>
               <div class="res-sub">
-                AFM base: flaps LDG, -3° approach, 630&nbsp;kg, dry hard surface. Surface factor changes the ground roll; total landing distance is adjusted accordingly. Wet surface also selects the Ops Manual wet landing requirement.
-              </div>
-            </div>
-          </div>
-
-          <div class="results-block">
-            <div class="res-card">
-              <div class="res-title">Ops Manual – Take-off factors</div>
-              <div class="res-main">
-                <div id="takeoffNoStopwayBlock">
-                  <div>If no stopway/clearway is used:</div>
-                  <div>Required TORA: <strong><span id="reqTora125"></span> m</strong></div>
-                  <div><span class="muted">1.25 × AFM 50&nbsp;ft distance</span></div>
-                  <div>Status: <span id="reqTora125Status"></span></div>
-                </div>
-
-                <div id="takeoffStopwayBlock">
-                  <div>With stopway and/or clearway available, all applicable declared-distance checks must pass:</div>
-                  <div>- TORA ≥ AFM run (<span id="reqToraRun"></span> m)</div>
-                  <div>- TODA ≥ 1.15 × AFM 50&nbsp;ft distance (<span id="reqToda115"></span> m)</div>
-                  <div>- ASDA ≥ 1.3 × AFM run (<span id="reqAsda130"></span> m)</div>
-                  <div>Status: <span id="reqStopwayStatus"></span></div>
-                </div>
-              </div>
-              <div class="res-sub" id="takeoffTrainingNote">
-                Ops Manual factors: use the 1.25 × AFM 50&nbsp;ft distance TORA check when no stopway/clearway is used. Where stopway and/or clearway is available, use the declared-distance method: TORA, TODA and ASDA checks as shown.
+                AFM base: flaps LDG, -3° approach, 630&nbsp;kg, dry paved runway. Surface factor changes the ground roll; total landing distance is adjusted accordingly. Wet surface also selects the Ops Manual wet landing requirement.
               </div>
             </div>
 
-            <div class="res-card">
+            <div class="res-card phase-result">
               <div class="res-title">Ops Manual – Landing factors</div>
               <div class="res-main">
                 <div>Required LDA dry (Ops Manual factor, AFM 50 ft ÷ 0.7): <strong><span id="reqLdaDry"></span> m</strong></div>
@@ -452,18 +462,14 @@
                 <div>Status: <span id="reqLdaWetStatus"></span></div>
               </div>
               <div class="res-sub">
-                Ops Manual factors: dry landing distance must fit within 70% of LDA; wet landing applies ×1.15 before the 70% check.
+                Dry landing distance must fit within 70% of LDA; wet landing applies ×1.15 before the 70% check.
               </div>
+            </div>
             </div>
           </div>
 
-          <div class="row">
-            <div>Rate of climb (max continuous, 76&nbsp;kt):</div>
-            <div>Vz ≈ <strong><span id="roc"></span> ft/min</strong></div>
-          </div>
-
           <p class="muted">
-            AFM performance tables are no-wind, level hard runway at 630&nbsp;kg.
+            AFM performance tables are no-wind, level paved runway at 630&nbsp;kg.
             This tool applies digitised wind correction factors to the displayed AFM distances, then applies the Ops Manual factors.
             Keep margins generous and verify against the AFM.
           </p>
@@ -473,6 +479,8 @@
           <h2>Runway Performance</h2>
           <small>Separate visual checks for departure and arrival runway requirements.</small>
 
+          <div class="runway-visual-grid">
+            <div class="runway-visual-panel">
           <div class="declared-row">
             <span class="k">DEP RWY</span> <span class="v" id="declRwy">—</span>
             <span class="k">TORA</span> <span class="v" id="declTora">—</span>
@@ -505,6 +513,8 @@
             </div>
           </div>
 
+            </div>
+            <div class="runway-visual-panel">
           <div class="declared-row runway-section-row">
             <span class="k">ARR RWY</span> <span class="v" id="declArrRwy">—</span>
             <span class="k">LDA</span> <span class="v" id="declLda">—</span>
@@ -532,6 +542,8 @@
               <span><span class="leg-swatch"
                   style="width:12px;height:2px;border-radius:2px;background:rgba(250,204,21,0.85)"></span>Required
                 distance</span>
+            </div>
+          </div>
             </div>
           </div>
 
