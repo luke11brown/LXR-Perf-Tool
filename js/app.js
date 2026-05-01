@@ -864,7 +864,7 @@
 
       const now = new Date();
       const horizon = new Date(now.getTime() + TAF_ADVISORY_HOURS * 3600000);
-      const relevantGroups = arrTaf.groups.filter(group => group.end > now && group.start < horizon);
+      const relevantGroups = taf.groups.filter(group => group.end > now && group.start < horizon);
       const risks = [];
       const flightRules = document.getElementById("flightRules")?.value || "vfr";
       const pilotQualification = document.getElementById("pilotQualification")?.value || "student";
