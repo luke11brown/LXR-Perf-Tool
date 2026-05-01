@@ -19,7 +19,14 @@
   </header>
 
   <main>
-    <section class="section-block">
+    <nav class="tab-nav" aria-label="App sections">
+      <button class="tab-button active" type="button" data-tab-target="tab-load">Load</button>
+      <button class="tab-button" type="button" data-tab-target="tab-performance">Performance</button>
+      <button class="tab-button" type="button" data-tab-target="tab-briefing">Briefing</button>
+      <button class="tab-button" type="button" data-tab-target="tab-summary">Summary</button>
+    </nav>
+
+    <section class="section-block tab-panel active" id="tab-load">
       <div class="section-title">Weight &amp; Balance</div>
       <div class="section-grid">
         <section class="card">
@@ -217,7 +224,7 @@
       </div>
     </section>
 
-    <section class="section-block">
+    <section class="section-block tab-panel" id="tab-performance">
       <div class="section-title">Performance</div>
       <div class="performance-stack">
         <section class="card">
@@ -666,7 +673,39 @@
       </div>
     </section>
 
-    <section class="section-block">
+    <section class="section-block tab-panel" id="tab-briefing">
+      <div class="section-title">Briefing</div>
+      <section class="card">
+        <h2>Briefing</h2>
+        <small>Selected-field briefing links for NOTAM review.</small>
+
+        <div class="briefing-grid">
+          <div class="res-card briefing-card">
+            <div class="res-title">Departure NOTAMs</div>
+            <div class="res-main" id="depNotamField">Select a runway preset</div>
+            <div class="briefing-actions">
+              <button id="fetchDepNotamsBtn" class="secondary" type="button">Fetch NOTAMs</button>
+              <a id="depNotamLink" class="briefing-link disabled" target="_blank" rel="noopener">Open source</a>
+            </div>
+            <div class="inline-note" id="depNotamStatus">Raw NOTAMs not fetched.</div>
+            <pre class="notam-output" id="depNotamRaw">Select a runway preset, then fetch NOTAMs.</pre>
+          </div>
+
+          <div class="res-card briefing-card">
+            <div class="res-title">Arrival NOTAMs</div>
+            <div class="res-main" id="arrNotamField">Select a runway preset</div>
+            <div class="briefing-actions">
+              <button id="fetchArrNotamsBtn" class="secondary" type="button">Fetch NOTAMs</button>
+              <a id="arrNotamLink" class="briefing-link disabled" target="_blank" rel="noopener">Open source</a>
+            </div>
+            <div class="inline-note" id="arrNotamStatus">Raw NOTAMs not fetched.</div>
+            <pre class="notam-output" id="arrNotamRaw">Select a runway preset, then fetch NOTAMs.</pre>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="section-block tab-panel" id="tab-summary">
       <div class="section-title">Operational Summary</div>
       <section class="card">
         <h2>Operational Summary</h2>

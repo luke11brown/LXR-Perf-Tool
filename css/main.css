@@ -71,10 +71,49 @@
       gap: 1.6rem;
     }
 
+    .tab-nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      gap: 0.45rem;
+      overflow-x: auto;
+      padding: 0.5rem 0;
+      background: rgba(11, 15, 20, 0.94);
+      backdrop-filter: blur(10px);
+      scrollbar-width: thin;
+    }
+
+    .tab-button {
+      flex: 0 0 auto;
+      border: 1px solid var(--border);
+      background: rgba(15, 21, 29, 0.9);
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 0.45rem 0.8rem;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .tab-button.active {
+      border-color: rgba(56, 189, 248, 0.75);
+      background: var(--accent-soft);
+      color: var(--text);
+    }
+
     .section-block {
       display: flex;
       flex-direction: column;
       gap: 0.9rem;
+    }
+
+    .section-block.tab-panel {
+      display: none;
+    }
+
+    .section-block.tab-panel.active {
+      display: flex;
     }
 
     .section-title {
@@ -823,6 +862,62 @@
     #sumWind,
     #sumRunway {
       white-space: pre-line;
+    }
+
+    .briefing-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.7rem;
+    }
+
+    .briefing-card {
+      min-height: 16rem;
+    }
+
+    .briefing-link {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .briefing-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.55rem;
+      align-items: center;
+      margin-top: 0.55rem;
+    }
+
+    .briefing-link.disabled {
+      color: var(--muted);
+      cursor: not-allowed;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .notam-output {
+      width: 100%;
+      min-height: 9rem;
+      max-height: 18rem;
+      overflow: auto;
+      margin: 0.55rem 0 0;
+      padding: 0.65rem;
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      border-radius: 8px;
+      background: rgba(5, 7, 11, 0.45);
+      color: var(--text);
+      font: 0.74rem/1.4 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      white-space: pre-wrap;
+    }
+
+    @media (max-width: 700px) {
+      .briefing-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .briefing-actions {
+        grid-template-columns: minmax(0, 1fr);
+      }
     }
 
     .fact-status-ok {

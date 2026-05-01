@@ -377,6 +377,136 @@
       return match ? match[0] : "";
     }
 
+    function notamPrefixForTarget(target) {
+      return target === "arrival" ? "arr" : "dep";
+    }
+
+    function notamUrlForIcao(icao) {
+      const station = encodeURIComponent(String(icao || "").toUpperCase());
+      return `https://notams.aim.faa.gov/notamSearch/?actionType=notamRetrievalByICAOs&formatType=ICAO&method=displayByICAOs&reportType=RAW&retrieveLocId=${station}`;
+    }
+
+    function setNotamCard(prefix, runway) {
+      const fieldEl = document.getElementById(`${prefix}NotamField`);
+      const linkEl = document.getElementById(`${prefix}NotamLink`);
+      const buttonEl = document.getElementById(prefix === "arr" ? "fetchArrNotamsBtn" : "fetchDepNotamsBtn");
+      const statusEl = document.getElementById(`${prefix}NotamStatus`);
+      const rawEl = document.getElementById(`${prefix}NotamRaw`);
+      if (!fieldEl || !linkEl) return;
+
+      const icao = getRunwayIcao(runway);
+      const previousIcao = fieldEl.dataset.icao || "";
+      if (!icao) {
+        fieldEl.textContent = "Select a runway preset";
+        fieldEl.dataset.icao = "";
+        linkEl.removeAttribute("href");
+        linkEl.classList.add("disabled");
+        linkEl.setAttribute("aria-disabled", "true");
+        if (buttonEl) buttonEl.disabled = true;
+        if (previousIcao && statusEl) statusEl.textContent = "Raw NOTAMs not fetched.";
+        if (previousIcao && rawEl) rawEl.textContent = "Select a runway preset, then fetch NOTAMs.";
+        return;
+      }
+
+      fieldEl.textContent = icao;
+      fieldEl.dataset.icao = icao;
+      linkEl.href = notamUrlForIcao(icao);
+      linkEl.classList.remove("disabled");
+      linkEl.removeAttribute("aria-disabled");
+      if (buttonEl) buttonEl.disabled = false;
+      if (previousIcao && previousIcao !== icao) {
+        if (statusEl) statusEl.textContent = "Raw NOTAMs not fetched.";
+        if (rawEl) rawEl.textContent = "Fetch NOTAMs for the selected field.";
+      }
+    }
+
+    function updateBriefingLinks() {
+      setNotamCard("dep", getSelectedRunway("savedRunwaySelect"));
+      setNotamCard("arr", getArrivalRunwayForVisuals());
+    }
+
+    function initTabs() {
+      const buttons = [...document.querySelectorAll(".tab-button[data-tab-target]")];
+      const panels = [...document.querySelectorAll(".tab-panel")];
+      buttons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const targetId = button.dataset.tabTarget;
+          buttons.forEach(btn => btn.classList.toggle("active", btn === button));
+          panels.forEach(panel => panel.classList.toggle("active", panel.id === targetId));
+        });
+      });
+    }
+
+    function cleanNotamResponse(raw, icao) {
+      const text = String(raw || "");
+      const htmlText = /<html|<body|<div|<!doctype/i.test(text)
+        ? new DOMParser().parseFromString(text, "text/html").body?.innerText || text
+        : text;
+      const cleaned = htmlText
+        .replace(/\u00a0/g, " ")
+        .replace(/\r/g, "")
+        .replace(/[ \t]+\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+
+      if (/No NOTAMs found/i.test(cleaned)) return `No active NOTAMs found for ${icao}.`;
+      if (/\{\{.*globalScope|Loading the application|I've read and understood/i.test(cleaned)) {
+        throw new Error("NOTAM source did not return raw results. Use Open source as fallback.");
+      }
+
+      const lines = cleaned.split("\n").map(line => line.trim()).filter(Boolean);
+      const usefulLines = lines.filter(line =>
+        /\bNOTAM[NC]?|^!|^[A-Z]\d{4}\/\d{2}\b|^\d{2}\/\d{3}\b/i.test(line)
+        || line.toUpperCase().includes(icao)
+      );
+      const result = (usefulLines.length >= 2 ? usefulLines : lines).join("\n");
+      return result || `No active NOTAMs found for ${icao}.`;
+    }
+
+    async function fetchNotamsForIcao(icao) {
+      const sourceUrl = notamUrlForIcao(icao);
+      const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(sourceUrl)}`;
+      let response;
+      try {
+        response = await fetchWithTimeout(proxyUrl);
+      } catch (err) {
+        response = await fetchWithTimeout(sourceUrl);
+      }
+      if (!response.ok) throw new Error(`NOTAM source returned ${response.status}`);
+      return cleanNotamResponse(await response.text(), icao);
+    }
+
+    async function fetchAndDisplayNotams(target) {
+      const prefix = notamPrefixForTarget(target);
+      const fieldEl = document.getElementById(`${prefix}NotamField`);
+      const statusEl = document.getElementById(`${prefix}NotamStatus`);
+      const rawEl = document.getElementById(`${prefix}NotamRaw`);
+      const buttonEl = document.getElementById(prefix === "arr" ? "fetchArrNotamsBtn" : "fetchDepNotamsBtn");
+      const runway = target === "arrival" ? getArrivalRunwayForVisuals() : getSelectedRunway("savedRunwaySelect");
+      const icao = getRunwayIcao(runway);
+      if (!statusEl || !rawEl || !buttonEl) return;
+      if (!icao) {
+        statusEl.textContent = "Select a runway preset first.";
+        rawEl.textContent = "No selected field.";
+        return;
+      }
+
+      buttonEl.disabled = true;
+      statusEl.textContent = `Fetching ${icao} raw NOTAMs valid now...`;
+      rawEl.textContent = "Fetching...";
+      try {
+        const notams = await fetchNotamsForIcao(icao);
+        statusEl.textContent = `${icao} raw NOTAMs fetched. Review source validity before flight.`;
+        rawEl.textContent = notams;
+        if (fieldEl) fieldEl.dataset.icao = icao;
+      } catch (err) {
+        statusEl.textContent = `Could not display ${icao} NOTAMs in-app: ${err.message}`;
+        rawEl.textContent = `Use the Open source link for ${icao}.`;
+      } finally {
+        buttonEl.disabled = false;
+      }
+    }
+
     function decodeMetarTemperature(value) {
       if (!value || value === "//") return null;
       return Number(value.startsWith("M") ? `-${value.slice(1)}` : value);
@@ -893,7 +1023,7 @@
         const text = group.tokens.join(" ");
         if (!text.trim()) return;
         const parsed = parseMetar(text);
-        const label = group.type === "BASE" ? "BASE" : group.type;
+        const label = group.type === "BASE" ? "Prevailing" : group.type;
         const groupRisks = [];
         const hasWind = /\b(VRB|\d{3})\d{2,3}(?:G\d{2,3})?(KT|MPS)\b/.test(text);
         if (hasWind && parsed.windSpeed !== null) {
@@ -1155,6 +1285,8 @@
     }
 
     function calculateAll() {
+      updateBriefingLinks();
+
       const emptyWeight = parseFloat(document.getElementById("emptyWeight").value) || 0;
       const emptyArm = parseFloat(document.getElementById("emptyArm").value) || 0;
       const upholsteryWt = parseFloat(document.getElementById("upholsteryWt").value) || 0;
@@ -1808,7 +1940,7 @@
       const creditedText = credited >= 0
         ? `HWC ${creditedAbs} kt (50% of reported HWC)`
         : `TWC ${creditedAbs} kt (150% of reported TWC)`;
-      return `Reported: ${along}, ${cross}. OM-C: ${creditedText}`;
+      return `Reported: ${along}, ${cross}\nOM-C: ${creditedText}`;
     }
 
     function escHtml(value) {
@@ -1936,7 +2068,7 @@
     .compliance-alert { border: 1px solid #dc2626; border-radius: 6px; background: #fee2e2; color: #991b1b; font-weight: 700; margin-bottom: 8px; padding: 7px 8px; }
     .kv { display: grid; grid-template-columns: 43% 57%; gap: 2px 7px; }
     .k { color: #475569; }
-    .v { font-weight: 700; }
+    .v { font-weight: 700; white-space: pre-line; }
     .stack { display: grid; gap: 5px; }
     .chart-frame { align-items: center; display: flex; justify-content: center; min-height: 215px; }
     .chart-img { display: block; max-height: 215px; max-width: 100%; object-fit: contain; width: auto; height: auto; }
@@ -2094,6 +2226,7 @@
       }
 
       buildCGChart();
+      initTabs();
 
       document.getElementById("calcBtn").addEventListener("click", calculateAll);
       document.getElementById("exportPdfBtn").addEventListener("click", exportReportToPdf);
@@ -2101,6 +2234,8 @@
       document.getElementById("fetchTafBtn").addEventListener("click", () => fetchAndAssessTaf("departure"));
       document.getElementById("fetchArrivalMetarBtn").addEventListener("click", () => fetchAndApplyMetar("arrival"));
       document.getElementById("fetchArrivalTafBtn").addEventListener("click", () => fetchAndAssessTaf("arrival"));
+      document.getElementById("fetchDepNotamsBtn").addEventListener("click", () => fetchAndDisplayNotams("departure"));
+      document.getElementById("fetchArrNotamsBtn").addEventListener("click", () => fetchAndDisplayNotams("arrival"));
 
       const regSelect = document.getElementById("regSelect");
       const regInfo = document.getElementById("regInfo");
