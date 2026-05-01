@@ -590,9 +590,9 @@
       const detailEl = document.getElementById(isArrivalPhase ? "arrWeatherMinimaDetail" : "depWeatherMinimaDetail");
       const phaseLabel = isArrivalPhase ? "arrival" : "departure";
 
-      if (!statusEl || !detailEl) return { ok: true, text: "Weather minima not displayed." };
+      if (!statusEl || !detailEl) return { ok: true, text: "OM-C weather minima not displayed." };
       if (!metar) {
-        const text = `Weather minima not assessed - fetch a ${phaseLabel} METAR first.`;
+        const text = `OM-C weather minima not assessed - fetch a ${phaseLabel} METAR first.`;
         statusEl.textContent = text;
         statusEl.className = "res-main summary-line-bad";
         detailEl.textContent = "Visibility and cloud ceiling are parsed from the fetched METAR. Manual weather-minima entry is not currently available.";
@@ -678,7 +678,7 @@
             checks.push("Take-off visibility: check published minima for MEP.");
           }
         }
-        statusEl.textContent = `${ok ? "OK" : "CHECK"} - ${phaseLabel} IFR ${isArrivalPhase ? "weather minima where assessable from METAR" : "take-off minima where assessable from METAR"}.`;
+        statusEl.textContent = `${ok ? "OK" : "CHECK"} - ${phaseLabel} IFR ${isArrivalPhase ? "OM-C weather minima where assessable from METAR" : "OM-C take-off minima where assessable from METAR"}.`;
       }
 
       statusEl.className = ok ? "res-main summary-line-ok" : "res-main summary-line-bad";
@@ -1430,8 +1430,8 @@
           ? `OK – non-balanced field declared-distance checks pass: TORA ≥ TORR ${round(reqToraRun, 0)} m, TODA ≥ TODR ${round(reqToda115, 0)} m, ASDA ≥ ASDR ${round(reqAsda130, 0)} m.`
           : `NOT OK – one or more non-balanced field declared-distance checks fail: TORA ≥ TORR ${round(reqToraRun, 0)} m, TODA ≥ TODR ${round(reqToda115, 0)} m, ASDA ≥ ASDR ${round(reqAsda130, 0)} m required.`)
         : (toOk
-          ? `OK – balanced field: TORA required (1.25 × AFM TODR = ${round(reqTora125, 0)} m) ≤ TORA ${round(runwayTora, 0)} m.`
-          : `NOT OK – balanced field: TORA required (1.25 × AFM TODR = ${round(reqTora125, 0)} m) exceeds TORA ${round(runwayTora, 0)} m.`);
+          ? `OK – balanced field: TORR (OM-C, 1.25 × AFM TODR = ${round(reqTora125, 0)} m) ≤ TORA ${round(runwayTora, 0)} m.`
+          : `NOT OK – balanced field: TORR (OM-C, 1.25 × AFM TODR = ${round(reqTora125, 0)} m) exceeds TORA ${round(runwayTora, 0)} m.`);
       setSummaryLine("sumPerfTo", sumPerfToText, toOk);
 
       const ldgCriterionOk = usingWet ? ldaWetOk : ldaDryOk;
@@ -1463,7 +1463,7 @@
       if (!ldgCriterionOk) nonCompliance.push("landing requirement not met");
       if (!windOk) nonCompliance.push("wind limits or recommendations exceeded");
       if ((depWeatherMinima.assessed && !depWeatherMinima.ok) || (arrWeatherMinima.assessed && !arrWeatherMinima.ok)) {
-        nonCompliance.push("weather minima warning active");
+        nonCompliance.push("OM-C weather minima warning active");
       }
       const complianceAlertRow = document.getElementById("complianceAlertRow");
       const complianceAlert = document.getElementById("complianceAlert");
@@ -1604,7 +1604,7 @@
       const todaAsdaBad = declaredStopwayOrClearwayReport && startsNotOk("reqStopwayStatus");
       const ldaDryBad = startsNotOk("reqLdaDryStatus");
       const ldaWetBad = startsNotOk("reqLdaWetStatus");
-      const requiredToraReport = declaredStopwayOrClearwayReport ? getText("reqToraRun") : getText("reqTora125");
+      const requiredTorrReport = declaredStopwayOrClearwayReport ? getText("reqToraRun") : getText("reqTora125");
 
       const html = `<!doctype html>
 <html>
@@ -1706,8 +1706,7 @@
       <div class="k">OAT / ISA dev</div><div class="v">${escHtml(getValue("oat"))} °C / ${escHtml(getValue("isaDev"))} °C</div>
       <div class="k">Wind</div><div class="v${classIfBad(depWindBad)}">${escHtml((String(getValue("windDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("windDir")}°T`)} / ${escHtml(getValue("windSpd"))} kt</div>
       <div class="k">Wind credit</div><div class="v${classIfBad(depWindBad)}">${escHtml(depWindComponentsText)}</div>
-      <div class="k">TORA / TODA</div><div class="v">${escHtml(getText("declTora"))} / ${escHtml(getText("declToda"))}</div>
-      <div class="k">ASDA</div><div class="v">${escHtml(getText("declAsda"))}</div>
+      <div class="k">TORA / TODA / ASDA</div><div class="v">${escHtml(getText("declTora"))} / ${escHtml(getText("declToda"))} / ${escHtml(getText("declAsda"))}</div>
     </div>
     <div class="box perf kv">
       <div class="k">Arrival runway</div><div class="v">${escHtml(formatArrivalRunwayLabel())}</div>
@@ -1726,15 +1725,15 @@
     <div class="box perf kv">
       <div class="k">TORR (AFM)</div><div class="v">${escHtml(getText("toRun"))} m</div>
       <div class="k">TODR (AFM)</div><div class="v">${escHtml(getText("toDist"))} m</div>
-      <div class="k">${declaredStopwayOrClearwayReport ? "TORR (OM-C)" : "TORA required (OM-C)"}</div><div class="v${classIfBad(reqToraBad)}">${escHtml(requiredToraReport)} m</div>
+      <div class="k">TORR (OM-C)</div><div class="v${classIfBad(reqToraBad)}">${escHtml(requiredTorrReport)} m</div>
       <div class="k">TODR / ASDR (OM-C)</div><div class="v${classIfBad(todaAsdaBad)}">${escHtml(getText("reqToda115"))} m / ${escHtml(getText("reqAsda130"))} m</div>
+      <div class="k">Rate of climb</div><div class="v">${escHtml(getText("roc"))} ft/min</div>
     </div>
     <div class="box perf kv">
       <div class="k">LDR dry (AFM)</div><div class="v">${escHtml(getText("ldgDistDry"))} m</div>
       <div class="k">LDR wet (AFM)</div><div class="v">${escHtml(getText("ldgDistWet"))} m</div>
       <div class="k">LDR dry (OM-C)</div><div class="v${classIfBad(ldaDryBad)}">${escHtml(getText("reqLdaDry"))} m</div>
       <div class="k">LDR wet (OM-C)</div><div class="v${classIfBad(ldaWetBad)}">${escHtml(getText("reqLdaWet"))} m</div>
-      <div class="k">Rate of climb</div><div class="v">${escHtml(getText("roc"))} ft/min</div>
     </div>
   </div>
 
@@ -1745,7 +1744,7 @@
     <p><strong>Take-off:</strong> ${escHtml(getText("sumPerfTo"))}</p>
     <p><strong>Landing:</strong> ${escHtml(getText("sumPerfLdg"))}</p>
     <p><strong>Wind:</strong> ${escHtml(getText("sumWind"))}</p>
-    <p><strong>Weather minima:</strong> ${escHtml(weatherMinimaText || "Not assessed")}</p>
+    <p><strong>OM-C weather minima:</strong> ${escHtml(weatherMinimaText || "Not assessed")}</p>
     <p><strong>Runway:</strong> ${escHtml(getText("sumRunway"))}</p>
   </div>
 
