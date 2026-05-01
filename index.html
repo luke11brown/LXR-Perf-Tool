@@ -22,7 +22,6 @@
     <nav class="tab-nav" aria-label="App sections">
       <button class="tab-button active" type="button" data-tab-target="tab-load">Load</button>
       <button class="tab-button" type="button" data-tab-target="tab-performance">Performance</button>
-      <button class="tab-button" type="button" data-tab-target="tab-briefing">Briefing</button>
       <button class="tab-button" type="button" data-tab-target="tab-summary">Summary</button>
     </nav>
 
@@ -671,78 +670,6 @@
 
         </section>
       </div>
-    </section>
-
-    <section class="section-block tab-panel" id="tab-briefing">
-      <div class="section-title">Briefing</div>
-      <section class="card">
-        <h2>Briefing</h2>
-        <small>Selected-field briefing links for NOTAM review.</small>
-
-        <div class="briefing-grid">
-          <div class="res-card briefing-card">
-            <div class="res-title">Departure NOTAMs</div>
-            <div class="res-main" id="depNotamField">Select a runway preset</div>
-            <div class="briefing-actions">
-              <button id="fetchDepNotamsBtn" class="secondary" type="button">Fetch NOTAMs</button>
-              <a id="depNotamLink" class="briefing-link disabled" target="_blank" rel="noopener">Open source</a>
-            </div>
-            <div class="inline-note" id="depNotamStatus">Raw NOTAMs not fetched.</div>
-            <textarea class="notam-output" id="depNotamRaw" spellcheck="false">Select a runway preset, then fetch NOTAMs or paste the raw briefing.</textarea>
-          </div>
-
-          <div class="res-card briefing-card">
-            <div class="res-title">Arrival NOTAMs</div>
-            <div class="res-main" id="arrNotamField">Select a runway preset</div>
-            <div class="briefing-actions">
-              <button id="fetchArrNotamsBtn" class="secondary" type="button">Fetch NOTAMs</button>
-              <a id="arrNotamLink" class="briefing-link disabled" target="_blank" rel="noopener">Open source</a>
-            </div>
-            <div class="inline-note" id="arrNotamStatus">Raw NOTAMs not fetched.</div>
-            <textarea class="notam-output" id="arrNotamRaw" spellcheck="false">Select a runway preset, then fetch NOTAMs or paste the raw briefing.</textarea>
-          </div>
-        </div>
-
-        <div class="briefing-product-grid">
-          <div class="res-card briefing-card">
-            <div class="res-title">SIGWX chart</div>
-            <div class="grid" style="margin-top:0.55rem">
-              <div class="field">
-                <label for="sigwxImageUrl">Image URL</label>
-                <input id="sigwxImageUrl" type="url" placeholder="Paste SIGWX image URL" />
-              </div>
-              <div class="field metar-button-field">
-                <button id="loadSigwxBtn" class="secondary" type="button">Load chart</button>
-              </div>
-            </div>
-            <div class="briefing-actions">
-              <a class="briefing-link" href="https://aviationweather.gov/sigwx/" target="_blank" rel="noopener">Open SIGWX</a>
-              <a class="briefing-link" href="https://aviationweather.gov/graphics/" target="_blank" rel="noopener">Static graphics</a>
-            </div>
-            <div class="inline-note" id="sigwxStatus">Paste a static image URL to include it in the app and PDF.</div>
-            <img id="sigwxPreview" class="briefing-image" alt="SIGWX chart preview" style="display:none;" />
-          </div>
-
-          <div class="res-card briefing-card">
-            <div class="res-title">Low-level forecast / wind</div>
-            <div class="grid" style="margin-top:0.55rem">
-              <div class="field">
-                <label for="lowWindImageUrl">Image URL</label>
-                <input id="lowWindImageUrl" type="url" placeholder="Paste low-level forecast image URL" />
-              </div>
-              <div class="field metar-button-field">
-                <button id="loadLowWindBtn" class="secondary" type="button">Load chart</button>
-              </div>
-            </div>
-            <div class="briefing-actions">
-              <a class="briefing-link" href="https://aviationweather.gov/wafs/" target="_blank" rel="noopener">Open WAFS wind</a>
-              <a class="briefing-link" href="https://aviationweather.gov/graphics/" target="_blank" rel="noopener">Static graphics</a>
-            </div>
-            <div class="inline-note" id="lowWindStatus">Paste a static image URL to include it in the app and PDF.</div>
-            <img id="lowWindPreview" class="briefing-image" alt="Low-level forecast or wind preview" style="display:none;" />
-          </div>
-        </div>
-      </section>
     </section>
 
     <section class="section-block tab-panel" id="tab-summary">

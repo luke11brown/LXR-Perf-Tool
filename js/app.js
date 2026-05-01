@@ -377,54 +377,6 @@
       return match ? match[0] : "";
     }
 
-    function notamPrefixForTarget(target) {
-      return target === "arrival" ? "arr" : "dep";
-    }
-
-    function notamUrlForIcao(icao) {
-      const station = encodeURIComponent(String(icao || "").toUpperCase());
-      return `https://notams.aim.faa.gov/notamSearch/?actionType=notamRetrievalByICAOs&formatType=ICAO&method=displayByICAOs&reportType=RAW&retrieveLocId=${station}`;
-    }
-
-    function setNotamCard(prefix, runway) {
-      const fieldEl = document.getElementById(`${prefix}NotamField`);
-      const linkEl = document.getElementById(`${prefix}NotamLink`);
-      const buttonEl = document.getElementById(prefix === "arr" ? "fetchArrNotamsBtn" : "fetchDepNotamsBtn");
-      const statusEl = document.getElementById(`${prefix}NotamStatus`);
-      const rawEl = document.getElementById(`${prefix}NotamRaw`);
-      if (!fieldEl || !linkEl) return;
-
-      const icao = getRunwayIcao(runway);
-      const previousIcao = fieldEl.dataset.icao || "";
-      if (!icao) {
-        fieldEl.textContent = "Select a runway preset";
-        fieldEl.dataset.icao = "";
-        linkEl.removeAttribute("href");
-        linkEl.classList.add("disabled");
-        linkEl.setAttribute("aria-disabled", "true");
-        if (buttonEl) buttonEl.disabled = true;
-        if (previousIcao && statusEl) statusEl.textContent = "Raw NOTAMs not fetched.";
-        if (previousIcao && rawEl) rawEl.value = "Select a runway preset, then fetch NOTAMs or paste the raw briefing.";
-        return;
-      }
-
-      fieldEl.textContent = icao;
-      fieldEl.dataset.icao = icao;
-      linkEl.href = notamUrlForIcao(icao);
-      linkEl.classList.remove("disabled");
-      linkEl.removeAttribute("aria-disabled");
-      if (buttonEl) buttonEl.disabled = false;
-      if (previousIcao && previousIcao !== icao) {
-        if (statusEl) statusEl.textContent = "Raw NOTAMs not fetched.";
-        if (rawEl) rawEl.value = "Fetch NOTAMs for the selected field or paste the raw briefing.";
-      }
-    }
-
-    function updateBriefingLinks() {
-      setNotamCard("dep", getSelectedRunway("savedRunwaySelect"));
-      setNotamCard("arr", getArrivalRunwayForVisuals());
-    }
-
     function initTabs() {
       const buttons = [...document.querySelectorAll(".tab-button[data-tab-target]")];
       const panels = [...document.querySelectorAll(".tab-panel")];
@@ -435,102 +387,6 @@
           panels.forEach(panel => panel.classList.toggle("active", panel.id === targetId));
         });
       });
-    }
-
-    function cleanNotamResponse(raw, icao) {
-      const text = String(raw || "");
-      const htmlText = /<html|<body|<div|<!doctype/i.test(text)
-        ? new DOMParser().parseFromString(text, "text/html").body?.innerText || text
-        : text;
-      const cleaned = htmlText
-        .replace(/\u00a0/g, " ")
-        .replace(/\r/g, "")
-        .replace(/[ \t]+\n/g, "\n")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim();
-
-      if (/No NOTAMs found/i.test(cleaned)) return `No active NOTAMs found for ${icao}.`;
-      if (/Access Denied|You don't have permission|errors\.edgesuite|akamai/i.test(cleaned)) {
-        throw new Error("NOTAM source denied browser access. Use Open source or paste the raw briefing.");
-      }
-      if (/\{\{.*globalScope|Loading the application|I've read and understood/i.test(cleaned)) {
-        throw new Error("NOTAM source did not return raw results. Use Open source as fallback.");
-      }
-
-      const lines = cleaned.split("\n").map(line => line.trim()).filter(Boolean);
-      const usefulLines = lines.filter(line =>
-        /\bNOTAM[NC]?|^!|^[A-Z]\d{4}\/\d{2}\b|^\d{2}\/\d{3}\b/i.test(line)
-        || line.toUpperCase().includes(icao)
-      );
-      const result = (usefulLines.length >= 2 ? usefulLines : lines).join("\n");
-      return result || `No active NOTAMs found for ${icao}.`;
-    }
-
-    async function fetchNotamsForIcao(icao) {
-      const sourceUrl = notamUrlForIcao(icao);
-      const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(sourceUrl)}`;
-      let response;
-      try {
-        response = await fetchWithTimeout(proxyUrl);
-      } catch (err) {
-        response = await fetchWithTimeout(sourceUrl);
-      }
-      if (!response.ok) throw new Error(`NOTAM source returned ${response.status}`);
-      return cleanNotamResponse(await response.text(), icao);
-    }
-
-    async function fetchAndDisplayNotams(target) {
-      const prefix = notamPrefixForTarget(target);
-      const fieldEl = document.getElementById(`${prefix}NotamField`);
-      const statusEl = document.getElementById(`${prefix}NotamStatus`);
-      const rawEl = document.getElementById(`${prefix}NotamRaw`);
-      const buttonEl = document.getElementById(prefix === "arr" ? "fetchArrNotamsBtn" : "fetchDepNotamsBtn");
-      const runway = target === "arrival" ? getArrivalRunwayForVisuals() : getSelectedRunway("savedRunwaySelect");
-      const icao = getRunwayIcao(runway);
-      if (!statusEl || !rawEl || !buttonEl) return;
-      if (!icao) {
-        statusEl.textContent = "Select a runway preset first.";
-        rawEl.value = "No selected field.";
-        return;
-      }
-
-      buttonEl.disabled = true;
-      statusEl.textContent = `Fetching ${icao} raw NOTAMs valid now...`;
-      rawEl.value = "Fetching...";
-      try {
-        const notams = await fetchNotamsForIcao(icao);
-        statusEl.textContent = `${icao} raw NOTAMs fetched. Review source validity before flight.`;
-        rawEl.value = notams;
-        if (fieldEl) fieldEl.dataset.icao = icao;
-      } catch (err) {
-        statusEl.textContent = `Could not display ${icao} NOTAMs in-app: ${err.message}`;
-        rawEl.value = `Use the Open source link for ${icao}, or paste the raw NOTAM briefing here so it appears on the PDF.`;
-      } finally {
-        buttonEl.disabled = false;
-      }
-    }
-
-    function loadBriefingImage(inputId, imgId, statusId) {
-      const url = String(document.getElementById(inputId)?.value || "").trim();
-      const img = document.getElementById(imgId);
-      const status = document.getElementById(statusId);
-      if (!img || !status) return;
-      if (!url) {
-        img.removeAttribute("src");
-        img.style.display = "none";
-        status.textContent = "Paste a static image URL to include it in the app and PDF.";
-        return;
-      }
-      img.onload = () => {
-        img.style.display = "block";
-        status.textContent = "Chart loaded. It will be included in the PDF if the browser can access the image.";
-      };
-      img.onerror = () => {
-        img.style.display = "none";
-        status.textContent = "Could not load that image URL. Open the source page and use a direct PNG/JPG image URL.";
-      };
-      img.crossOrigin = "anonymous";
-      img.src = url;
     }
 
     function decodeMetarTemperature(value) {
@@ -1311,8 +1167,6 @@
     }
 
     function calculateAll() {
-      updateBriefingLinks();
-
       const emptyWeight = parseFloat(document.getElementById("emptyWeight").value) || 0;
       const emptyArm = parseFloat(document.getElementById("emptyArm").value) || 0;
       const upholsteryWt = parseFloat(document.getElementById("upholsteryWt").value) || 0;
@@ -1936,12 +1790,6 @@
       return el ? (el.textContent || "").trim() : "";
     }
 
-    function getFieldText(id) {
-      const el = document.getElementById(id);
-      if (!el) return "";
-      return ("value" in el ? el.value : el.textContent || "").trim();
-    }
-
     function getValue(id) {
       const el = document.getElementById(id);
       return el ? el.value : "";
@@ -2051,20 +1899,6 @@
         const body = conciseWeatherDetail(status, getText(detailId), forecast);
         return `<div class="wx-cell"><div class="wx-label">${escHtml(label)}</div><div><span class="${statusClass(token)}">${escHtml(token || "INFO")}</span></div><div>${escHtml(body)}</div></div>`;
       };
-      const renderBriefingText = (label, fieldId, statusId) => {
-        const text = getFieldText(fieldId);
-        const empty = !text || /Select a runway preset|Fetch NOTAMs for the selected field|Use the Open source link/i.test(text);
-        return `<div class="brief-text"><strong>${escHtml(label)}</strong><br>${escHtml(empty ? "No raw NOTAM briefing saved in app." : text)}</div>`;
-      };
-      const renderBriefingImage = (label, imgId, sourceId) => {
-        const img = document.getElementById(imgId);
-        const src = img?.src || "";
-        const source = getValue(sourceId);
-        if (!src || img?.style.display === "none") {
-          return `<div class="brief-image-missing"><strong>${escHtml(label)}:</strong> No chart image loaded.${source ? ` Source: ${escHtml(source)}` : ""}</div>`;
-        }
-        return `<div class="brief-image-block"><strong>${escHtml(label)}</strong><img class="brief-img" src="${escHtml(src)}" alt="${escHtml(label)}"></div>`;
-      };
       const startsNotOk = (id) => /^NOT OK/i.test(getText(id));
       const hasLimitWarning = (id) => /exceeds|not permitted|capped/i.test(getText(id));
       const numValue = (id) => parseFloat(getValue(id));
@@ -2139,11 +1973,6 @@
     .wx-cell { background: #fff; border: 1px solid #fde68a; border-radius: 5px; padding: 4px; line-height: 1.24; min-height: 42px; }
     .wx-label { color: #92400e; font-size: 7.6px; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; }
     .wx-limits { color: #475569; font-size: 8px; margin-top: 2px; }
-    .page-break { break-before: page; page-break-before: always; }
-    .brief-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-    .brief-text { border: 1px solid #bfdbfe; border-radius: 6px; padding: 5px; white-space: pre-wrap; font: 7.2px/1.26 Consolas, "Liberation Mono", monospace; max-height: 112px; overflow: hidden; }
-    .brief-image-block, .brief-image-missing { border: 1px solid #bfdbfe; border-radius: 6px; padding: 5px; break-inside: avoid; }
-    .brief-img { display: block; width: 100%; max-height: 290px; object-fit: contain; margin-top: 4px; }
     .footer { margin-top: 8px; font-size: 8px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 4px; }
     @media print { .report-actions { display:none; } }
   </style>
@@ -2250,18 +2079,6 @@
     </div>
   </div>
 
-  <div class="page-break"></div>
-  <h2>Briefing</h2>
-  <div class="brief-grid">
-    ${renderBriefingText("Departure NOTAMs", "depNotamRaw", "depNotamStatus")}
-    ${renderBriefingText("Arrival NOTAMs", "arrNotamRaw", "arrNotamStatus")}
-  </div>
-  <h2>Charts</h2>
-  <div class="brief-grid">
-    ${renderBriefingImage("SIGWX chart", "sigwxPreview", "sigwxImageUrl")}
-    ${renderBriefingImage("Low-level forecast / wind", "lowWindPreview", "lowWindImageUrl")}
-  </div>
-
   <div class="footer">This PDF is a snapshot of the app data. It is not an AFM replacement.</div>
 </body>
 </html>`;
@@ -2297,10 +2114,6 @@
       document.getElementById("fetchTafBtn").addEventListener("click", () => fetchAndAssessTaf("departure"));
       document.getElementById("fetchArrivalMetarBtn").addEventListener("click", () => fetchAndApplyMetar("arrival"));
       document.getElementById("fetchArrivalTafBtn").addEventListener("click", () => fetchAndAssessTaf("arrival"));
-      document.getElementById("fetchDepNotamsBtn").addEventListener("click", () => fetchAndDisplayNotams("departure"));
-      document.getElementById("fetchArrNotamsBtn").addEventListener("click", () => fetchAndDisplayNotams("arrival"));
-      document.getElementById("loadSigwxBtn").addEventListener("click", () => loadBriefingImage("sigwxImageUrl", "sigwxPreview", "sigwxStatus"));
-      document.getElementById("loadLowWindBtn").addEventListener("click", () => loadBriefingImage("lowWindImageUrl", "lowWindPreview", "lowWindStatus"));
 
       const regSelect = document.getElementById("regSelect");
       const regInfo = document.getElementById("regInfo");
