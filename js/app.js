@@ -124,6 +124,7 @@
       populateRunwaySelect("arrivalRunwaySelect", "Use departure runway", [
         { value: "manual", label: "Manual entry" },
       ]);
+      updateIntersectionControls();
     }
 
     function setFieldGroupDisabled(ids, disabled) {
@@ -235,6 +236,130 @@
       const preset = PRESET_RUNWAYS[select.value];
       if (preset) return preset;
       return null;
+    }
+
+    function runwayDesignatorParts(runway) {
+      const source = runway?.id || runway?.label || "";
+      const match = String(source).toUpperCase().match(/^([A-Z]{4})[_\s-]?(\d{2})([LRC])?$/);
+      if (!match) return null;
+      return { icao: match[1], number: Number(match[2]), suffix: match[3] || "" };
+    }
+
+    function reciprocalRunwayDesignator(parts) {
+      if (!parts) return "";
+      const reciprocalNumber = ((parts.number + 17) % 36) + 1;
+      const suffixMap = { L: "R", R: "L", C: "C" };
+      return `${parts.icao}_${String(reciprocalNumber).padStart(2, "0")}${suffixMap[parts.suffix] || ""}`;
+    }
+
+    function getReciprocalRunway(runway) {
+      const reciprocalId = reciprocalRunwayDesignator(runwayDesignatorParts(runway));
+      return reciprocalId ? PRESET_RUNWAYS[reciprocalId] || null : null;
+    }
+
+    function runwayIntersections(runway) {
+      return Array.isArray(runway?.intersections) ? runway.intersections : [];
+    }
+
+    function updateSelectOptions(selectId, options, emptyLabel, emptyValue = "none") {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      const previousValue = select.value;
+      select.innerHTML = "";
+      const emptyOption = document.createElement("option");
+      emptyOption.value = emptyValue;
+      emptyOption.textContent = emptyLabel;
+      select.appendChild(emptyOption);
+      options.forEach((option) => {
+        const opt = document.createElement("option");
+        opt.value = option.value;
+        opt.textContent = option.label;
+        opt.dataset.source = option.source || "";
+        opt.dataset.index = option.index ?? "";
+        select.appendChild(opt);
+      });
+      select.value = [...select.options].some(opt => opt.value === previousValue) ? previousValue : emptyValue;
+      select.disabled = options.length === 0;
+    }
+
+    function setControlVisible(id, visible) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = visible ? "" : "none";
+    }
+
+    function getArrivalRunwayForVisuals() {
+      return arrivalUsesDepartureRunway ? getSelectedRunway("savedRunwaySelect") : getSelectedRunway("arrivalRunwaySelect");
+    }
+
+    function updateIntersectionControls() {
+      const depRunway = getSelectedRunway("savedRunwaySelect");
+      const depOptions = runwayIntersections(depRunway).map((intersection, index) => ({
+        value: `dep:${index}`,
+        source: "dep",
+        index,
+        label: `${intersection.label || intersection.id || `Intersection ${index + 1}`} (${intersection.tora ?? "?"} m TORA)`,
+      }));
+      updateSelectOptions("depIntersectionSelect", depOptions, "Full length", "full");
+      setControlVisible("depIntersectionControl", depOptions.length > 0);
+
+      const arrRunway = getArrivalRunwayForVisuals();
+      const reciprocalRunway = getReciprocalRunway(arrRunway);
+      const arrOptions = [
+        ...runwayIntersections(arrRunway).map((intersection, index) => ({
+          value: `arr:${index}`,
+          source: "arr",
+          index,
+          label: `${intersection.label || intersection.id || `Intersection ${index + 1}`} (${intersection.tora ?? "?"} m from stop end)`,
+        })),
+        ...runwayIntersections(reciprocalRunway).map((intersection, index) => ({
+          value: `recip:${index}`,
+          source: "recip",
+          index,
+          label: `${intersection.label || intersection.id || `Intersection ${index + 1}`} (${intersection.tora ?? "?"} m from threshold)`,
+        })),
+      ];
+      updateSelectOptions("arrVacateSelect", arrOptions, "None", "none");
+      setControlVisible("arrVacateControl", arrOptions.length > 0);
+    }
+
+    function updateWeatherMinimaControls() {
+      const flightRules = document.getElementById("flightRules")?.value || "vfr";
+      setControlVisible("vfrPhaseField", flightRules === "vfr");
+      setControlVisible("ifrAircraftClassField", flightRules === "ifr");
+    }
+
+    function getSelectedDepartureIntersection() {
+      const select = document.getElementById("depIntersectionSelect");
+      const runway = getSelectedRunway("savedRunwaySelect");
+      if (!select || !runway || select.value === "full") return null;
+      const selected = select.selectedOptions[0];
+      const index = Number(selected?.dataset.index);
+      return runwayIntersections(runway)[index] || null;
+    }
+
+    function getSelectedArrivalVacate() {
+      const select = document.getElementById("arrVacateSelect");
+      const runway = getArrivalRunwayForVisuals();
+      if (!select || !runway || select.value === "none") return null;
+      const selected = select.selectedOptions[0];
+      const source = selected?.dataset.source;
+      const index = Number(selected?.dataset.index);
+      const reciprocalRunway = getReciprocalRunway(runway);
+      const intersection = source === "recip"
+        ? runwayIntersections(reciprocalRunway)[index]
+        : runwayIntersections(runway)[index];
+      if (!intersection) return null;
+      const runwayLength = Number(runway.tora) || 0;
+      const thresholdOffset = Math.max(0, runwayLength - (Number(runway.lda) || runwayLength));
+      const distanceFromRunwayStart = source === "recip"
+        ? Number(intersection.tora)
+        : Math.max(0, runwayLength - (Number(intersection.tora) || 0));
+      const distanceFromThreshold = Math.max(0, distanceFromRunwayStart - thresholdOffset);
+      return {
+        ...intersection,
+        distanceFromThreshold,
+        label: intersection.label || intersection.id || "Intersection",
+      };
     }
 
     function getMetarStationFromRunway(runway) {
@@ -1151,19 +1276,36 @@
       const landingBarWidth = landingBar?.clientWidth || 1;
       const todrBarVal = declaredStopwayOrClearway ? reqToda115 : toDist;
       const asdrBarVal = declaredStopwayOrClearway ? reqAsda130 : 0;
+      const depIntersection = getSelectedDepartureIntersection();
+      const depIntersectionLabel = depIntersection?.label || depIntersection?.id || "Intersection";
+      const depIntersectionStart = depIntersection
+        ? Math.max(0, runwayTora - (Number(depIntersection.tora) || runwayTora))
+        : 0;
+      const depVisualTora = depIntersection ? Number(depIntersection.tora) || runwayTora : runwayTora;
+      const depVisualToda = depIntersection ? Number(depIntersection.toda) || depVisualTora : runwayToda;
+      const depVisualAsda = depIntersection ? Number(depIntersection.asda) || depVisualTora : runwayAsda;
+      const depVisualToraEnd = depIntersectionStart + depVisualTora;
+      const depVisualTodaEnd = depIntersectionStart + depVisualToda;
+      const depVisualAsdaEnd = depIntersectionStart + depVisualAsda;
       const arrivalRunwayPreset = getSelectedRunway("arrivalRunwaySelect");
       const arrivalReferenceLength = arrivalUsesDepartureRunway
         ? Math.max(runwayTora, depRunwayLda, runwayLda)
         : Math.max(Number(arrivalRunwayPreset?.tora) || runwayLda, runwayLda);
       const depThresholdOffset = Math.max(0, runwayTora - depRunwayLda);
       const arrThresholdOffset = Math.max(0, arrivalReferenceLength - runwayLda);
-      const takeoffScaleLength = Math.max(runwayTora, runwayToda, runwayAsda, toRun, todrBarVal, asdrBarVal, activeReqToraVal, 1);
-      const landingScaleLength = Math.max(arrivalReferenceLength, arrThresholdOffset + ldgDistDry, arrThresholdOffset + ldgDistWet, arrThresholdOffset + reqLdaDry, arrThresholdOffset + reqLdaWet, 1);
+      const vacateIntersection = getSelectedArrivalVacate();
+      const vacateDistance = vacateIntersection ? arrThresholdOffset + vacateIntersection.distanceFromThreshold : 0;
+      const takeoffScaleLength = Math.max(runwayTora, runwayToda, runwayAsda, depVisualToraEnd, depVisualTodaEnd, depVisualAsdaEnd, depIntersectionStart + toRun, depIntersectionStart + todrBarVal, depIntersectionStart + asdrBarVal, depIntersectionStart + activeReqToraVal, 1);
+      const landingScaleLength = Math.max(arrivalReferenceLength, vacateDistance, arrThresholdOffset + ldgDistDry, arrThresholdOffset + ldgDistWet, arrThresholdOffset + reqLdaDry, arrThresholdOffset + reqLdaWet, 1);
 
-      setMarker("barToRun", toRun, runwayTora, takeoffScaleLength, takeoffBarWidth);
-      setMarker("barToDist", todrBarVal, declaredStopwayOrClearway ? runwayToda : runwayTora, takeoffScaleLength, takeoffBarWidth);
-      setMarker("barAsdr", asdrBarVal, runwayAsda, takeoffScaleLength, takeoffBarWidth);
+      setMarker("barToRun", toRun, depVisualToraEnd, takeoffScaleLength, takeoffBarWidth, depIntersectionStart);
+      setMarker("barToDist", todrBarVal, declaredStopwayOrClearway ? depVisualTodaEnd : depVisualToraEnd, takeoffScaleLength, takeoffBarWidth, depIntersectionStart);
+      setMarker("barAsdr", asdrBarVal, depVisualAsdaEnd, takeoffScaleLength, takeoffBarWidth, depIntersectionStart);
       setDisplacedThreshold("depDisplacedThreshold", "legendDepDisplacedThreshold", depThresholdOffset, takeoffScaleLength, takeoffBarWidth);
+      setTick("tickDepIntersection", depIntersectionStart, takeoffScaleLength, takeoffBarWidth);
+      setVisible("tickDepIntersection", !!depIntersection);
+      setVisible("legendDepIntersection", !!depIntersection, "inline-flex");
+      setTickLabel("tickDepIntersection", depIntersectionLabel);
       setTick("tickTakeoffEnd", runwayTora, takeoffScaleLength, takeoffBarWidth);
       setTick("tickTodaEnd", runwayToda, takeoffScaleLength, takeoffBarWidth);
       setTick("tickAsdaEnd", runwayAsda, takeoffScaleLength, takeoffBarWidth);
@@ -1219,6 +1361,10 @@
       setTick("tickLandingEnd", arrThresholdOffset + runwayLda, landingScaleLength, landingBarWidth);
       setTick("tickLdrDryOmc", arrThresholdOffset + reqLdaDry, landingScaleLength, landingBarWidth);
       setTick("tickLdrWetOmc", arrThresholdOffset + reqLdaWet, landingScaleLength, landingBarWidth);
+      setTick("tickVacateIntersection", vacateDistance, landingScaleLength, landingBarWidth);
+      setVisible("tickVacateIntersection", !!vacateIntersection);
+      setVisible("legendVacateIntersection", !!vacateIntersection, "inline-flex");
+      setTickLabel("tickVacateIntersection", vacateIntersection?.label || "VACATE");
 
       document.getElementById("declRwy").textContent = formatRunwayLabel();
       document.getElementById("declArrRwy").textContent = formatArrivalRunwayLabel();
@@ -1664,6 +1810,7 @@
           activeRunwayLabel = null;
           depSurfaceBase = "hard";
           if (arrivalUsesDepartureRunway) copyDepartureToArrival();
+          updateIntersectionControls();
           updateRunwayEditState();
           calculateAll();
           return;
@@ -1672,6 +1819,7 @@
         const preset = PRESET_RUNWAYS[selectedId];
         if (preset) {
           setRunwayFields(preset, preset.label);
+          updateIntersectionControls();
           updateRunwayEditState();
           calculateAll();
           return;
@@ -1687,6 +1835,7 @@
           activeArrivalRunwayLabel = activeRunwayLabel;
           copyDepartureToArrival();
           updateArrivalWeatherControls();
+          updateIntersectionControls();
           updateRunwayEditState();
           calculateAll();
           return;
@@ -1697,6 +1846,7 @@
           activeArrivalRunwayLabel = null;
           arrSurfaceBase = "hard";
           updateArrivalWeatherControls();
+          updateIntersectionControls();
           updateRunwayEditState();
           calculateAll();
           return;
@@ -1705,10 +1855,15 @@
         const preset = PRESET_RUNWAYS[selectedId];
         if (preset) {
           setArrivalRunwayFields(preset, preset.label);
+          updateIntersectionControls();
           updateRunwayEditState();
           calculateAll();
           return;
         }
+      });
+
+      ["depIntersectionSelect", "arrVacateSelect"].forEach(id => {
+        document.getElementById(id)?.addEventListener("change", calculateAll);
       });
 
       ["qnh", "oat", "windDir", "windSpd"].forEach(id => {
@@ -1717,11 +1872,17 @@
         });
       });
 
-      ["flightRules", "pilotQualification", "vfrPhase", "ifrAircraftClass"].forEach(id => {
+      document.getElementById("flightRules")?.addEventListener("change", () => {
+        updateWeatherMinimaControls();
+        calculateAll();
+      });
+      ["pilotQualification", "vfrPhase", "ifrAircraftClass"].forEach(id => {
         document.getElementById(id)?.addEventListener("change", calculateAll);
       });
 
       updateArrivalWeatherControls();
+      updateIntersectionControls();
+      updateWeatherMinimaControls();
       updateRunwayEditState();
       calculateAll();
       window.addEventListener("resize", calculateAll);

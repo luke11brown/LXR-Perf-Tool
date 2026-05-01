@@ -587,11 +587,11 @@
       background:
         repeating-linear-gradient(
           135deg,
-          rgba(250, 204, 21, 0.28) 0 6px,
-          rgba(250, 204, 21, 0.08) 6px 12px
+          rgba(125, 211, 252, 0.24) 0 6px,
+          rgba(125, 211, 252, 0.06) 6px 12px
         );
-      border-right: 2px solid rgba(250, 204, 21, 0.9);
-      color: rgba(254, 240, 138, 0.95);
+      border-right: 2px solid rgba(125, 211, 252, 0.85);
+      color: rgba(186, 230, 253, 0.95);
       display: none;
       font-size: 0.58rem;
       font-weight: 800;
@@ -650,12 +650,18 @@
     }
 
     .runway-tick.tick-asda {
-      background: #eab308;
+      background: #f97316;
       width: 3px;
     }
 
     .runway-tick.tick-tora {
       background: rgba(250, 204, 21, 0.95);
+    }
+
+    .runway-tick.tick-intersection {
+      background: transparent;
+      border-left: 3px dotted rgba(226, 237, 246, 0.95);
+      width: 0;
     }
 
     .runway-tick.tick-lda {
@@ -668,6 +674,12 @@
 
     .runway-tick.tick-ldr-wet-omc {
       background: rgba(14, 165, 233, 0.95);
+    }
+
+    .runway-tick.tick-vacate {
+      background: transparent;
+      border-left: 3px dotted rgba(244, 114, 182, 0.95);
+      width: 0;
     }
     #barToRun {
       top: 8px;
@@ -732,7 +744,7 @@
     }
 
     .leg-asda {
-      background: #eab308;
+      background: #f97316;
     }
 
     .leg-required {
@@ -743,10 +755,18 @@
       background:
         repeating-linear-gradient(
           135deg,
-          rgba(250, 204, 21, 0.95) 0 3px,
-          rgba(250, 204, 21, 0.25) 3px 6px
+          rgba(125, 211, 252, 0.95) 0 3px,
+          rgba(125, 211, 252, 0.22) 3px 6px
         );
       border-radius: 2px;
+    }
+
+    .leg-intersection {
+      background: rgba(226, 237, 246, 0.95);
+    }
+
+    .leg-vacate {
+      background: rgba(244, 114, 182, 0.95);
     }
 
     .leg-ldr-dry-omc {
@@ -780,6 +800,13 @@
 
     .runway-section-row {
       margin-top: 0;
+    }
+
+    .runway-graphic-controls {
+      display: flex;
+      justify-content: flex-start;
+      margin-bottom: 0.55rem;
+      max-width: 16rem;
     }
 
     .runway-visual-panel .declared-row {

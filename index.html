@@ -487,14 +487,14 @@
                 <option value="ir_high">IR &gt;100 h instruction and &gt;250 h IR</option>
               </select>
             </div>
-            <div class="field">
+            <div class="field" id="vfrPhaseField">
               <label for="vfrPhase">VFR phase</label>
               <select id="vfrPhase">
                 <option value="circuit" selected>Circuit</option>
                 <option value="solo_nav">Solo navigation</option>
               </select>
             </div>
-            <div class="field">
+            <div class="field" id="ifrAircraftClassField">
               <label for="ifrAircraftClass">IFR aircraft class</label>
               <select id="ifrAircraftClass">
                 <option value="sep" selected>SEP</option>
@@ -532,6 +532,14 @@
 
           <div class="runway-visual-grid">
             <div class="runway-visual-panel">
+          <div class="runway-graphic-controls" id="depIntersectionControl">
+            <div class="field">
+              <label for="depIntersectionSelect">Departure start</label>
+              <select id="depIntersectionSelect">
+                <option value="full" selected>Full length</option>
+              </select>
+            </div>
+          </div>
           <div class="declared-row">
             <span class="k">DEP RWY</span> <span class="v" id="declRwy">—</span>
             <span class="k">TORA</span> <span class="v" id="declTora">—</span>
@@ -552,6 +560,9 @@
               <div class="runway-marker" id="barToRun" style="background:#38bdf8;" title="TORR - take-off run required"></div>
               <div class="runway-marker" id="barToDist" style="background:#a855f7;" title="TODR - take-off distance required"></div>
               <div class="runway-marker" id="barAsdr" style="background:#f97316;" title="ASDR - accelerate-stop distance required"></div>
+              <div class="runway-tick tick-intersection" id="tickDepIntersection" title="Selected departure start">
+                <span class="tick-label" title="Selected departure start">START</span>
+              </div>
               <div class="runway-tick tick-declared" id="tickTakeoffEnd" title="TORA - take-off run available">
                 <span class="tick-label" title="TORA - take-off run available">TORA</span>
               </div>
@@ -574,11 +585,20 @@
               <abbr id="legendAsda" title="ASDA - accelerate-stop distance available" style="display:none;"><span class="leg-swatch leg-line leg-asda"></span>ASDA</abbr>
               <abbr id="legendToraReq" title="Balanced field: take-off run required by OM-C"><span class="leg-swatch leg-line leg-required"></span>TORR (OM-C)</abbr>
               <abbr id="legendDepDisplacedThreshold" title="Displaced landing threshold" style="display:none;"><span class="leg-swatch leg-displaced"></span>DISPL THR</abbr>
+              <abbr id="legendDepIntersection" title="Selected departure start" style="display:none;"><span class="leg-swatch leg-line leg-intersection"></span>START</abbr>
             </div>
           </div>
 
             </div>
             <div class="runway-visual-panel">
+          <div class="runway-graphic-controls" id="arrVacateControl">
+            <div class="field">
+              <label for="arrVacateSelect">Vacate target</label>
+              <select id="arrVacateSelect">
+                <option value="none" selected>None</option>
+              </select>
+            </div>
+          </div>
           <div class="declared-row runway-section-row">
             <span class="k">ARR RWY</span> <span class="v" id="declArrRwy">—</span>
             <span class="k">LDA</span> <span class="v" id="declLda">—</span>
@@ -604,6 +624,9 @@
               <div class="runway-tick tick-ldr-wet-omc" id="tickLdrWetOmc" title="LDR wet required by OM-C">
                 <span class="tick-label" title="LDR wet required by OM-C">LDR WET (OM-C)</span>
               </div>
+              <div class="runway-tick tick-vacate" id="tickVacateIntersection" title="Selected vacate intersection">
+                <span class="tick-label" title="Selected vacate intersection">VACATE</span>
+              </div>
             </div>
             <div class="runway-legend">
               <abbr id="legendLdrAfm" title="LDR - landing distance required by AFM"><span class="leg-swatch sw-ldr-afm"></span>LDR (AFM)</abbr>
@@ -611,6 +634,7 @@
               <abbr title="LDR wet required by OM-C"><span class="leg-swatch leg-line leg-ldr-wet-omc"></span>LDR WET (OM-C)</abbr>
               <abbr title="LDA - landing distance available"><span class="leg-swatch leg-line leg-declared"></span>LDA</abbr>
               <abbr id="legendArrDisplacedThreshold" title="Displaced landing threshold" style="display:none;"><span class="leg-swatch leg-displaced"></span>DISPL THR</abbr>
+              <abbr id="legendVacateIntersection" title="Selected vacate intersection" style="display:none;"><span class="leg-swatch leg-line leg-vacate"></span>VACATE</abbr>
             </div>
           </div>
             </div>

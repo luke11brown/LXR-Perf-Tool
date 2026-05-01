@@ -9,7 +9,16 @@
     "lda": 1330,
     "heading": 137,
     "surface": "hard_dry",
-    "metarStation": "LGKV"
+    "metarStation": "LGKV",
+    "intersections": [
+      {
+        "id": "C",
+        "label": "C",
+        "tora": 900,
+        "toda": 900,
+        "asda": 900
+      }
+    ]
   },
   {
     "id": "LGKM_31",
@@ -21,7 +30,16 @@
     "lda": 1330,
     "heading": 317,
     "surface": "hard_dry",
-    "metarStation": "LGKV"
+    "metarStation": "LGKV",
+    "intersections": [
+      {
+        "id": "B",
+        "label": "B",
+        "tora": 845,
+        "toda": 845,
+        "asda": 845
+      }
+    ]
   },
   {
     "id": "LGKV_05",
@@ -120,7 +138,16 @@
     "asda": 2424,
     "lda": 2424,
     "heading": 166,
-    "surface": "hard_dry"
+    "surface": "hard_dry",
+    "intersections": [
+      {
+        "id": "A2",
+        "label": "A2",
+        "tora": 1979,
+        "toda": 1979,
+        "asda": 1979
+      }
+    ]
   },
     {
     "id": "LGTS_34",
@@ -131,7 +158,16 @@
     "asda": 2424,
     "lda": 2424,
     "heading": 346,
-    "surface": "hard_dry"
+    "surface": "hard_dry",
+    "intersections": [
+      {
+        "id": "A5",
+        "label": "A5",
+        "tora": 1738,
+        "toda": 1738,
+        "asda": 1738
+      }
+    ]
   },
     {
     "id": "LGSK_01",
