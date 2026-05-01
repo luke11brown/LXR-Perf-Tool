@@ -571,8 +571,8 @@
     function formatAccountableWind(headwindComponent) {
       const absComponent = Math.abs(headwindComponent);
       return headwindComponent >= 0
-        ? `accountable HWC ${round(absComponent, 1)} kt (50% reported HWC)`
-        : `accountable TWC ${round(absComponent, 1)} kt (150% reported TWC)`;
+        ? `OM-C HWC ${round(absComponent, 1)} kt (50% reported HWC)`
+        : `OM-C TWC ${round(absComponent, 1)} kt (150% reported TWC)`;
     }
 
     function formatVisibilityKm(visibilityM) {
@@ -1309,7 +1309,7 @@
       setTick("tickTakeoffEnd", runwayTora, takeoffScaleLength, takeoffBarWidth);
       setTick("tickTodaEnd", runwayToda, takeoffScaleLength, takeoffBarWidth);
       setTick("tickAsdaEnd", runwayAsda, takeoffScaleLength, takeoffBarWidth);
-      setTick("tickReqTora125", activeReqToraVal, takeoffScaleLength, takeoffBarWidth);
+      setTick("tickReqTora125", depIntersectionStart + activeReqToraVal, takeoffScaleLength, takeoffBarWidth);
 
       const todaDiffersFromTora = Math.abs(runwayToda - runwayTora) > 0.5;
       const asdaDiffersFromTora = Math.abs(runwayAsda - runwayTora) > 0.5;
@@ -1327,13 +1327,15 @@
         ? "TORA/TODA/ASDA"
         : (!asdaDiffersFromTora ? "TORA/ASDA" : "TORA");
       const todaTickLabel = !asdaDiffersFromToda ? "TODA/ASDA" : "TODA";
+      const toraLegendLabel = "TORA/TODA/ASDA";
 
       setTickLabel("tickTakeoffEnd", toraTickLabel);
       setTickLabel("tickTodaEnd", todaTickLabel);
+      setTickLabel("tickReqTora125", "TORR (OM-C)");
       if (todaTick) todaTick.style.display = showTodaTick ? "block" : "none";
       if (asdaTick) asdaTick.style.display = showAsdaTick ? "block" : "none";
       if (legendTora) legendTora.title = "TORA - take-off run available";
-      setLegendText(legendTora, toraTickLabel);
+      setLegendText(legendTora, toraLegendLabel);
       setLegendText(legendToda, todaTickLabel);
       if (legendToda) legendToda.style.display = showTodaTick ? "inline-flex" : "none";
       if (legendAsda) legendAsda.style.display = showAsdaTick ? "inline-flex" : "none";
@@ -1443,16 +1445,16 @@
       setSummaryLine("sumPerfLdg", sumPerfLdgText, ldgCriterionOk);
 
       const sumWindText = windOk
-        ? `OK – departure ${headStr.toLowerCase()}, ${formatAccountableWind(performanceHeadwind)}; arrival ${arrHeadStr.toLowerCase()}, ${formatAccountableWind(arrPerformanceHeadwind)}. Wind speeds ≤ 40 kt, crosswind within 18 kt demonstrated where assessed, tailwind within ${MAX_RECOMMENDED_TAILWIND} kt recommendation.`
-        : `NOT OK – wind limits/recommendations exceeded (departure wind ${round(windSpd, 1)} kt, tailwind ${round(tailwind, 1)} kt; arrival wind ${round(arrWindSpd, 1)} kt, tailwind ${round(arrTailwind, 1)} kt).`;
+        ? `OK – departure ${headStr.toLowerCase()}, ${formatAccountableWind(performanceHeadwind)}.\nArrival ${arrHeadStr.toLowerCase()}, ${formatAccountableWind(arrPerformanceHeadwind)}.\nWind speeds ≤ 40 kt, crosswind within 18 kt demonstrated where assessed, tailwind within ${MAX_RECOMMENDED_TAILWIND} kt recommendation.`
+        : `NOT OK – wind limits/recommendations exceeded.\nDeparture wind ${round(windSpd, 1)} kt, tailwind ${round(tailwind, 1)} kt.\nArrival wind ${round(arrWindSpd, 1)} kt, tailwind ${round(arrTailwind, 1)} kt.`;
       setSummaryLine("sumWind", sumWindText, windOk);
 
       const runwayOk = toOk && ldgCriterionOk;
       const runwayLabelForSummary = formatRunwayLabel();
       const arrivalLabelForSummary = formatArrivalRunwayLabel();
       const sumRunwayText = runwayOk
-        ? `Departure ${runwayLabelForSummary} TORA ${round(runwayTora, 0)} m, TODA ${round(runwayToda, 0)} m, ASDA ${round(runwayAsda, 0)} m and arrival ${arrivalLabelForSummary} LDA ${round(runwayLda, 0)} m are sufficient for current requirements.`
-        : `Departure ${runwayLabelForSummary} declared distances (TORA ${round(runwayTora, 0)} m, TODA ${round(runwayToda, 0)} m, ASDA ${round(runwayAsda, 0)} m) or arrival ${arrivalLabelForSummary} LDA ${round(runwayLda, 0)} m are insufficient for current requirements.`;
+        ? `Departure ${runwayLabelForSummary}: TORA ${round(runwayTora, 0)} m, TODA ${round(runwayToda, 0)} m, ASDA ${round(runwayAsda, 0)} m sufficient.\nArrival ${arrivalLabelForSummary}: LDA ${round(runwayLda, 0)} m sufficient.`
+        : `Departure ${runwayLabelForSummary}: declared distances TORA ${round(runwayTora, 0)} m, TODA ${round(runwayToda, 0)} m, ASDA ${round(runwayAsda, 0)} m may be insufficient.\nArrival ${arrivalLabelForSummary}: LDA ${round(runwayLda, 0)} m may be insufficient.`;
       setSummaryLine("sumRunway", sumRunwayText, runwayOk);
 
       const nonCompliance = [];
@@ -1545,9 +1547,9 @@
       const credited = accountableWindComponent(wind.headwind);
       const creditedAbs = round(Math.abs(credited), 1);
       const creditedText = credited >= 0
-        ? `credited HWC ${creditedAbs} kt (50% of reported HWC)`
-        : `penalised TWC ${creditedAbs} kt (150% of reported TWC)`;
-      return `Reported: ${along}, ${cross}. OM-C performance wind: ${creditedText}`;
+        ? `HWC ${creditedAbs} kt (50% of reported HWC)`
+        : `TWC ${creditedAbs} kt (150% of reported TWC)`;
+      return `Reported: ${along}, ${cross}. OM-C: ${creditedText}`;
     }
 
     function escHtml(value) {

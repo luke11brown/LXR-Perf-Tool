@@ -814,6 +814,11 @@
       align-content: flex-start;
     }
 
+    #sumWind,
+    #sumRunway {
+      white-space: pre-line;
+    }
+
     .fact-status-ok {
       color: var(--ok);
     }
