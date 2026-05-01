@@ -582,6 +582,36 @@
       z-index: 1;
     }
 
+    .runway-displaced-threshold {
+      align-items: center;
+      background:
+        repeating-linear-gradient(
+          135deg,
+          rgba(250, 204, 21, 0.28) 0 6px,
+          rgba(250, 204, 21, 0.08) 6px 12px
+        );
+      border-right: 2px solid rgba(250, 204, 21, 0.9);
+      color: rgba(254, 240, 138, 0.95);
+      display: none;
+      font-size: 0.58rem;
+      font-weight: 800;
+      inset-block: 1px;
+      justify-content: center;
+      letter-spacing: 0;
+      overflow: hidden;
+      position: absolute;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.7);
+      white-space: nowrap;
+      z-index: 0;
+    }
+
+    .runway-displaced-threshold span {
+      max-width: 100%;
+      overflow: hidden;
+      padding: 0 3px;
+      text-overflow: clip;
+    }
+
     .runway-marker::after {
       content: "";
       position: absolute;
@@ -707,6 +737,16 @@
 
     .leg-required {
       background: rgba(250, 204, 21, 0.95);
+    }
+
+    .leg-displaced {
+      background:
+        repeating-linear-gradient(
+          135deg,
+          rgba(250, 204, 21, 0.95) 0 3px,
+          rgba(250, 204, 21, 0.25) 3px 6px
+        );
+      border-radius: 2px;
     }
 
     .leg-ldr-dry-omc {

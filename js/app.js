@@ -481,8 +481,16 @@
       const checks = [];
       let ok = true;
 
-      function addCheck(label, actual, required, pass) {
-        checks.push(`${label}: ${actual} ${pass ? "meets" : "below"} ${required}`);
+      function addCheck(label, actual, required, pass, comparator = "min") {
+        const passSymbol = comparator === "max" ? "≤" : "≥";
+        const failSymbol = comparator === "max" ? ">" : "<";
+        const symbol = pass ? passSymbol : failSymbol;
+        const prefix = comparator === "max" ? "max " : "min ";
+        if (/unknown|no ceiling reported/i.test(String(actual))) {
+          checks.push(`${label}: ${actual} (${prefix}${required})`);
+        } else {
+          checks.push(`${label}: ${actual} ${symbol} ${required}`);
+        }
         if (!pass) ok = false;
       }
 
@@ -511,8 +519,8 @@
         const windPass = windSpd <= mins.maxWindKt;
         addCheck("Ceiling", noCeilingReported ? "no ceiling reported" : (ceilingFt === null ? "unknown" : `${round(ceilingFt, 0)} ft`), `${mins.ceilingFt} ft`, ceilingPass);
         addCheck("Visibility", formatVisibilityKm(metar.visibilityM), `${mins.visibilityKm} km`, visPass);
-        addCheck("XWC", `${round(xwindKt, 1)} kt`, `${mins.xwindKt} kt`, xwindPass);
-        addCheck("Surface wind", `${round(windSpd, 1)} kt`, `${mins.maxWindKt} kt`, windPass);
+        addCheck("XWC", `${round(xwindKt, 1)} kt`, `${mins.xwindKt} kt`, xwindPass, "max");
+        addCheck("Surface wind", `${round(windSpd, 1)} kt`, `${mins.maxWindKt} kt`, windPass, "max");
         if (mins.maxLowCloudAmount) {
           const excessiveLowLayer = (metar.cloudLayers || []).some(layer =>
             layer.heightFt !== null && layer.heightFt < mins.ceilingFt && ["SCT", "BKN", "OVC", "VV"].includes(layer.amount)
@@ -882,6 +890,7 @@
       const runwayTora = parseFloat(document.getElementById("runwayTora").value) || 1;
       const runwayToda = parseFloat(document.getElementById("runwayToda").value) || 1;
       const runwayAsda = parseFloat(document.getElementById("runwayAsda").value) || 1;
+      const depRunwayLda = parseFloat(document.getElementById("runwayLda").value) || runwayTora;
       const runwayLda = parseFloat(document.getElementById("arrLda").value) || 1;
       const pa = fieldElev + (1013.25 - qnh) * 30;
       const isaTemp = 15 - 2 * (pa / 1000);
@@ -1089,13 +1098,16 @@
       statusSpan("reqLdaDryStatus", ldaDryOk);
       statusSpan("reqLdaWetStatus", ldaWetOk);
 
-      function setMarker(id, dist, limitLength, scaleLength, barWidth) {
+      function setMarker(id, dist, limitLength, scaleLength, barWidth, startDist = 0) {
         const el = document.getElementById(id);
         const ratio = dist / scaleLength;
+        const startRatio = startDist / scaleLength;
         const widthPx = Math.min(barWidth, Math.max(0, ratio * barWidth));
+        const leftPx = Math.min(barWidth, Math.max(0, startRatio * barWidth));
+        el.style.left = leftPx + "px";
         el.style.width = widthPx + "px";
 
-        if (dist > limitLength) el.classList.add("overrun");
+        if (startDist + dist > limitLength) el.classList.add("overrun");
         else el.classList.remove("overrun");
       }
 
@@ -1110,6 +1122,18 @@
       function setVisible(id, visible, display = "block") {
         const el = document.getElementById(id);
         if (el) el.style.display = visible ? display : "none";
+      }
+
+      function setDisplacedThreshold(id, legendId, offset, scaleLength, barWidth) {
+        const el = document.getElementById(id);
+        const show = offset > 0.5 && scaleLength > 0;
+        setVisible(id, show, "flex");
+        setVisible(legendId, show, "inline-flex");
+        if (!el || !show) return;
+        const widthPx = Math.min(barWidth, Math.max(0, (offset / scaleLength) * barWidth));
+        el.style.left = "0px";
+        el.style.width = widthPx + "px";
+        el.title = `Displaced landing threshold: ${round(offset, 0)} m`;
       }
 
       function setLegendText(el, text) {
@@ -1127,12 +1151,19 @@
       const landingBarWidth = landingBar?.clientWidth || 1;
       const todrBarVal = declaredStopwayOrClearway ? reqToda115 : toDist;
       const asdrBarVal = declaredStopwayOrClearway ? reqAsda130 : 0;
+      const arrivalRunwayPreset = getSelectedRunway("arrivalRunwaySelect");
+      const arrivalReferenceLength = arrivalUsesDepartureRunway
+        ? Math.max(runwayTora, depRunwayLda, runwayLda)
+        : Math.max(Number(arrivalRunwayPreset?.tora) || runwayLda, runwayLda);
+      const depThresholdOffset = Math.max(0, runwayTora - depRunwayLda);
+      const arrThresholdOffset = Math.max(0, arrivalReferenceLength - runwayLda);
       const takeoffScaleLength = Math.max(runwayTora, runwayToda, runwayAsda, toRun, todrBarVal, asdrBarVal, activeReqToraVal, 1);
-      const landingScaleLength = Math.max(runwayLda, ldgDistDry, ldgDistWet, reqLdaDry, reqLdaWet, 1);
+      const landingScaleLength = Math.max(arrivalReferenceLength, arrThresholdOffset + ldgDistDry, arrThresholdOffset + ldgDistWet, arrThresholdOffset + reqLdaDry, arrThresholdOffset + reqLdaWet, 1);
 
       setMarker("barToRun", toRun, runwayTora, takeoffScaleLength, takeoffBarWidth);
       setMarker("barToDist", todrBarVal, declaredStopwayOrClearway ? runwayToda : runwayTora, takeoffScaleLength, takeoffBarWidth);
       setMarker("barAsdr", asdrBarVal, runwayAsda, takeoffScaleLength, takeoffBarWidth);
+      setDisplacedThreshold("depDisplacedThreshold", "legendDepDisplacedThreshold", depThresholdOffset, takeoffScaleLength, takeoffBarWidth);
       setTick("tickTakeoffEnd", runwayTora, takeoffScaleLength, takeoffBarWidth);
       setTick("tickTodaEnd", runwayToda, takeoffScaleLength, takeoffBarWidth);
       setTick("tickAsdaEnd", runwayAsda, takeoffScaleLength, takeoffBarWidth);
@@ -1169,7 +1200,8 @@
       if (legendAsdr) legendAsdr.style.display = declaredStopwayOrClearway ? "inline-flex" : "none";
       if (legendToraReq) legendToraReq.style.display = declaredStopwayOrClearway ? "none" : "inline-flex";
 
-      setMarker("barLdrAfm", activeLdgDist, runwayLda, landingScaleLength, landingBarWidth);
+      setDisplacedThreshold("arrDisplacedThreshold", "legendArrDisplacedThreshold", arrThresholdOffset, landingScaleLength, landingBarWidth);
+      setMarker("barLdrAfm", activeLdgDist, arrThresholdOffset + runwayLda, landingScaleLength, landingBarWidth, arrThresholdOffset);
       const barLdrAfm = document.getElementById("barLdrAfm");
       const legendLdrAfm = document.getElementById("legendLdrAfm");
       const activeLdrColor = usingWet ? "#38bdf8" : "#22c55e";
@@ -1184,9 +1216,9 @@
         legendLdrAfm.title = `${activeLdrLabel} - landing distance required by AFM`;
         setLegendText(legendLdrAfm, activeLdrLabel);
       }
-      setTick("tickLandingEnd", runwayLda, landingScaleLength, landingBarWidth);
-      setTick("tickLdrDryOmc", reqLdaDry, landingScaleLength, landingBarWidth);
-      setTick("tickLdrWetOmc", reqLdaWet, landingScaleLength, landingBarWidth);
+      setTick("tickLandingEnd", arrThresholdOffset + runwayLda, landingScaleLength, landingBarWidth);
+      setTick("tickLdrDryOmc", arrThresholdOffset + reqLdaDry, landingScaleLength, landingBarWidth);
+      setTick("tickLdrWetOmc", arrThresholdOffset + reqLdaWet, landingScaleLength, landingBarWidth);
 
       document.getElementById("declRwy").textContent = formatRunwayLabel();
       document.getElementById("declArrRwy").textContent = formatArrivalRunwayLabel();

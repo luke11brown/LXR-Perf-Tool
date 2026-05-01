@@ -546,6 +546,9 @@
 
           <div class="runway-wrapper">
             <div class="runway-bar" id="takeoffRunwayBar">
+              <div class="runway-displaced-threshold" id="depDisplacedThreshold" title="Displaced landing threshold">
+                <span>DISPL THR</span>
+              </div>
               <div class="runway-marker" id="barToRun" style="background:#38bdf8;" title="TORR - take-off run required"></div>
               <div class="runway-marker" id="barToDist" style="background:#a855f7;" title="TODR - take-off distance required"></div>
               <div class="runway-marker" id="barAsdr" style="background:#f97316;" title="ASDR - accelerate-stop distance required"></div>
@@ -570,6 +573,7 @@
               <abbr id="legendToda" title="TODA - take-off distance available" style="display:none;"><span class="leg-swatch leg-line leg-toda"></span>TODA</abbr>
               <abbr id="legendAsda" title="ASDA - accelerate-stop distance available" style="display:none;"><span class="leg-swatch leg-line leg-asda"></span>ASDA</abbr>
               <abbr id="legendToraReq" title="Balanced field: take-off run required by OM-C"><span class="leg-swatch leg-line leg-required"></span>TORR (OM-C)</abbr>
+              <abbr id="legendDepDisplacedThreshold" title="Displaced landing threshold" style="display:none;"><span class="leg-swatch leg-displaced"></span>DISPL THR</abbr>
             </div>
           </div>
 
@@ -587,6 +591,9 @@
 
           <div class="runway-wrapper">
             <div class="runway-bar" id="landingRunwayBar">
+              <div class="runway-displaced-threshold" id="arrDisplacedThreshold" title="Displaced landing threshold">
+                <span>DISPL THR</span>
+              </div>
               <div class="runway-marker" id="barLdrAfm" style="background:#22c55e;" title="LDR - landing distance required by AFM"></div>
               <div class="runway-tick tick-declared" id="tickLandingEnd" title="LDA - landing distance available">
                 <span class="tick-label" title="LDA - landing distance available">LDA</span>
@@ -603,6 +610,7 @@
               <abbr title="LDR dry required by OM-C"><span class="leg-swatch leg-line leg-ldr-dry-omc"></span>LDR DRY (OM-C)</abbr>
               <abbr title="LDR wet required by OM-C"><span class="leg-swatch leg-line leg-ldr-wet-omc"></span>LDR WET (OM-C)</abbr>
               <abbr title="LDA - landing distance available"><span class="leg-swatch leg-line leg-declared"></span>LDA</abbr>
+              <abbr id="legendArrDisplacedThreshold" title="Displaced landing threshold" style="display:none;"><span class="leg-swatch leg-displaced"></span>DISPL THR</abbr>
             </div>
           </div>
             </div>
