@@ -236,10 +236,14 @@
               </select>
             </div>
             <div class="field metar-button-field">
-              <button id="fetchMetarBtn" type="button">Fetch METAR</button>
+              <div class="metar-button-row">
+                <button id="fetchMetarBtn" type="button">Fetch METAR</button>
+                <button id="fetchTafBtn" type="button">Fetch TAF</button>
+              </div>
             </div>
           </div>
           <div class="inline-note" id="metarStatus"></div>
+          <div class="inline-note" id="tafStatus"></div>
 
           <div class="grid-3" style="margin-top:0.75rem">
             <div class="field">
@@ -375,10 +379,10 @@
               </select>
             </div>
             <div class="field metar-button-field">
-              <button id="fetchArrivalMetarBtn" type="button">Fetch METAR</button>
-            </div>
-            <div class="field metar-button-field">
-              <button id="fetchArrivalTafBtn" type="button">Fetch TAF</button>
+              <div class="metar-button-row">
+                <button id="fetchArrivalMetarBtn" type="button">Fetch METAR</button>
+                <button id="fetchArrivalTafBtn" type="button">Fetch TAF</button>
+              </div>
             </div>
           </div>
           <div class="inline-note" id="arrivalMetarStatus"></div>
@@ -508,21 +512,28 @@
           </div>
           <div class="grid" style="margin-top:0.75rem">
             <div class="res-card phase-result">
-              <div class="res-title">Departure OM-C weather minima</div>
+              <div class="res-title">Departure actual OM-C weather</div>
               <div class="res-main" id="depWeatherMinimaStatus">Awaiting departure METAR.</div>
               <div class="res-sub" id="depWeatherMinimaDetail">
                 VFR minima are checked against parsed METAR visibility, cloud ceiling, wind and XWC. IFR take-off minima are checked where possible.
               </div>
             </div>
             <div class="res-card phase-result">
-              <div class="res-title">Arrival OM-C weather minima</div>
+              <div class="res-title">Departure forecast OM-C weather</div>
+              <div class="res-main" id="depTafMinimaStatus">TAF not assessed.</div>
+              <div class="res-sub" id="depTafMinimaDetail">
+                Departure TAF groups overlapping the next 6 hours are advisory planning context only.
+              </div>
+            </div>
+            <div class="res-card phase-result">
+              <div class="res-title">Arrival actual OM-C weather</div>
               <div class="res-main" id="arrWeatherMinimaStatus">Awaiting arrival METAR.</div>
               <div class="res-sub" id="arrWeatherMinimaDetail">
                 VFR minima are checked against parsed METAR visibility, cloud ceiling, wind and XWC. IFR approach minima and RVR must be verified against published procedures.
               </div>
             </div>
             <div class="res-card phase-result">
-              <div class="res-title">Arrival OM-C forecast weather</div>
+              <div class="res-title">Arrival forecast OM-C weather</div>
               <div class="res-main" id="arrTafMinimaStatus">TAF not assessed.</div>
               <div class="res-sub" id="arrTafMinimaDetail">
                 Arrival TAF groups overlapping the next 6 hours are advisory planning context only.

@@ -207,6 +207,12 @@
       height: 2.35rem;
     }
 
+    .metar-button-row {
+      display: grid;
+      gap: 0.45rem;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     @media (max-width: 640px) {
 
       .grid,
