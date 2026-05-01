@@ -404,7 +404,7 @@
         linkEl.setAttribute("aria-disabled", "true");
         if (buttonEl) buttonEl.disabled = true;
         if (previousIcao && statusEl) statusEl.textContent = "Raw NOTAMs not fetched.";
-        if (previousIcao && rawEl) rawEl.textContent = "Select a runway preset, then fetch NOTAMs.";
+        if (previousIcao && rawEl) rawEl.value = "Select a runway preset, then fetch NOTAMs or paste the raw briefing.";
         return;
       }
 
@@ -416,7 +416,7 @@
       if (buttonEl) buttonEl.disabled = false;
       if (previousIcao && previousIcao !== icao) {
         if (statusEl) statusEl.textContent = "Raw NOTAMs not fetched.";
-        if (rawEl) rawEl.textContent = "Fetch NOTAMs for the selected field.";
+        if (rawEl) rawEl.value = "Fetch NOTAMs for the selected field or paste the raw briefing.";
       }
     }
 
@@ -450,6 +450,9 @@
         .trim();
 
       if (/No NOTAMs found/i.test(cleaned)) return `No active NOTAMs found for ${icao}.`;
+      if (/Access Denied|You don't have permission|errors\.edgesuite|akamai/i.test(cleaned)) {
+        throw new Error("NOTAM source denied browser access. Use Open source or paste the raw briefing.");
+      }
       if (/\{\{.*globalScope|Loading the application|I've read and understood/i.test(cleaned)) {
         throw new Error("NOTAM source did not return raw results. Use Open source as fallback.");
       }
@@ -487,24 +490,47 @@
       if (!statusEl || !rawEl || !buttonEl) return;
       if (!icao) {
         statusEl.textContent = "Select a runway preset first.";
-        rawEl.textContent = "No selected field.";
+        rawEl.value = "No selected field.";
         return;
       }
 
       buttonEl.disabled = true;
       statusEl.textContent = `Fetching ${icao} raw NOTAMs valid now...`;
-      rawEl.textContent = "Fetching...";
+      rawEl.value = "Fetching...";
       try {
         const notams = await fetchNotamsForIcao(icao);
         statusEl.textContent = `${icao} raw NOTAMs fetched. Review source validity before flight.`;
-        rawEl.textContent = notams;
+        rawEl.value = notams;
         if (fieldEl) fieldEl.dataset.icao = icao;
       } catch (err) {
         statusEl.textContent = `Could not display ${icao} NOTAMs in-app: ${err.message}`;
-        rawEl.textContent = `Use the Open source link for ${icao}.`;
+        rawEl.value = `Use the Open source link for ${icao}, or paste the raw NOTAM briefing here so it appears on the PDF.`;
       } finally {
         buttonEl.disabled = false;
       }
+    }
+
+    function loadBriefingImage(inputId, imgId, statusId) {
+      const url = String(document.getElementById(inputId)?.value || "").trim();
+      const img = document.getElementById(imgId);
+      const status = document.getElementById(statusId);
+      if (!img || !status) return;
+      if (!url) {
+        img.removeAttribute("src");
+        img.style.display = "none";
+        status.textContent = "Paste a static image URL to include it in the app and PDF.";
+        return;
+      }
+      img.onload = () => {
+        img.style.display = "block";
+        status.textContent = "Chart loaded. It will be included in the PDF if the browser can access the image.";
+      };
+      img.onerror = () => {
+        img.style.display = "none";
+        status.textContent = "Could not load that image URL. Open the source page and use a direct PNG/JPG image URL.";
+      };
+      img.crossOrigin = "anonymous";
+      img.src = url;
     }
 
     function decodeMetarTemperature(value) {
@@ -1910,6 +1936,12 @@
       return el ? (el.textContent || "").trim() : "";
     }
 
+    function getFieldText(id) {
+      const el = document.getElementById(id);
+      if (!el) return "";
+      return ("value" in el ? el.value : el.textContent || "").trim();
+    }
+
     function getValue(id) {
       const el = document.getElementById(id);
       return el ? el.value : "";
@@ -2019,6 +2051,20 @@
         const body = conciseWeatherDetail(status, getText(detailId), forecast);
         return `<div class="wx-cell"><div class="wx-label">${escHtml(label)}</div><div><span class="${statusClass(token)}">${escHtml(token || "INFO")}</span></div><div>${escHtml(body)}</div></div>`;
       };
+      const renderBriefingText = (label, fieldId, statusId) => {
+        const text = getFieldText(fieldId);
+        const empty = !text || /Select a runway preset|Fetch NOTAMs for the selected field|Use the Open source link/i.test(text);
+        return `<div class="brief-text"><strong>${escHtml(label)}</strong><br>${escHtml(empty ? "No raw NOTAM briefing saved in app." : text)}</div>`;
+      };
+      const renderBriefingImage = (label, imgId, sourceId) => {
+        const img = document.getElementById(imgId);
+        const src = img?.src || "";
+        const source = getValue(sourceId);
+        if (!src || img?.style.display === "none") {
+          return `<div class="brief-image-missing"><strong>${escHtml(label)}:</strong> No chart image loaded.${source ? ` Source: ${escHtml(source)}` : ""}</div>`;
+        }
+        return `<div class="brief-image-block"><strong>${escHtml(label)}</strong><img class="brief-img" src="${escHtml(src)}" alt="${escHtml(label)}"></div>`;
+      };
       const startsNotOk = (id) => /^NOT OK/i.test(getText(id));
       const hasLimitWarning = (id) => /exceeds|not permitted|capped/i.test(getText(id));
       const numValue = (id) => parseFloat(getValue(id));
@@ -2093,6 +2139,11 @@
     .wx-cell { background: #fff; border: 1px solid #fde68a; border-radius: 5px; padding: 4px; line-height: 1.24; min-height: 42px; }
     .wx-label { color: #92400e; font-size: 7.6px; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; }
     .wx-limits { color: #475569; font-size: 8px; margin-top: 2px; }
+    .page-break { break-before: page; page-break-before: always; }
+    .brief-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .brief-text { border: 1px solid #bfdbfe; border-radius: 6px; padding: 5px; white-space: pre-wrap; font: 7.2px/1.26 Consolas, "Liberation Mono", monospace; max-height: 112px; overflow: hidden; }
+    .brief-image-block, .brief-image-missing { border: 1px solid #bfdbfe; border-radius: 6px; padding: 5px; break-inside: avoid; }
+    .brief-img { display: block; width: 100%; max-height: 290px; object-fit: contain; margin-top: 4px; }
     .footer { margin-top: 8px; font-size: 8px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 4px; }
     @media print { .report-actions { display:none; } }
   </style>
@@ -2199,6 +2250,18 @@
     </div>
   </div>
 
+  <div class="page-break"></div>
+  <h2>Briefing</h2>
+  <div class="brief-grid">
+    ${renderBriefingText("Departure NOTAMs", "depNotamRaw", "depNotamStatus")}
+    ${renderBriefingText("Arrival NOTAMs", "arrNotamRaw", "arrNotamStatus")}
+  </div>
+  <h2>Charts</h2>
+  <div class="brief-grid">
+    ${renderBriefingImage("SIGWX chart", "sigwxPreview", "sigwxImageUrl")}
+    ${renderBriefingImage("Low-level forecast / wind", "lowWindPreview", "lowWindImageUrl")}
+  </div>
+
   <div class="footer">This PDF is a snapshot of the app data. It is not an AFM replacement.</div>
 </body>
 </html>`;
@@ -2236,6 +2299,8 @@
       document.getElementById("fetchArrivalTafBtn").addEventListener("click", () => fetchAndAssessTaf("arrival"));
       document.getElementById("fetchDepNotamsBtn").addEventListener("click", () => fetchAndDisplayNotams("departure"));
       document.getElementById("fetchArrNotamsBtn").addEventListener("click", () => fetchAndDisplayNotams("arrival"));
+      document.getElementById("loadSigwxBtn").addEventListener("click", () => loadBriefingImage("sigwxImageUrl", "sigwxPreview", "sigwxStatus"));
+      document.getElementById("loadLowWindBtn").addEventListener("click", () => loadBriefingImage("lowWindImageUrl", "lowWindPreview", "lowWindStatus"));
 
       const regSelect = document.getElementById("regSelect");
       const regInfo = document.getElementById("regInfo");

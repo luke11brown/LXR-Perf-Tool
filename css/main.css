@@ -76,6 +76,7 @@
       top: 0;
       z-index: 20;
       display: flex;
+      justify-content: center;
       gap: 0.45rem;
       overflow-x: auto;
       padding: 0.5rem 0;
@@ -908,6 +909,25 @@
       color: var(--text);
       font: 0.74rem/1.4 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
       white-space: pre-wrap;
+      resize: vertical;
+    }
+
+    .briefing-product-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.7rem;
+      margin-top: 0.7rem;
+    }
+
+    .briefing-image {
+      display: block;
+      width: 100%;
+      max-height: 22rem;
+      object-fit: contain;
+      margin-top: 0.55rem;
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      border-radius: 8px;
+      background: rgba(5, 7, 11, 0.45);
     }
 
     @media (max-width: 700px) {
@@ -916,6 +936,10 @@
       }
 
       .briefing-actions {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .briefing-product-grid {
         grid-template-columns: minmax(0, 1fr);
       }
     }
