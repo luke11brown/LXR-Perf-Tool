@@ -70,8 +70,10 @@
     let arrSurfaceBase = "hard";
     let departureMetar = null;
     let arrivalMetar = null;
+    let arrivalTaf = null;
     const METAR_STALE_MINUTES = 90;
     const METAR_FETCH_TIMEOUT_MS = 12000;
+    const TAF_ADVISORY_HOURS = 6;
 
     async function loadRunwayPresets() {
       try {
@@ -457,6 +459,95 @@
       };
     }
 
+    function tafDateForDay(day, hour, minute = 0, reference = new Date()) {
+      const ref = new Date(reference);
+      const year = ref.getUTCFullYear();
+      const month = ref.getUTCMonth();
+      const candidates = [-1, 0, 1].map(offset => new Date(Date.UTC(year, month + offset, Number(day), Number(hour), Number(minute))));
+      return candidates.reduce((best, candidate) =>
+        Math.abs(candidate - ref) < Math.abs(best - ref) ? candidate : best
+      );
+    }
+
+    function parseTafWindow(rawWindow, reference = new Date()) {
+      const match = String(rawWindow || "").match(/(\d{2})(\d{2})\/(\d{2})(\d{2})/);
+      if (!match) return null;
+      let start = tafDateForDay(match[1], match[2], 0, reference);
+      let end = tafDateForDay(match[3], match[4], 0, start);
+      if (end <= start) end = new Date(end.getTime() + 31 * 24 * 60 * 60 * 1000);
+      return { start, end };
+    }
+
+    function parseTaf(rawTaf) {
+      const taf = String(rawTaf || "").trim().replace(/\s+/g, " ");
+      const validWindow = taf.match(/\b(\d{4}\/\d{4})\b/)?.[1] || "";
+      const baseWindow = parseTafWindow(validWindow) || { start: new Date(), end: new Date(Date.now() + TAF_ADVISORY_HOURS * 3600000) };
+      const tokens = taf.split(" ");
+      const groups = [];
+      let current = { type: "BASE", start: baseWindow.start, end: baseWindow.end, tokens: [] };
+
+      tokens.forEach((token) => {
+        const fm = token.match(/^FM(\d{2})(\d{2})(\d{2})$/);
+        const tempo = token === "TEMPO";
+        const prob = token.match(/^PROB\d{2}$/);
+        if (fm) {
+          groups.push(current);
+          current = {
+            type: "FM",
+            start: tafDateForDay(fm[1], fm[2], fm[3]),
+            end: baseWindow.end,
+            tokens: [],
+          };
+          return;
+        }
+        if (tempo || prob) {
+          groups.push(current);
+          current = { type: token, start: baseWindow.start, end: baseWindow.end, tokens: [] };
+          return;
+        }
+        const groupWindow = token.match(/^(\d{4}\/\d{4})$/);
+        if (groupWindow && current.type !== "BASE") {
+          const parsedWindow = parseTafWindow(groupWindow[1]);
+          if (parsedWindow) {
+            current.start = parsedWindow.start;
+            current.end = parsedWindow.end;
+            return;
+          }
+        }
+        if (/^(TAF|AMD|COR)$/.test(token) || /^[A-Z]{4}$/.test(token) || /^\d{6}Z$/.test(token) || /^\d{4}\/\d{4}$/.test(token)) {
+          return;
+        }
+        current.tokens.push(token);
+      });
+      groups.push(current);
+
+      groups.forEach((group, index) => {
+        if (group.type === "FM") {
+          const nextFm = groups.slice(index + 1).find(candidate => candidate.type === "FM");
+          if (nextFm) group.end = nextFm.start;
+        }
+      });
+
+      return { raw: taf, groups };
+    }
+
+    async function fetchTafForStation(station) {
+      const noaaUrl = `https://tgftp.nws.noaa.gov/data/forecasts/taf/stations/${encodeURIComponent(station)}.TXT`;
+      const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(noaaUrl)}`;
+      let response;
+      try {
+        response = await fetchWithTimeout(proxyUrl);
+      } catch (err) {
+        response = await fetchWithTimeout(noaaUrl);
+      }
+      if (!response.ok) throw new Error(`NOAA returned ${response.status}`);
+      const text = await response.text();
+      const lines = text.trim().split(/\r?\n/).filter(Boolean);
+      const rawTaf = lines.slice(1).join(" ") || lines[0] || "";
+      if (!rawTaf.includes(station)) throw new Error("No TAF found for station");
+      return parseTaf(rawTaf);
+    }
+
     async function fetchWithTimeout(url) {
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), METAR_FETCH_TIMEOUT_MS);
@@ -536,6 +627,34 @@
       }
     }
 
+    async function fetchAndAssessArrivalTaf() {
+      const status = document.getElementById("arrivalTafStatus");
+      const button = document.getElementById("fetchArrivalTafBtn");
+      const runway = getArrivalRunwayForVisuals() || getSelectedRunway("arrivalRunwaySelect") || getSelectedRunway("savedRunwaySelect");
+      const station = getMetarStationFromRunway(runway);
+      const runwayIcao = getRunwayIcao(runway);
+      const stationLabel = runwayIcao && runwayIcao !== station ? `${station} for ${runwayIcao}` : station;
+
+      if (!station) {
+        status.textContent = "Select an arrival runway preset with an ICAO station first.";
+        return;
+      }
+
+      button.disabled = true;
+      status.textContent = `Fetching ${stationLabel} TAF from NOAA...`;
+      try {
+        arrivalTaf = await fetchTafForStation(station);
+        calculateAll();
+        status.textContent = `${stationLabel} TAF applied. ${arrivalTaf.raw}`;
+      } catch (err) {
+        arrivalTaf = null;
+        calculateAll();
+        status.textContent = `Could not fetch ${stationLabel} TAF: ${err.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    }
+
     function clamp(x, min, max) { return Math.max(min, Math.min(max, x)); }
 
     function lerp(x, x0, x1, y0, y1) {
@@ -594,7 +713,7 @@
       if (!metar) {
         const text = `OM-C weather minima not assessed - fetch a ${phaseLabel} METAR first.`;
         statusEl.textContent = text;
-        statusEl.className = "res-main summary-line-bad";
+        statusEl.className = "res-main summary-line-warn";
         detailEl.textContent = "Visibility and cloud ceiling are parsed from the fetched METAR. Manual weather-minima entry is not currently available.";
         return { ok: false, assessed: false, text };
       }
@@ -681,9 +800,92 @@
         statusEl.textContent = `${ok ? "OK" : "CHECK"} - ${phaseLabel} IFR ${isArrivalPhase ? "OM-C weather minima where assessable from METAR" : "OM-C take-off minima where assessable from METAR"}.`;
       }
 
-      statusEl.className = ok ? "res-main summary-line-ok" : "res-main summary-line-bad";
+      statusEl.className = ok ? "res-main summary-line-ok" : "res-main summary-line-warn";
       detailEl.textContent = checks.join(" | ");
       return { ok, assessed: true, text: `${statusEl.textContent} ${detailEl.textContent}` };
+    }
+
+    function assessArrivalTafAdvisory(arrTaf, runwayHeading) {
+      const statusEl = document.getElementById("arrTafMinimaStatus");
+      const detailEl = document.getElementById("arrTafMinimaDetail");
+      if (!statusEl || !detailEl) return { ok: true, assessed: false, text: "" };
+      if (!arrTaf) {
+        const text = "TAF not assessed.";
+        statusEl.textContent = text;
+        statusEl.className = "res-main summary-line-warn";
+        detailEl.textContent = `Fetch an arrival TAF to review forecast OM-C minima risk over the next ${TAF_ADVISORY_HOURS} hours.`;
+        return { ok: true, assessed: false, text };
+      }
+
+      const now = new Date();
+      const horizon = new Date(now.getTime() + TAF_ADVISORY_HOURS * 3600000);
+      const relevantGroups = arrTaf.groups.filter(group => group.end > now && group.start < horizon);
+      const risks = [];
+      const flightRules = document.getElementById("flightRules")?.value || "vfr";
+      const pilotQualification = document.getElementById("pilotQualification")?.value || "student";
+      const vfrPhase = document.getElementById("vfrPhase")?.value || "circuit";
+      const vfrMinima = {
+        student: {
+          circuit: { ceilingFt: 1500, visibilityKm: 5, xwindKt: 10, maxWindKt: 20 },
+          solo_nav: { ceilingFt: 5000, visibilityKm: 8, xwindKt: 10, maxWindKt: 20 },
+        },
+        ppl_lt100: {
+          circuit: { ceilingFt: 1500, visibilityKm: 5, xwindKt: 15, maxWindKt: 25 },
+          solo_nav: { ceilingFt: 3000, visibilityKm: 8, xwindKt: 15, maxWindKt: 25 },
+        },
+        ppl_gt100_no_ir: {
+          circuit: { ceilingFt: 1500, visibilityKm: 5, xwindKt: MAX_XWIND, maxWindKt: 30 },
+          solo_nav: { ceilingFt: 2500, visibilityKm: 5, xwindKt: MAX_XWIND, maxWindKt: 30 },
+        },
+      };
+      const vfrQualification = vfrMinima[pilotQualification]
+        ? pilotQualification
+        : (pilotQualification.startsWith("ir_") ? "ppl_gt100_no_ir" : "student");
+      const mins = vfrMinima[vfrQualification]?.[vfrPhase];
+
+      relevantGroups.forEach((group) => {
+        const text = group.tokens.join(" ");
+        if (!text.trim()) return;
+        const parsed = parseMetar(text);
+        const label = group.type === "BASE" ? "BASE" : group.type;
+        const groupRisks = [];
+        const hasWind = /\b(VRB|\d{3})\d{2,3}(?:G\d{2,3})?(KT|MPS)\b/.test(text);
+        if (hasWind && parsed.windSpeed !== null) {
+          const wind = computeWindComponentsForHeading(parsed.windDir, parsed.windSpeed, runwayHeading);
+          const xwindKt = Math.abs(wind.crosswind);
+          if (flightRules === "vfr" && mins) {
+            if (xwindKt > mins.xwindKt) groupRisks.push(`XWC ${round(xwindKt, 1)} kt > ${mins.xwindKt} kt`);
+            if (parsed.windSpeed > mins.maxWindKt) groupRisks.push(`surface wind ${round(parsed.windSpeed, 1)} kt > ${mins.maxWindKt} kt`);
+          }
+        }
+        if (flightRules === "vfr" && mins) {
+          if (parsed.visibilityM !== null && parsed.visibilityM / 1000 < mins.visibilityKm) {
+            groupRisks.push(`visibility ${formatVisibilityKm(parsed.visibilityM)} < ${mins.visibilityKm} km`);
+          }
+          if (parsed.cloudCeilingFt !== null && parsed.cloudCeilingFt < mins.ceilingFt) {
+            groupRisks.push(`ceiling ${round(parsed.cloudCeilingFt, 0)} ft < ${mins.ceilingFt} ft`);
+          }
+        }
+        if (groupRisks.length > 0) {
+          risks.push(`${label}: ${groupRisks.join(", ")}`);
+        }
+      });
+
+      if (risks.length > 0) {
+        const text = `CHECK - arrival TAF indicates possible OM-C minima risk within ${TAF_ADVISORY_HOURS} hours.`;
+        statusEl.textContent = text;
+        statusEl.className = "res-main summary-line-warn";
+        detailEl.textContent = risks.join(" | ");
+        return { ok: false, assessed: true, text: `${text} ${detailEl.textContent}` };
+      }
+
+      const text = `OK - arrival TAF has no parsed OM-C minima risk within ${TAF_ADVISORY_HOURS} hours.`;
+      statusEl.textContent = text;
+      statusEl.className = "res-main summary-line-ok";
+      detailEl.textContent = relevantGroups.length > 0
+        ? `${relevantGroups.length} TAF group(s) reviewed. TEMPO/PROB groups remain advisory.`
+        : `No TAF groups overlap the next ${TAF_ADVISORY_HOURS} hours.`;
+      return { ok: true, assessed: true, text: `${text} ${detailEl.textContent}` };
     }
 
     function round(x, decimals = 0) {
@@ -1139,6 +1341,7 @@
         windSpd: arrWindSpd,
         crosswind: arrCrosswind,
       });
+      const arrTafAdvisory = assessArrivalTafAdvisory(arrivalTaf, arrHeading);
 
       const baseTO = interpTOLD(pa, isaDev, TO_TABLE);
       const baseLDG = interpTOLD(arrPa, arrIsaDev, LDG_TABLE);
@@ -1462,9 +1665,6 @@
       if (!toOk) nonCompliance.push("take-off requirement not met");
       if (!ldgCriterionOk) nonCompliance.push("landing requirement not met");
       if (!windOk) nonCompliance.push("wind limits or recommendations exceeded");
-      if ((depWeatherMinima.assessed && !depWeatherMinima.ok) || (arrWeatherMinima.assessed && !arrWeatherMinima.ok)) {
-        nonCompliance.push("OM-C weather minima warning active");
-      }
       const complianceAlertRow = document.getElementById("complianceAlertRow");
       const complianceAlert = document.getElementById("complianceAlert");
       if (nonCompliance.length > 0) {
@@ -1575,12 +1775,21 @@
       const arrWindComponentsText = formatWindComponentsForExport("arrWindDir", "arrWindSpd", "arrHeading");
       const depWeatherMinimaText = `${getText("depWeatherMinimaStatus")} ${getText("depWeatherMinimaDetail")}`.trim();
       const arrWeatherMinimaText = `${getText("arrWeatherMinimaStatus")} ${getText("arrWeatherMinimaDetail")}`.trim();
+      const arrTafMinimaText = `${getText("arrTafMinimaStatus")} ${getText("arrTafMinimaDetail")}`.trim();
       const weatherMinimaText = [
         depWeatherMinimaText ? `Departure: ${depWeatherMinimaText}` : "",
         arrWeatherMinimaText ? `Arrival: ${arrWeatherMinimaText}` : "",
+        arrTafMinimaText ? `Arrival TAF: ${arrTafMinimaText}` : "",
       ].filter(Boolean).join(" ");
       const complianceText = getText("complianceAlert");
       const classIfBad = (bad) => bad ? " bad-value" : "";
+      const statusClass = (text) => /\bNOT OK\b/i.test(String(text || ""))
+        ? "bad-value"
+        : /\bCHECK\b/i.test(String(text || ""))
+          ? "warn-value"
+          : /\bOK\b/i.test(String(text || ""))
+            ? "ok"
+            : "";
       const startsNotOk = (id) => /^NOT OK/i.test(getText(id));
       const hasLimitWarning = (id) => /exceeds|not permitted|capped/i.test(getText(id));
       const numValue = (id) => parseFloat(getValue(id));
@@ -1646,7 +1855,9 @@
     .moment-table tfoot tr.bad-value td { background: #fee2e2; color: #b91c1c; font-weight: 800; }
     .ok { color: #047857; font-weight: 700; }
     .bad { color: #b91c1c; font-weight: 700; }
+    .warn-value { color: #b45309; font-weight: 800; }
     .bad-value { color: #b91c1c; font-weight: 800; }
+    .status-text { white-space: pre-line; }
     .footer { margin-top: 14px; font-size: 9px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 6px; }
     @media print { .report-actions { display:none; } }
   </style>
@@ -1740,12 +1951,12 @@
   <h2>Operational summary</h2>
   <div class="box warn">
     ${complianceText ? `<div class="compliance-alert">${escHtml(complianceText)}</div>` : ""}
-    <p><strong>W&B:</strong> ${escHtml(getText("sumWb"))}</p>
-    <p><strong>Take-off:</strong> ${escHtml(getText("sumPerfTo"))}</p>
-    <p><strong>Landing:</strong> ${escHtml(getText("sumPerfLdg"))}</p>
-    <p><strong>Wind:</strong> ${escHtml(getText("sumWind"))}</p>
-    <p><strong>OM-C weather minima:</strong> ${escHtml(weatherMinimaText || "Not assessed")}</p>
-    <p><strong>Runway:</strong> ${escHtml(getText("sumRunway"))}</p>
+    <p class="status-text ${statusClass(getText("sumWb"))}"><strong>W&B:</strong> ${escHtml(getText("sumWb"))}</p>
+    <p class="status-text ${statusClass(getText("sumPerfTo"))}"><strong>Take-off:</strong> ${escHtml(getText("sumPerfTo"))}</p>
+    <p class="status-text ${statusClass(getText("sumPerfLdg"))}"><strong>Landing:</strong> ${escHtml(getText("sumPerfLdg"))}</p>
+    <p class="status-text ${statusClass(getText("sumWind"))}"><strong>Wind:</strong> ${escHtml(getText("sumWind"))}</p>
+    <p class="status-text ${statusClass(weatherMinimaText)}"><strong>OM-C weather minima:</strong> ${escHtml(weatherMinimaText || "Not assessed")}</p>
+    <p class="status-text ${statusClass(getText("sumRunway"))}"><strong>Runway:</strong> ${escHtml(getText("sumRunway"))}</p>
   </div>
 
   <div class="footer">This PDF is a snapshot of the app data. It is not an AFM replacement.</div>
@@ -1780,6 +1991,7 @@
       document.getElementById("exportPdfBtn").addEventListener("click", exportReportToPdf);
       document.getElementById("fetchMetarBtn").addEventListener("click", () => fetchAndApplyMetar("departure"));
       document.getElementById("fetchArrivalMetarBtn").addEventListener("click", () => fetchAndApplyMetar("arrival"));
+      document.getElementById("fetchArrivalTafBtn").addEventListener("click", fetchAndAssessArrivalTaf);
 
       const regSelect = document.getElementById("regSelect");
       const regInfo = document.getElementById("regInfo");
@@ -1810,7 +2022,10 @@
         if (selectedId === "none") {
           activeRunwayLabel = null;
           depSurfaceBase = "hard";
-          if (arrivalUsesDepartureRunway) copyDepartureToArrival();
+          if (arrivalUsesDepartureRunway) {
+            arrivalTaf = null;
+            copyDepartureToArrival();
+          }
           updateIntersectionControls();
           updateRunwayEditState();
           calculateAll();
@@ -1820,6 +2035,7 @@
         const preset = PRESET_RUNWAYS[selectedId];
         if (preset) {
           setRunwayFields(preset, preset.label);
+          if (arrivalUsesDepartureRunway) arrivalTaf = null;
           updateIntersectionControls();
           updateRunwayEditState();
           calculateAll();
@@ -1834,6 +2050,7 @@
         if (selectedId === "none") {
           arrivalUsesDepartureRunway = true;
           activeArrivalRunwayLabel = activeRunwayLabel;
+          arrivalTaf = null;
           copyDepartureToArrival();
           updateArrivalWeatherControls();
           updateIntersectionControls();
@@ -1845,6 +2062,7 @@
         if (selectedId === "manual") {
           arrivalUsesDepartureRunway = false;
           activeArrivalRunwayLabel = null;
+          arrivalTaf = null;
           arrSurfaceBase = "hard";
           updateArrivalWeatherControls();
           updateIntersectionControls();
@@ -1856,6 +2074,7 @@
         const preset = PRESET_RUNWAYS[selectedId];
         if (preset) {
           setArrivalRunwayFields(preset, preset.label);
+          arrivalTaf = null;
           updateIntersectionControls();
           updateRunwayEditState();
           calculateAll();

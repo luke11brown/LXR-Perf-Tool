@@ -835,6 +835,10 @@
       color: var(--danger);
     }
 
+    .summary-line-warn {
+      color: var(--warn);
+    }
+
     .bad-value {
       color: var(--danger) !important;
       font-weight: 700;

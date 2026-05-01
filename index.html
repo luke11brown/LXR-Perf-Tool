@@ -377,8 +377,12 @@
             <div class="field metar-button-field">
               <button id="fetchArrivalMetarBtn" type="button">Fetch METAR</button>
             </div>
+            <div class="field metar-button-field">
+              <button id="fetchArrivalTafBtn" type="button">Fetch TAF</button>
+            </div>
           </div>
           <div class="inline-note" id="arrivalMetarStatus"></div>
+          <div class="inline-note" id="arrivalTafStatus"></div>
           <div class="grid-3" style="margin-top:0.75rem">
             <div class="field">
               <label for="arrFieldElev">Field elevation (ft)</label>
@@ -515,6 +519,13 @@
               <div class="res-main" id="arrWeatherMinimaStatus">Awaiting arrival METAR.</div>
               <div class="res-sub" id="arrWeatherMinimaDetail">
                 VFR minima are checked against parsed METAR visibility, cloud ceiling, wind and XWC. IFR approach minima and RVR must be verified against published procedures.
+              </div>
+            </div>
+            <div class="res-card phase-result">
+              <div class="res-title">Arrival OM-C forecast weather</div>
+              <div class="res-main" id="arrTafMinimaStatus">TAF not assessed.</div>
+              <div class="res-sub" id="arrTafMinimaDetail">
+                Arrival TAF groups overlapping the next 6 hours are advisory planning context only.
               </div>
             </div>
           </div>
