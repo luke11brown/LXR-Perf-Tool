@@ -1773,23 +1773,50 @@
       const cgChartImg = document.getElementById("cgChart")?.toDataURL("image/png") || "";
       const depWindComponentsText = formatWindComponentsForExport("windDir", "windSpd", "rwHeading");
       const arrWindComponentsText = formatWindComponentsForExport("arrWindDir", "arrWindSpd", "arrHeading");
-      const depWeatherMinimaText = `${getText("depWeatherMinimaStatus")} ${getText("depWeatherMinimaDetail")}`.trim();
-      const arrWeatherMinimaText = `${getText("arrWeatherMinimaStatus")} ${getText("arrWeatherMinimaDetail")}`.trim();
-      const arrTafMinimaText = `${getText("arrTafMinimaStatus")} ${getText("arrTafMinimaDetail")}`.trim();
-      const weatherMinimaText = [
-        depWeatherMinimaText ? `Departure: ${depWeatherMinimaText}` : "",
-        arrWeatherMinimaText ? `Arrival: ${arrWeatherMinimaText}` : "",
-        arrTafMinimaText ? `Arrival TAF: ${arrTafMinimaText}` : "",
-      ].filter(Boolean).join(" ");
       const complianceText = getText("complianceAlert");
       const classIfBad = (bad) => bad ? " bad-value" : "";
-      const statusClass = (text) => /\bNOT OK\b/i.test(String(text || ""))
+      const statusToken = (text) => {
+        const match = String(text || "").match(/\b(NOT OK|CHECK|OK)\b/i);
+        return match ? match[1].toUpperCase() : "";
+      };
+      const statusClass = (token) => token === "NOT OK"
         ? "bad-value"
-        : /\bCHECK\b/i.test(String(text || ""))
+        : token === "CHECK"
           ? "warn-value"
-          : /\bOK\b/i.test(String(text || ""))
+          : token === "OK"
             ? "ok"
             : "";
+      const stripStatusPrefix = (text) => String(text || "")
+        .replace(/^\s*(NOT OK|CHECK|OK)\s*[-–—]\s*/i, "")
+        .trim();
+      const renderStatusLine = (label, text) => {
+        const token = statusToken(text);
+        const body = stripStatusPrefix(text);
+        const badge = token ? `<span class="${statusClass(token)}">${escHtml(token)}</span>` : "";
+        return `<p class="status-text"><strong>${escHtml(label)}:</strong> ${badge}${body ? ` ${escHtml(body)}` : ""}</p>`;
+      };
+      const conciseWeatherDetail = (status, detail, forecast = false) => {
+        const token = statusToken(status);
+        const detailText = String(detail || "");
+        if (!token) return stripStatusPrefix(status) || "Not assessed";
+        if (forecast) {
+          if (token === "OK") return "No parsed risk in next 6h.";
+          if (token === "CHECK") return detailText.replace(/\s*\|\s*/g, "; ").slice(0, 145);
+        }
+        if (token === "OK") return "METAR within selected limits.";
+        const issues = detailText
+          .split(/\s*\|\s*/)
+          .filter(item => /<|>|more than|unknown/i.test(item))
+          .slice(0, 3)
+          .join("; ");
+        return issues || stripStatusPrefix(status) || "Review required.";
+      };
+      const renderWeatherCell = (label, statusId, detailId, forecast = false) => {
+        const status = getText(statusId);
+        const token = statusToken(status) || (forecast ? "CHECK" : "");
+        const body = conciseWeatherDetail(status, getText(detailId), forecast);
+        return `<div class="wx-cell"><div class="wx-label">${escHtml(label)}</div><div><span class="${statusClass(token)}">${escHtml(token || "INFO")}</span></div><div>${escHtml(body)}</div></div>`;
+      };
       const startsNotOk = (id) => /^NOT OK/i.test(getText(id));
       const hasLimitWarning = (id) => /exceeds|not permitted|capped/i.test(getText(id));
       const numValue = (id) => parseFloat(getValue(id));
@@ -1858,6 +1885,10 @@
     .warn-value { color: #b45309; font-weight: 800; }
     .bad-value { color: #b91c1c; font-weight: 800; }
     .status-text { white-space: pre-line; }
+    .status-text span { font-weight: 800; }
+    .wx-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 5px 0 7px; }
+    .wx-cell { background: #fff; border: 1px solid #fde68a; border-radius: 5px; padding: 5px; line-height: 1.25; }
+    .wx-label { color: #92400e; font-size: 8.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
     .footer { margin-top: 14px; font-size: 9px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 6px; }
     @media print { .report-actions { display:none; } }
   </style>
@@ -1951,12 +1982,16 @@
   <h2>Operational summary</h2>
   <div class="box warn">
     ${complianceText ? `<div class="compliance-alert">${escHtml(complianceText)}</div>` : ""}
-    <p class="status-text ${statusClass(getText("sumWb"))}"><strong>W&B:</strong> ${escHtml(getText("sumWb"))}</p>
-    <p class="status-text ${statusClass(getText("sumPerfTo"))}"><strong>Take-off:</strong> ${escHtml(getText("sumPerfTo"))}</p>
-    <p class="status-text ${statusClass(getText("sumPerfLdg"))}"><strong>Landing:</strong> ${escHtml(getText("sumPerfLdg"))}</p>
-    <p class="status-text ${statusClass(getText("sumWind"))}"><strong>Wind:</strong> ${escHtml(getText("sumWind"))}</p>
-    <p class="status-text ${statusClass(weatherMinimaText)}"><strong>OM-C weather minima:</strong> ${escHtml(weatherMinimaText || "Not assessed")}</p>
-    <p class="status-text ${statusClass(getText("sumRunway"))}"><strong>Runway:</strong> ${escHtml(getText("sumRunway"))}</p>
+    ${renderStatusLine("W&B", getText("sumWb"))}
+    ${renderStatusLine("Take-off", getText("sumPerfTo"))}
+    ${renderStatusLine("Landing", getText("sumPerfLdg"))}
+    ${renderStatusLine("Wind", getText("sumWind"))}
+    <p><strong>OM-C weather minima:</strong></p>
+    <div class="wx-grid">
+      ${renderWeatherCell("Departure", "depWeatherMinimaStatus", "depWeatherMinimaDetail")}
+      ${renderWeatherCell("Arrival", "arrWeatherMinimaStatus", "arrWeatherMinimaDetail")}
+      ${renderWeatherCell("Forecast", "arrTafMinimaStatus", "arrTafMinimaDetail", true)}
+    </div>
   </div>
 
   <div class="footer">This PDF is a snapshot of the app data. It is not an AFM replacement.</div>
