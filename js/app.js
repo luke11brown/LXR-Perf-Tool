@@ -987,7 +987,7 @@
       4: { label: "SEVERE", className: "risk-level-4" },
     };
 
-    const WEATHER_RISK_BANDS = "LOW: CAVOK/Vis >=10 km, ceiling >=5000 ft or none, wind <=10 kt, XWC <=10 kt. MEDIUM: not LOW but Vis >=5 km, ceiling >=1500 ft or none, wind <=25 kt, XWC within AFM demonstrated limit. HIGH: selected OM-C minima risk, Vis 1.5-5 km, ceiling 500-1500 ft, or wind 25-40 kt. SEVERE: Vis <1.5 km, ceiling <500 ft, wind >40 kt, or XWC above AFM demonstrated limit.";
+    const WEATHER_RISK_BANDS = "LOW: CAVOK/Vis >=10 km, ceiling >=5000 ft or none, wind <=10 kt, XWC <=10 kt. MEDIUM: not LOW but Vis >=5 km, ceiling >=1500 ft or none, wind <=25 kt, XWC within AFM demonstrated limit. HIGH: Vis 1.5-5 km, ceiling 500-1500 ft, or wind 25-40 kt. SEVERE: Vis <1.5 km, ceiling <500 ft, wind >40 kt, or XWC above AFM demonstrated limit.";
 
     function runwayLengthRisk(lengthM) {
       if (!Number.isFinite(lengthM) || lengthM <= 0) {
@@ -1014,7 +1014,7 @@
       return { level: 1, label: "Paved/grass surface", detail: `${label}: paved dry surface.` };
     }
 
-    function parsedWeatherRisk(parsed, runwayHeading, assessmentOk = true) {
+    function parsedWeatherRisk(parsed, runwayHeading) {
       if (!parsed) return null;
       const windSpd = Number(parsed.windSpeed) || 0;
       const wind = parsed.windDir
@@ -1027,7 +1027,7 @@
       if (windSpd > MAX_WIND || (!wind.windIsVRB && xwind > MAX_XWIND) || (visibilityM !== null && visibilityM < 1500) || (ceilingFt !== null && ceilingFt < 500)) {
         return 4;
       }
-      if (!assessmentOk || (visibilityM !== null && visibilityM < 5000) || (ceilingFt !== null && ceilingFt < 1500) || windSpd > 25) {
+      if ((visibilityM !== null && visibilityM < 5000) || (ceilingFt !== null && ceilingFt < 1500) || windSpd > 25) {
         return 3;
       }
       if (!parsed.cavok || windSpd > 10 || (ceilingFt !== null && ceilingFt < 5000) || (visibilityM !== null && visibilityM < 9999)) {
@@ -1036,7 +1036,7 @@
       return 1;
     }
 
-    function weatherRiskReason(parsed, runwayHeading, assessmentOk = true) {
+    function weatherRiskReason(parsed, runwayHeading) {
       if (!parsed) return "Weather not parsed.";
       const windSpd = Number(parsed.windSpeed) || 0;
       const wind = parsed.windDir
@@ -1051,18 +1051,17 @@
         `wind ${round(windSpd, 1)} kt`,
         wind.windIsVRB ? "XWC not assessed (VRB)" : `XWC ${round(xwind, 1)} kt`,
       ];
-      if (!assessmentOk) parts.push("selected OM-C minima need review");
       return parts.join(", ");
     }
 
-    function actualWeatherRisk(label, metar, runwayHeading, weatherAssessment) {
+    function actualWeatherRisk(label, metar, runwayHeading) {
       if (!metar) {
         return { level: null, label, detail: "Not assessed - fetch METAR for actual weather." };
       }
-      const level = parsedWeatherRisk(metar, runwayHeading, weatherAssessment?.ok !== false);
+      const level = parsedWeatherRisk(metar, runwayHeading);
       const detail = level === 1
-        ? `CAVOK or equivalent benign METAR conditions parsed. ${weatherRiskReason(metar, runwayHeading, true)}.`
-        : `METAR weather: ${weatherRiskReason(metar, runwayHeading, weatherAssessment?.ok !== false)}.`;
+        ? `CAVOK or equivalent benign METAR conditions parsed. ${weatherRiskReason(metar, runwayHeading)}.`
+        : `METAR weather: ${weatherRiskReason(metar, runwayHeading)}.`;
       return { level, label, detail };
     }
 
@@ -1081,14 +1080,14 @@
         .map(({ group, parsed }) => ({
           group,
           parsed,
-          level: parsedWeatherRisk(parsed, runwayHeading, tafAssessment?.ok !== false),
+          level: parsedWeatherRisk(parsed, runwayHeading),
         }))
         .filter(entry => entry.level !== null);
-      const level = levelEntries.length > 0 ? Math.max(...levelEntries.map(entry => entry.level), tafAssessment?.ok === false ? 3 : 1) : (tafAssessment?.ok === false ? 3 : 1);
+      const level = levelEntries.length > 0 ? Math.max(...levelEntries.map(entry => entry.level)) : 1;
       const worst = levelEntries.find(entry => entry.level === level);
       const detail = tafAssessment?.ok === false
-        ? `TAF has parsed OM-C minima risk within ${TAF_ADVISORY_HOURS} hours. ${worst ? weatherRiskReason(worst.parsed, runwayHeading, false) : ""}`.trim()
-        : `${relevantGroups.length} TAF group(s) reviewed within ${TAF_ADVISORY_HOURS} hours.${worst ? ` Worst: ${weatherRiskReason(worst.parsed, runwayHeading, true)}.` : ""}`;
+        ? `TAF has parsed OM-C minima risk within ${TAF_ADVISORY_HOURS} hours; RA weather score remains based on condition band. ${worst ? weatherRiskReason(worst.parsed, runwayHeading) : ""}`.trim()
+        : `${relevantGroups.length} TAF group(s) reviewed within ${TAF_ADVISORY_HOURS} hours.${worst ? ` Worst: ${weatherRiskReason(worst.parsed, runwayHeading)}.` : ""}`;
       return { level, label, detail };
     }
 
@@ -1942,14 +1941,14 @@
       const depRiskItems = [
         runwayLengthRisk(runwayTora),
         surfaceRisk(surface, surfaceCfg),
-        actualWeatherRisk("Actual weather", departureMetar, rwHeading, depWeatherMinima),
+        actualWeatherRisk("Actual weather", departureMetar, rwHeading),
         forecastWeatherRisk("Forecast weather", departureTaf, rwHeading, depTafAssessment),
       ];
       const effectiveArrivalMetar = arrivalMetar || (arrivalUsesDepartureRunway ? departureMetar : null);
       const arrRiskItems = [
         runwayLengthRisk(runwayLda),
         surfaceRisk(arrSurface, arrSurfaceCfg),
-        actualWeatherRisk("Actual weather", effectiveArrivalMetar, arrHeading, arrWeatherMinima),
+        actualWeatherRisk("Actual weather", effectiveArrivalMetar, arrHeading),
         forecastWeatherRisk("Forecast weather", effectiveArrivalTaf, arrHeading, arrTafAssessment),
       ];
       renderRiskAssessment({ depItems: depRiskItems, arrItems: arrRiskItems });
