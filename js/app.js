@@ -1398,8 +1398,9 @@
         windSpd: arrWindSpd,
         crosswind: arrCrosswind,
       });
+      const effectiveArrivalTaf = arrivalTaf || (arrivalUsesDepartureRunway ? departureTaf : null);
       assessTafAdvisory({ phase: "departure", taf: departureTaf, runwayHeading: rwHeading });
-      assessTafAdvisory({ phase: "arrival", taf: arrivalTaf, runwayHeading: arrHeading });
+      assessTafAdvisory({ phase: "arrival", taf: effectiveArrivalTaf, runwayHeading: arrHeading });
 
       const baseTO = interpTOLD(pa, isaDev, TO_TABLE);
       const baseLDG = interpTOLD(arrPa, arrIsaDev, LDG_TABLE);
@@ -1953,11 +1954,11 @@
     .bad { color: #b91c1c; font-weight: 700; }
     .warn-value { color: #b45309; font-weight: 800; }
     .bad-value { color: #b91c1c; font-weight: 800; }
-    .status-text { white-space: pre-line; }
+    .status-text { line-height: 1.32; white-space: pre-line; }
     .status-text span { font-weight: 800; }
-    .box.warn p { margin: 2px 0; }
+    .box.warn p { margin: 3px 0; }
     .wx-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 3px 0 4px; }
-    .wx-cell { background: #fff; border: 1px solid #fde68a; border-radius: 5px; padding: 4px; line-height: 1.18; min-height: 42px; }
+    .wx-cell { background: #fff; border: 1px solid #fde68a; border-radius: 5px; padding: 4px; line-height: 1.24; min-height: 42px; }
     .wx-label { color: #92400e; font-size: 7.6px; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; }
     .wx-limits { color: #475569; font-size: 8px; margin-top: 2px; }
     .footer { margin-top: 8px; font-size: 8px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 4px; }
@@ -2132,7 +2133,6 @@
           depSurfaceBase = "hard";
           departureTaf = null;
           if (arrivalUsesDepartureRunway) {
-            arrivalTaf = null;
             copyDepartureToArrival();
           }
           updateIntersectionControls();
@@ -2145,7 +2145,6 @@
         if (preset) {
           setRunwayFields(preset, preset.label);
           departureTaf = null;
-          if (arrivalUsesDepartureRunway) arrivalTaf = null;
           updateIntersectionControls();
           updateRunwayEditState();
           calculateAll();
@@ -2160,7 +2159,6 @@
         if (selectedId === "none") {
           arrivalUsesDepartureRunway = true;
           activeArrivalRunwayLabel = activeRunwayLabel;
-          arrivalTaf = null;
           copyDepartureToArrival();
           updateArrivalWeatherControls();
           updateIntersectionControls();
