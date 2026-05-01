@@ -1853,27 +1853,38 @@
         const badge = token ? `<span class="${statusClass(token)}">${escHtml(token)}</span>` : "";
         return `<p class="status-text"><strong>${escHtml(label)}:</strong> ${badge}${body ? ` ${escHtml(body)}` : ""}</p>`;
       };
+      const compactSummaryText = (text, maxLength = 130) => stripStatusPrefix(text)
+        .replace(/\s+/g, " ")
+        .replace(/Wind speeds ≤ 40 kt, crosswind within 18 kt demonstrated where assessed, tailwind within \d+(?:\.\d+)? kt recommendation\./, "Wind limits ok.")
+        .replace(/Fuel and baggage within AFM limits\./, "Fuel/baggage ok.")
+        .slice(0, maxLength);
+      const renderCompactStatusLine = (label, text, maxLength) => {
+        const token = statusToken(text);
+        const body = compactSummaryText(text, maxLength);
+        const badge = token ? `<span class="${statusClass(token)}">${escHtml(token)}</span>` : "";
+        return `<p class="status-text"><strong>${escHtml(label)}:</strong> ${badge}${body ? ` ${escHtml(body)}` : ""}</p>`;
+      };
       const conciseWeatherDetail = (status, detail, forecast = false) => {
         const token = statusToken(status);
         const detailText = String(detail || "").replace(/\s*\|\s*Limits:.*$/i, "").replace(/\s*Limits:.*$/i, "");
         if (!token) return stripStatusPrefix(status) || "Not assessed";
         if (forecast) {
-          if (token === "OK") return "No parsed risk in next 6h.";
-          if (token === "CHECK") return detailText.replace(/\s*\|\s*/g, "; ").slice(0, 145);
+          if (token === "OK") return "No parsed risk.";
+          if (token === "CHECK") return detailText.replace(/\s*\|\s*/g, "; ").slice(0, 58);
         }
-        if (token === "OK") return "METAR within selected limits.";
+        if (token === "OK") return "Within limits.";
         const issues = detailText
           .split(/\s*\|\s*/)
           .filter(item => /<|>|more than|unknown/i.test(item))
-          .slice(0, 3)
+          .slice(0, 2)
           .join("; ");
-        return issues || stripStatusPrefix(status) || "Review required.";
+        return (issues || stripStatusPrefix(status) || "Review required.").slice(0, 58);
       };
       const renderWeatherCell = (label, statusId, detailId, forecast = false) => {
         const status = getText(statusId);
         const token = statusToken(status);
         const body = conciseWeatherDetail(status, getText(detailId), forecast);
-        return `<div class="wx-cell"><div class="wx-label">${escHtml(label)}</div><div><span class="${statusClass(token)}">${escHtml(token || "INFO")}</span></div><div>${escHtml(body)}</div><div class="wx-limits">Limits: ${escHtml(selectedOmCWeatherLimitsText())}</div></div>`;
+        return `<div class="wx-cell"><div class="wx-label">${escHtml(label)}</div><div><span class="${statusClass(token)}">${escHtml(token || "INFO")}</span></div><div>${escHtml(body)}</div></div>`;
       };
       const startsNotOk = (id) => /^NOT OK/i.test(getText(id));
       const hasLimitWarning = (id) => /exceeds|not permitted|capped/i.test(getText(id));
@@ -1906,31 +1917,31 @@
   <meta charset="utf-8">
   <title>${reportTitle}</title>
   <style>
-    @page { size: A4; margin: 12mm; }
+    @page { size: A4; margin: 9mm; }
     * { box-sizing: border-box; }
-    body { font-family: Roboto, Inter, "Segoe UI", Arial, sans-serif; color: #111827; margin: 0; font-size: 10.5px; }
-    h1 { color: #075985; font-size: 17px; margin: 0; letter-spacing: 0.04em; text-transform: uppercase; }
-    h2 { background: #e0f2fe; border-left: 4px solid #0284c7; color: #075985; font-size: 11px; margin: 10px 0 5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 7px; }
-    .report-header { align-items: start; border-bottom: 2px solid #bae6fd; display: grid; grid-template-columns: 1fr auto; gap: 12px; margin-bottom: 6px; padding-bottom: 5px; }
-    .report-meta { color: #475569; font-size: 8.5px; line-height: 1.3; text-align: right; }
+    body { font-family: Roboto, Inter, "Segoe UI", Arial, sans-serif; color: #111827; margin: 0; font-size: 9.4px; }
+    h1 { color: #075985; font-size: 15px; margin: 0; letter-spacing: 0.04em; text-transform: uppercase; }
+    h2 { background: #e0f2fe; border-left: 4px solid #0284c7; color: #075985; font-size: 10px; margin: 7px 0 4px; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 6px; }
+    .report-header { align-items: start; border-bottom: 2px solid #bae6fd; display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-bottom: 4px; padding-bottom: 4px; }
+    .report-meta { color: #475569; font-size: 8px; line-height: 1.2; text-align: right; }
     .report-actions { display: flex; justify-content: flex-end; margin-top: 5px; }
     .report-button { background: #0284c7; border: 0; border-radius: 5px; color: #fff; cursor: pointer; font: inherit; font-size: 9px; padding: 4px 9px; text-decoration: none; text-transform: uppercase; }
     .muted { color: #475569; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; }
-    .box { background: #ffffff; border: 1px solid #bfdbfe; border-top: 3px solid #38bdf8; border-radius: 6px; padding: 7px; break-inside: avoid; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 11px; }
+    .box { background: #ffffff; border: 1px solid #bfdbfe; border-top: 3px solid #38bdf8; border-radius: 6px; padding: 5px; break-inside: avoid; }
     .box.wb { border-top-color: #22c55e; }
     .box.perf { border-top-color: #8b5cf6; }
     .box.warn { border-top-color: #f59e0b; background: #fffbeb; }
     .compliance-alert { border: 1px solid #dc2626; border-radius: 6px; background: #fee2e2; color: #991b1b; font-weight: 700; margin-bottom: 8px; padding: 7px 8px; }
-    .kv { display: grid; grid-template-columns: 44% 56%; gap: 3px 8px; }
+    .kv { display: grid; grid-template-columns: 43% 57%; gap: 2px 7px; }
     .k { color: #475569; }
     .v { font-weight: 700; }
-    .stack { display: grid; gap: 6px; }
-    .chart-frame { align-items: center; display: flex; justify-content: center; min-height: 255px; }
-    .chart-img { display: block; max-height: 255px; max-width: 100%; object-fit: contain; width: auto; height: auto; }
+    .stack { display: grid; gap: 5px; }
+    .chart-frame { align-items: center; display: flex; justify-content: center; min-height: 215px; }
+    .chart-img { display: block; max-height: 215px; max-width: 100%; object-fit: contain; width: auto; height: auto; }
     table { width: 100%; border-collapse: collapse; margin-top: 4px; table-layout: fixed; }
-    th, td { border-bottom: 1px solid #e5e7eb; padding: 3px 5px; text-align: left; vertical-align: top; }
-    th { background: #eff6ff; color: #075985; text-transform: uppercase; font-size: 9px; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 2px 4px; text-align: left; vertical-align: top; }
+    th { background: #eff6ff; color: #075985; text-transform: uppercase; font-size: 8px; }
     td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     .moment-table col.item { width: 34%; }
     .moment-table col.mass { width: 16%; }
@@ -1944,11 +1955,12 @@
     .bad-value { color: #b91c1c; font-weight: 800; }
     .status-text { white-space: pre-line; }
     .status-text span { font-weight: 800; }
-    .wx-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin: 5px 0 7px; }
-    .wx-cell { background: #fff; border: 1px solid #fde68a; border-radius: 5px; padding: 5px; line-height: 1.25; }
-    .wx-label { color: #92400e; font-size: 8.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
-    .wx-limits { color: #475569; font-size: 8.5px; margin-top: 3px; }
-    .footer { margin-top: 14px; font-size: 9px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 6px; }
+    .box.warn p { margin: 2px 0; }
+    .wx-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 3px 0 4px; }
+    .wx-cell { background: #fff; border: 1px solid #fde68a; border-radius: 5px; padding: 4px; line-height: 1.18; min-height: 42px; }
+    .wx-label { color: #92400e; font-size: 7.6px; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; }
+    .wx-limits { color: #475569; font-size: 8px; margin-top: 2px; }
+    .footer { margin-top: 8px; font-size: 8px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 4px; }
     @media print { .report-actions { display:none; } }
   </style>
 </head>
@@ -2041,11 +2053,11 @@
   <h2>Operational summary</h2>
   <div class="box warn">
     ${complianceText ? `<div class="compliance-alert">${escHtml(complianceText)}</div>` : ""}
-    ${renderStatusLine("W&B", getText("sumWb"))}
-    ${renderStatusLine("Take-off", getText("sumPerfTo"))}
-    ${renderStatusLine("Landing", getText("sumPerfLdg"))}
-    ${renderStatusLine("Wind", getText("sumWind"))}
-    <p><strong>OM-C weather minima:</strong></p>
+    ${renderCompactStatusLine("W&B", getText("sumWb"), 105)}
+    ${renderCompactStatusLine("Take-off", getText("sumPerfTo"), 115)}
+    ${renderCompactStatusLine("Landing", getText("sumPerfLdg"), 110)}
+    ${renderCompactStatusLine("Wind", getText("sumWind"), 115)}
+    <p><strong>OM-C weather minima:</strong> <span class="wx-limits">${escHtml(selectedOmCWeatherLimitsText())}</span></p>
     <div class="wx-grid">
       ${renderWeatherCell("Dep actual", "depWeatherMinimaStatus", "depWeatherMinimaDetail")}
       ${renderWeatherCell("Dep forecast", "depTafMinimaStatus", "depTafMinimaDetail", true)}
