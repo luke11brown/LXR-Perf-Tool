@@ -2165,31 +2165,34 @@
   <meta charset="utf-8">
   <title>${reportTitle}</title>
   <style>
-    @page { size: A4; margin: 9mm; }
+    @page { size: A4 landscape; margin: 6mm; }
     * { box-sizing: border-box; }
-    body { font-family: Roboto, Inter, "Segoe UI", Arial, sans-serif; color: #111827; margin: 0; font-size: 9.4px; }
-    h1 { color: #075985; font-size: 15px; margin: 0; letter-spacing: 0.04em; text-transform: uppercase; }
-    h2 { background: #e0f2fe; border-left: 4px solid #0284c7; color: #075985; font-size: 10px; margin: 7px 0 4px; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 6px; }
-    .report-header { align-items: start; border-bottom: 2px solid #bae6fd; display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-bottom: 4px; padding-bottom: 4px; }
-    .report-meta { color: #475569; font-size: 8px; line-height: 1.2; text-align: right; }
+    body { font-family: Roboto, Inter, "Segoe UI", Arial, sans-serif; color: #111827; margin: 0; font-size: 8.2px; }
+    h1 { color: #075985; font-size: 12px; margin: 0; letter-spacing: 0.04em; text-transform: uppercase; }
+    h2 { background: #e0f2fe; border-left: 4px solid #0284c7; color: #075985; font-size: 8.7px; margin: 5px 0 3px; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 5px; }
+    .a5-spread { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; min-height: calc(210mm - 12mm); position: relative; }
+    .a5-spread::before { background: #cbd5e1; bottom: 0; content: ""; left: 50%; position: absolute; top: 0; transform: translateX(-50%); width: 0.3mm; }
+    .a5-panel { display: flex; flex-direction: column; min-width: 0; padding: 0 1.5mm; }
+    .panel-header { align-items: start; border-bottom: 2px solid #bae6fd; display: grid; grid-template-columns: 1fr auto; gap: 6px; margin-bottom: 3px; padding-bottom: 3px; }
+    .report-meta { color: #475569; font-size: 7px; line-height: 1.2; text-align: right; }
     .report-actions { display: flex; justify-content: flex-end; margin-top: 5px; }
     .report-button { background: #0284c7; border: 0; border-radius: 5px; color: #fff; cursor: pointer; font: inherit; font-size: 9px; padding: 4px 9px; text-decoration: none; text-transform: uppercase; }
     .muted { color: #475569; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 11px; }
-    .box { background: #ffffff; border: 1px solid #bfdbfe; border-top: 3px solid #38bdf8; border-radius: 6px; padding: 5px; break-inside: avoid; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 4px; }
+    .box { background: #ffffff; border: 1px solid #bfdbfe; border-top: 3px solid #38bdf8; border-radius: 5px; padding: 4px; break-inside: avoid; }
     .box.wb { border-top-color: #22c55e; }
     .box.perf { border-top-color: #8b5cf6; }
     .box.warn { border-top-color: #f59e0b; background: #fffbeb; }
-    .compliance-alert { border: 1px solid #dc2626; border-radius: 6px; background: #fee2e2; color: #991b1b; font-weight: 700; margin-bottom: 8px; padding: 7px 8px; }
-    .kv { display: grid; grid-template-columns: 43% 57%; gap: 2px 7px; }
+    .compliance-alert { border: 1px solid #dc2626; border-radius: 5px; background: #fee2e2; color: #991b1b; font-weight: 700; margin-bottom: 5px; padding: 5px 6px; }
+    .kv { display: grid; grid-template-columns: 42% 58%; gap: 1px 5px; }
     .k { color: #475569; }
     .v { font-weight: 700; white-space: pre-line; }
-    .stack { display: grid; gap: 5px; }
-    .chart-frame { align-items: center; display: flex; justify-content: center; min-height: 215px; }
-    .chart-img { display: block; max-height: 215px; max-width: 100%; object-fit: contain; width: auto; height: auto; }
-    table { width: 100%; border-collapse: collapse; margin-top: 4px; table-layout: fixed; }
-    th, td { border-bottom: 1px solid #e5e7eb; padding: 2px 4px; text-align: left; vertical-align: top; }
-    th { background: #eff6ff; color: #075985; text-transform: uppercase; font-size: 8px; }
+    .stack { display: grid; gap: 4px; }
+    .chart-frame { align-items: center; display: flex; justify-content: center; min-height: 118px; }
+    .chart-img { display: block; max-height: 118px; max-width: 100%; object-fit: contain; width: auto; height: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 3px; table-layout: fixed; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 1px 3px; text-align: left; vertical-align: top; }
+    th { background: #eff6ff; color: #075985; text-transform: uppercase; font-size: 7px; }
     td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     .moment-table col.item { width: 34%; }
     .moment-table col.mass { width: 16%; }
@@ -2201,136 +2204,154 @@
     .bad { color: #b91c1c; font-weight: 700; }
     .warn-value { color: #b45309; font-weight: 800; }
     .bad-value { color: #b91c1c; font-weight: 800; }
-    .status-text { line-height: 1.32; white-space: pre-line; }
+    .status-text { line-height: 1.25; white-space: pre-line; }
     .status-text span { font-weight: 800; }
     .box.warn p { margin: 3px 0; }
-    .wx-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 3px 0 4px; }
-    .wx-cell { background: #fff; border: 1px solid #fde68a; border-radius: 5px; padding: 4px; line-height: 1.24; min-height: 42px; }
-    .wx-label { color: #92400e; font-size: 7.6px; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; }
+    .wx-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px; margin: 2px 0 3px; }
+    .wx-cell { background: #fff; border: 1px solid #fde68a; border-radius: 5px; padding: 3px; line-height: 1.2; min-height: 34px; }
+    .wx-label { color: #92400e; font-size: 6.8px; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; }
     .wx-limits { color: #475569; font-size: 8px; margin-top: 2px; }
-    .risk-report { margin-top: 5px; }
-    .risk-table { border-collapse: collapse; font-size: 7.9px; width: 100%; }
-    .risk-table th, .risk-table td { border-bottom: 1px solid #e5e7eb; padding: 2px 3px; text-align: left; vertical-align: top; }
-    .risk-table th { background: #eff6ff; color: #075985; font-size: 7px; text-transform: uppercase; }
+    .risk-report { margin-top: 3px; }
+    .risk-table { border-collapse: collapse; font-size: 7.1px; width: 100%; }
+    .risk-table th, .risk-table td { border-bottom: 1px solid #e5e7eb; padding: 1px 2px; text-align: left; vertical-align: top; }
+    .risk-table th { background: #eff6ff; color: #075985; font-size: 6.4px; text-transform: uppercase; }
     .risk-word { font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
     .risk-level-1 { color: #047857; }
     .risk-level-2 { color: #b45309; }
     .risk-level-3 { color: #c2410c; }
     .risk-level-4 { color: #b91c1c; }
     .risk-unassessed { color: #64748b; }
-    .risk-bands { color: #475569; font-size: 7.4px; line-height: 1.25; margin-top: 3px; }
-    .footer { margin-top: 8px; font-size: 8px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 4px; }
+    .risk-bands { color: #475569; font-size: 6.8px; line-height: 1.2; margin-top: 2px; }
+    .footer { margin-top: auto; font-size: 7px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 3px; }
+    p { margin: 3px 0; }
     @media print { .report-actions { display:none; } }
   </style>
 </head>
 <body>
-  <div class="report-header">
-    <h1>${reportTitle}</h1>
-    <div class="report-meta">
-      <div>Generated ${escHtml(now.toLocaleString())}</div>
-      <div>Unofficial helper. AFM and OM-C remain authoritative.</div>
-      <div class="report-actions">
-        <button class="report-button" onclick="window.print()">Print / save PDF</button>
+  <div class="a5-spread">
+    <section class="a5-panel">
+      <div class="panel-header">
+        <h1>${reportTitle}</h1>
+        <div class="report-meta">
+          <div>Generated ${escHtml(now.toLocaleString())}</div>
+          <div>Panel 1/2</div>
+          <div class="report-actions">
+            <button class="report-button" onclick="window.print()">Print / save PDF</button>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
 
-  <h2>Aircraft and loading</h2>
-  <div class="grid">
-    <div class="stack">
-      <div class="box wb kv">
-      <div class="k">Registration</div><div class="v">${escHtml(getSelectedText("regSelect"))}</div>
-      <div class="k">Empty aircraft</div><div class="v">${escHtml(getValue("emptyWeight"))} kg @ ${escHtml(getValue("emptyArm"))} mm</div>
-      <div class="k">Upholstery</div><div class="v">${escHtml(getValue("upholsteryWt"))} kg @ ${escHtml(getValue("upholsteryArm"))} mm</div>
-      <div class="k">Pilot</div><div class="v">${escHtml(getValue("pilotWt"))} kg @ ${escHtml(getValue("pilotArm"))} mm</div>
-      <div class="k">Passenger</div><div class="v">${escHtml(getValue("paxWt"))} kg @ ${escHtml(getValue("paxArm"))} mm</div>
-      <div class="k">Baggage</div><div class="v${classIfBad(bagBad)}">${escHtml(getValue("bagWt"))} kg @ 1580 mm</div>
-      <div class="k">Fuel</div><div class="v${classIfBad(fuelBad)}">${escHtml(getValue("fuelL"))} L / ${escHtml(getText("fuelKg")) || escHtml(getValue("fuelKg"))} kg (${escHtml(getSelectedText("fuelType"))})</div>
+      <h2>Aircraft and loading</h2>
+      <div class="grid">
+        <div class="stack">
+          <div class="box wb kv">
+          <div class="k">Registration</div><div class="v">${escHtml(getSelectedText("regSelect"))}</div>
+          <div class="k">Empty aircraft</div><div class="v">${escHtml(getValue("emptyWeight"))} kg @ ${escHtml(getValue("emptyArm"))} mm</div>
+          <div class="k">Upholstery</div><div class="v">${escHtml(getValue("upholsteryWt"))} kg @ ${escHtml(getValue("upholsteryArm"))} mm</div>
+          <div class="k">Pilot</div><div class="v">${escHtml(getValue("pilotWt"))} kg @ ${escHtml(getValue("pilotArm"))} mm</div>
+          <div class="k">Passenger</div><div class="v">${escHtml(getValue("paxWt"))} kg @ ${escHtml(getValue("paxArm"))} mm</div>
+          <div class="k">Baggage</div><div class="v${classIfBad(bagBad)}">${escHtml(getValue("bagWt"))} kg @ 1580 mm</div>
+          <div class="k">Fuel</div><div class="v${classIfBad(fuelBad)}">${escHtml(getValue("fuelL"))} L / ${escHtml(getText("fuelKg")) || escHtml(getValue("fuelKg"))} kg (${escHtml(getSelectedText("fuelType"))})</div>
+          </div>
+          <div class="box wb">
+          <table class="moment-table">
+            <colgroup>
+              <col class="item"><col class="mass"><col class="arm"><col class="moment">
+            </colgroup>
+            <thead><tr><th>Item</th><th class="num">Mass kg</th><th class="num">Arm mm</th><th class="num">Moment</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+            <tfoot>
+              <tr class="${towBad ? "bad-value" : ""}"><td><strong>Total with fuel</strong></td><td class="num">${escHtml(getText("mtMassTO"))}</td><td class="num">${escHtml(getText("mtArmTO"))}</td><td class="num">${escHtml(getText("mtMomTO"))}</td></tr>
+              <tr class="${lwBad ? "bad-value" : ""}"><td><strong>Total no fuel</strong></td><td class="num">${escHtml(getText("mtMassLW"))}</td><td class="num">${escHtml(getText("mtArmLW"))}</td><td class="num">${escHtml(getText("mtMomLW"))}</td></tr>
+            </tfoot>
+          </table>
+          <p class="${wbBad ? "bad-value" : "ok"}"><strong>W&amp;B status:</strong> ${escHtml(getText("wbStatusPill"))}</p>
+          </div>
+        </div>
+        <div class="box wb chart-frame">
+          ${cgChartImg ? `<img class="chart-img" src="${cgChartImg}" alt="Weight and balance envelope">` : `<div class="muted">W&amp;B chart unavailable.</div>`}
+        </div>
       </div>
-      <div class="box wb">
-      <table class="moment-table">
-        <colgroup>
-          <col class="item"><col class="mass"><col class="arm"><col class="moment">
-        </colgroup>
-        <thead><tr><th>Item</th><th class="num">Mass kg</th><th class="num">Arm mm</th><th class="num">Moment</th></tr></thead>
-        <tbody>${rowsHtml}</tbody>
-        <tfoot>
-          <tr class="${towBad ? "bad-value" : ""}"><td><strong>Total with fuel</strong></td><td class="num">${escHtml(getText("mtMassTO"))}</td><td class="num">${escHtml(getText("mtArmTO"))}</td><td class="num">${escHtml(getText("mtMomTO"))}</td></tr>
-          <tr class="${lwBad ? "bad-value" : ""}"><td><strong>Total no fuel</strong></td><td class="num">${escHtml(getText("mtMassLW"))}</td><td class="num">${escHtml(getText("mtArmLW"))}</td><td class="num">${escHtml(getText("mtMomLW"))}</td></tr>
-        </tfoot>
-      </table>
-      <p class="${wbBad ? "bad-value" : "ok"}"><strong>W&amp;B status:</strong> ${escHtml(getText("wbStatusPill"))}</p>
+
+      <h2>Conditions, runway and performance</h2>
+      <div class="grid">
+        <div class="box perf kv">
+          <div class="k">Departure runway</div><div class="v">${escHtml(formatRunwayLabel())}</div>
+          <div class="k">Surface</div><div class="v">${escHtml(depSurfaceText)}</div>
+          <div class="k">Elevation</div><div class="v">${escHtml(getValue("fieldElev"))} ft</div>
+          <div class="k">QNH</div><div class="v">${escHtml(getValue("qnh"))} hPa</div>
+          <div class="k">Pressure altitude</div><div class="v">${escHtml(getValue("pa"))} ft</div>
+          <div class="k">OAT / ISA dev</div><div class="v">${escHtml(getValue("oat"))} °C / ${escHtml(getValue("isaDev"))} °C</div>
+          <div class="k">Wind</div><div class="v${classIfBad(depWindBad)}">${escHtml((String(getValue("windDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("windDir")}°T`)} / ${escHtml(getValue("windSpd"))} kt</div>
+          <div class="k">Wind credit</div><div class="v${classIfBad(depWindBad)}">${escHtml(depWindComponentsText)}</div>
+          <div class="k">TORA / TODA / ASDA</div><div class="v">${escHtml(getText("declTora"))} / ${escHtml(getText("declToda"))} / ${escHtml(getText("declAsda"))}</div>
+        </div>
+        <div class="box perf kv">
+          <div class="k">TORR (AFM)</div><div class="v">${escHtml(getText("toRun"))} m</div>
+          <div class="k">TODR (AFM)</div><div class="v">${escHtml(getText("toDist"))} m</div>
+          <div class="k">TORR (OM-C)</div><div class="v${classIfBad(reqToraBad)}">${escHtml(requiredTorrReport)} m</div>
+          <div class="k">TODR / ASDR (OM-C)</div><div class="v${classIfBad(todaAsdaBad)}">${escHtml(getText("reqToda115"))} m / ${escHtml(getText("reqAsda130"))} m</div>
+          <div class="k">Rate of climb</div><div class="v">${escHtml(getText("roc"))} ft/min</div>
+        </div>
       </div>
-    </div>
-    <div class="box wb chart-frame">
-      ${cgChartImg ? `<img class="chart-img" src="${cgChartImg}" alt="Weight and balance envelope">` : `<div class="muted">W&amp;B chart unavailable.</div>`}
-    </div>
-  </div>
 
-  <h2>Conditions, runway and performance</h2>
-  <div class="grid">
-    <div class="box perf kv">
-      <div class="k">Departure runway</div><div class="v">${escHtml(formatRunwayLabel())}</div>
-      <div class="k">Surface</div><div class="v">${escHtml(depSurfaceText)}</div>
-      <div class="k">Elevation</div><div class="v">${escHtml(getValue("fieldElev"))} ft</div>
-      <div class="k">QNH</div><div class="v">${escHtml(getValue("qnh"))} hPa</div>
-      <div class="k">Pressure altitude</div><div class="v">${escHtml(getValue("pa"))} ft</div>
-      <div class="k">OAT / ISA dev</div><div class="v">${escHtml(getValue("oat"))} °C / ${escHtml(getValue("isaDev"))} °C</div>
-      <div class="k">Wind</div><div class="v${classIfBad(depWindBad)}">${escHtml((String(getValue("windDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("windDir")}°T`)} / ${escHtml(getValue("windSpd"))} kt</div>
-      <div class="k">Wind credit</div><div class="v${classIfBad(depWindBad)}">${escHtml(depWindComponentsText)}</div>
-      <div class="k">TORA / TODA / ASDA</div><div class="v">${escHtml(getText("declTora"))} / ${escHtml(getText("declToda"))} / ${escHtml(getText("declAsda"))}</div>
-    </div>
-    <div class="box perf kv">
-      <div class="k">Arrival runway</div><div class="v">${escHtml(formatArrivalRunwayLabel())}</div>
-      <div class="k">Surface</div><div class="v">${escHtml(arrSurfaceText)}</div>
-      <div class="k">Elevation</div><div class="v">${escHtml(getValue("arrFieldElev"))} ft</div>
-      <div class="k">QNH</div><div class="v">${escHtml(getValue("arrQnh"))} hPa</div>
-      <div class="k">Pressure altitude</div><div class="v">${escHtml(getValue("arrPa"))} ft</div>
-      <div class="k">OAT / ISA dev</div><div class="v">${escHtml(getValue("arrOat"))} °C / ${escHtml(getValue("arrIsaDev"))} °C</div>
-      <div class="k">Wind</div><div class="v${classIfBad(arrWindBad)}">${escHtml((String(getValue("arrWindDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("arrWindDir")}°T`)} / ${escHtml(getValue("arrWindSpd"))} kt</div>
-      <div class="k">Wind credit</div><div class="v${classIfBad(arrWindBad)}">${escHtml(arrWindComponentsText)}</div>
-      <div class="k">LDA</div><div class="v">${escHtml(getText("declLda"))}</div>
-    </div>
-  </div>
+      <div class="footer">This PDF is a snapshot of the app data. It is not an AFM replacement.</div>
+    </section>
 
-  <div class="grid">
-    <div class="box perf kv">
-      <div class="k">TORR (AFM)</div><div class="v">${escHtml(getText("toRun"))} m</div>
-      <div class="k">TODR (AFM)</div><div class="v">${escHtml(getText("toDist"))} m</div>
-      <div class="k">TORR (OM-C)</div><div class="v${classIfBad(reqToraBad)}">${escHtml(requiredTorrReport)} m</div>
-      <div class="k">TODR / ASDR (OM-C)</div><div class="v${classIfBad(todaAsdaBad)}">${escHtml(getText("reqToda115"))} m / ${escHtml(getText("reqAsda130"))} m</div>
-      <div class="k">Rate of climb</div><div class="v">${escHtml(getText("roc"))} ft/min</div>
-    </div>
-    <div class="box perf kv">
-      <div class="k">LDR dry (AFM)</div><div class="v">${escHtml(getText("ldgDistDry"))} m</div>
-      <div class="k">LDR wet (AFM)</div><div class="v">${escHtml(getText("ldgDistWet"))} m</div>
-      <div class="k">LDR dry (OM-C)</div><div class="v${classIfBad(ldaDryBad)}">${escHtml(getText("reqLdaDry"))} m</div>
-      <div class="k">LDR wet (OM-C)</div><div class="v${classIfBad(ldaWetBad)}">${escHtml(getText("reqLdaWet"))} m</div>
-    </div>
-  </div>
+    <section class="a5-panel">
+      <div class="panel-header">
+        <h1>${reportTitle}</h1>
+        <div class="report-meta">
+          <div>Generated ${escHtml(now.toLocaleString())}</div>
+          <div>Panel 2/2</div>
+        </div>
+      </div>
 
-  <h2>Operational summary</h2>
-  <div class="box warn">
-    ${complianceText ? `<div class="compliance-alert">${escHtml(complianceText)}</div>` : ""}
-    ${renderCompactStatusLine("W&B", getText("sumWb"), 105)}
-    ${renderCompactStatusLine("Take-off", getText("sumPerfTo"), 115)}
-    ${renderCompactStatusLine("Landing", getText("sumPerfLdg"), 110)}
-    ${renderCompactStatusLine("Wind", getText("sumWind"), 115)}
-    <p><strong>OM-C weather minima:</strong> <span class="wx-limits">${escHtml(selectedOmCWeatherLimitsText())}</span></p>
-    <div class="wx-grid">
-      ${renderWeatherCell("Dep actual", "depWeatherMinimaStatus", "depWeatherMinimaDetail")}
-      ${renderWeatherCell("Dep forecast", "depTafMinimaStatus", "depTafMinimaDetail", true)}
-      ${renderWeatherCell("Arr actual", "arrWeatherMinimaStatus", "arrWeatherMinimaDetail")}
-      ${renderWeatherCell("Arr forecast", "arrTafMinimaStatus", "arrTafMinimaDetail", true)}
-    </div>
-    <div class="risk-report">
-      <p><strong>OM-C aerodrome RA:</strong> ${escHtml(getText("omcRiskStatus"))}</p>
-      ${document.getElementById("omcRiskDetail")?.innerHTML || ""}
-      <p class="muted">${escHtml(getText("omcRiskOmitted"))}</p>
-    </div>
-  </div>
+      <h2>Arrival and landing</h2>
+      <div class="grid">
+        <div class="box perf kv">
+          <div class="k">Arrival runway</div><div class="v">${escHtml(formatArrivalRunwayLabel())}</div>
+          <div class="k">Surface</div><div class="v">${escHtml(arrSurfaceText)}</div>
+          <div class="k">Elevation</div><div class="v">${escHtml(getValue("arrFieldElev"))} ft</div>
+          <div class="k">QNH</div><div class="v">${escHtml(getValue("arrQnh"))} hPa</div>
+          <div class="k">Pressure altitude</div><div class="v">${escHtml(getValue("arrPa"))} ft</div>
+          <div class="k">OAT / ISA dev</div><div class="v">${escHtml(getValue("arrOat"))} °C / ${escHtml(getValue("arrIsaDev"))} °C</div>
+          <div class="k">Wind</div><div class="v${classIfBad(arrWindBad)}">${escHtml((String(getValue("arrWindDir")).trim().toUpperCase() === "VRB") ? "VRB" : `${getValue("arrWindDir")}°T`)} / ${escHtml(getValue("arrWindSpd"))} kt</div>
+          <div class="k">Wind credit</div><div class="v${classIfBad(arrWindBad)}">${escHtml(arrWindComponentsText)}</div>
+          <div class="k">LDA</div><div class="v">${escHtml(getText("declLda"))}</div>
+        </div>
+        <div class="box perf kv">
+          <div class="k">LDR dry (AFM)</div><div class="v">${escHtml(getText("ldgDistDry"))} m</div>
+          <div class="k">LDR wet (AFM)</div><div class="v">${escHtml(getText("ldgDistWet"))} m</div>
+          <div class="k">LDR dry (OM-C)</div><div class="v${classIfBad(ldaDryBad)}">${escHtml(getText("reqLdaDry"))} m</div>
+          <div class="k">LDR wet (OM-C)</div><div class="v${classIfBad(ldaWetBad)}">${escHtml(getText("reqLdaWet"))} m</div>
+        </div>
+      </div>
 
-  <div class="footer">This PDF is a snapshot of the app data. It is not an AFM replacement.</div>
+      <h2>Operational summary</h2>
+      <div class="box warn">
+        ${complianceText ? `<div class="compliance-alert">${escHtml(complianceText)}</div>` : ""}
+        ${renderCompactStatusLine("W&B", getText("sumWb"), 105)}
+        ${renderCompactStatusLine("Take-off", getText("sumPerfTo"), 115)}
+        ${renderCompactStatusLine("Landing", getText("sumPerfLdg"), 110)}
+        ${renderCompactStatusLine("Wind", getText("sumWind"), 115)}
+        <p><strong>OM-C weather minima:</strong> <span class="wx-limits">${escHtml(selectedOmCWeatherLimitsText())}</span></p>
+        <div class="wx-grid">
+          ${renderWeatherCell("Dep actual", "depWeatherMinimaStatus", "depWeatherMinimaDetail")}
+          ${renderWeatherCell("Dep forecast", "depTafMinimaStatus", "depTafMinimaDetail", true)}
+          ${renderWeatherCell("Arr actual", "arrWeatherMinimaStatus", "arrWeatherMinimaDetail")}
+          ${renderWeatherCell("Arr forecast", "arrTafMinimaStatus", "arrTafMinimaDetail", true)}
+        </div>
+        <div class="risk-report">
+          <p><strong>OM-C aerodrome RA:</strong> ${escHtml(getText("omcRiskStatus"))}</p>
+          ${document.getElementById("omcRiskDetail")?.innerHTML || ""}
+          <p class="muted">${escHtml(getText("omcRiskOmitted"))}</p>
+        </div>
+      </div>
+
+      <div class="footer">This PDF is a snapshot of the app data. It is not an AFM replacement.</div>
+    </section>
+  </div>
 </body>
 </html>`;
 
