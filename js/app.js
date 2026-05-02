@@ -2163,6 +2163,7 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${reportTitle}</title>
   <style>
     @page { size: A4 landscape; margin: 6mm; }
@@ -2225,6 +2226,15 @@
     .footer { margin-top: auto; font-size: 7px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 3px; }
     p { margin: 3px 0; }
     @media print { .report-actions { display:none; } }
+    @supports (-webkit-touch-callout: none) {
+      @media print {
+        .a5-spread {
+          transform: scale(0.85);
+          transform-origin: top left;
+          width: 117.65%;
+        }
+      }
+    }
   </style>
 </head>
 <body>
