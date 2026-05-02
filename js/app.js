@@ -2188,8 +2188,8 @@
     .k { color: #475569; }
     .v { font-weight: 700; white-space: pre-line; }
     .stack { display: grid; gap: 4px; }
-    .chart-frame { align-items: center; display: flex; justify-content: center; min-height: 118px; }
-    .chart-img { display: block; max-height: 118px; max-width: 100%; object-fit: contain; width: auto; height: auto; }
+    .chart-frame { align-items: center; display: flex; justify-content: center; min-height: 160px; overflow: hidden; padding-left: 1px; padding-right: 1px; }
+    .chart-img { display: block; height: 154px; max-width: 91%; object-fit: fill; transform: scaleX(1.1); transform-origin: center; width: 91%; }
     table { width: 100%; border-collapse: collapse; margin-top: 3px; table-layout: fixed; }
     th, td { border-bottom: 1px solid #e5e7eb; padding: 1px 3px; text-align: left; vertical-align: top; }
     th { background: #eff6ff; color: #075985; text-transform: uppercase; font-size: 7px; }
@@ -2273,7 +2273,7 @@
         </div>
       </div>
 
-      <h2>Conditions, runway and performance</h2>
+      <h2>Departure performance</h2>
       <div class="grid">
         <div class="box perf kv">
           <div class="k">Departure runway</div><div class="v">${escHtml(formatRunwayLabel())}</div>
@@ -2307,7 +2307,7 @@
         </div>
       </div>
 
-      <h2>Arrival and landing</h2>
+      <h2>Arrival performance</h2>
       <div class="grid">
         <div class="box perf kv">
           <div class="k">Arrival runway</div><div class="v">${escHtml(formatArrivalRunwayLabel())}</div>
