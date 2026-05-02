@@ -43,6 +43,21 @@
       text-align: center;
     }
 
+    .brand-lockup {
+      align-items: center;
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+    }
+
+    .brand-mark {
+      display: block;
+      filter: drop-shadow(0 0 14px rgba(56, 189, 248, 0.16));
+      flex: 0 0 auto;
+      height: 44px;
+      width: 44px;
+    }
+
     h1 {
       margin: 0;
       font-size: clamp(1.5rem, 4vw, 2rem);
@@ -1094,6 +1109,14 @@
 
     @media (max-width: 640px) {
       body { padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
+      .brand-lockup {
+        flex-direction: column;
+        gap: 0.45rem;
+      }
+      .brand-mark {
+        height: 40px;
+        width: 40px;
+      }
       .sticky-calc-footer {
         padding: 0.5rem 0.8rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
       }
