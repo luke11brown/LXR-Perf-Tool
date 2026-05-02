@@ -2228,16 +2228,16 @@
     @media print { .report-actions { display:none; } }
     @supports (-webkit-touch-callout: none) {
       @media print {
-        @page { size: A4 landscape; margin: 0; }
         body {
-          margin: 0;
-          padding: 0;
+          overflow: visible;
         }
         .a5-spread {
-          height: 210mm;
-          min-height: 210mm;
-          padding: 6mm;
-          width: 297mm;
+          gap: 6mm;
+          left: 50%;
+          min-height: 226mm;
+          position: relative;
+          transform: translateX(-50%);
+          width: 320mm;
         }
       }
     }
