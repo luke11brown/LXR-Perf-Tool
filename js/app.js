@@ -2229,9 +2229,7 @@
     @supports (-webkit-touch-callout: none) {
       @media print {
         .a5-spread {
-          transform: scale(0.85);
-          transform-origin: top left;
-          width: 117.65%;
+          zoom: 0.85;
         }
       }
     }
