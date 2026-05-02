@@ -2226,21 +2226,6 @@
     .footer { margin-top: auto; font-size: 7px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 3px; }
     p { margin: 3px 0; }
     @media print { .report-actions { display:none; } }
-    @supports (-webkit-touch-callout: none) {
-      @media print {
-        body {
-          overflow: visible;
-        }
-        .a5-spread {
-          gap: 6mm;
-          left: 50%;
-          min-height: 226mm;
-          position: relative;
-          transform: translateX(-50%);
-          width: 320mm;
-        }
-      }
-    }
   </style>
 </head>
 <body>
