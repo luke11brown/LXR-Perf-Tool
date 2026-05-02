@@ -53,7 +53,7 @@
     <linearGradient id="New_Gradient_Swatch_11" data-name="New Gradient Swatch 1" x1="14.17" y1="33.07" x2="145.29" y2="33.07" xlink:href="#New_Gradient_Swatch_1"/>
   </defs>
   <g id="bg">
-    <rect class="st6" width="160" height="160"/>
+    <rect class="st6" width="160" height="160" rx="35.1" ry="35.1"/>
   </g>
   <g id="circle">
     <path class="st11" d="M13.01,100.38c8.72,28.72,35.42,49.62,66.99,49.62s57.66-20.43,66.69-48.65"/>
