@@ -864,6 +864,32 @@
       return ifrMinima.low_ir || {};
     }
 
+    function weatherFactorText(factor) {
+      if (factor.required) return `${factor.label}: ${factor.actual} ${factor.symbol} ${factor.required}`;
+      return `${factor.label}: ${factor.actual}`;
+    }
+
+    function renderWeatherFactors(factors) {
+      return factors.map((factor) => {
+        const className = factor.pass === true ? "ok" : (factor.pass === false ? "warn" : "info");
+        return `<span class="weather-factor ${className}">${escHtml(weatherFactorText(factor))}</span>`;
+      }).join(" ");
+    }
+
+    function renderWeatherDetail(factors, limitsText) {
+      return `${renderWeatherFactors(factors)} <span class="weather-limits">Limits: ${escHtml(limitsText)}.</span>`;
+    }
+
+    function renderTafGroups(groups, limitsText) {
+      const groupsHtml = groups.map((group) => `
+        <span class="weather-group">
+          <span class="weather-group-label">${escHtml(group.label)}</span>
+          ${renderWeatherFactors(group.factors)}
+        </span>
+      `).join(" ");
+      return `${groupsHtml} <span class="weather-limits">Limits: ${escHtml(limitsText)}.</span>`;
+    }
+
     function assessWeatherMinima({ phase, metar, windSpd, crosswind }) {
       const flightRules = document.getElementById("flightRules")?.value || "vfr";
       const vfrPhase = document.getElementById("vfrPhase")?.value || "circuit";
@@ -885,7 +911,7 @@
       const ceilingFt = metar.cloudCeilingFt;
       const noCeilingReported = ceilingFt === null && (metar.cloudLayers || []).length > 0;
       const xwindKt = Math.abs(crosswind);
-      const checks = [];
+      const factors = [];
       let ok = true;
 
       function addCheck(label, actual, required, pass, comparator = "min") {
@@ -894,9 +920,9 @@
         const symbol = pass ? passSymbol : failSymbol;
         const prefix = comparator === "max" ? "max " : "min ";
         if (/unknown|no ceiling reported/i.test(String(actual))) {
-          checks.push(`${label}: ${actual} (${prefix}${required})`);
+          factors.push({ label, actual: `${actual} (${prefix}${required})`, pass: /no ceiling reported/i.test(String(actual)) ? pass : null });
         } else {
-          checks.push(`${label}: ${actual} ${symbol} ${required}`);
+          factors.push({ label, actual, symbol, required, pass });
         }
         if (!pass) ok = false;
       }
@@ -921,9 +947,11 @@
           const excessiveLowLayer = (metar.cloudLayers || []).some(layer =>
             layer.heightFt !== null && layer.heightFt < mins.ceilingFt && ["SCT", "BKN", "OVC", "VV"].includes(layer.amount)
           );
-          checks.push(excessiveLowLayer
-            ? `Cloud layer: more than FEW below ${mins.ceilingFt} ft`
-            : `Cloud layer: no more than FEW below ${mins.ceilingFt} ft`);
+          factors.push({
+            label: "Cloud layer",
+            actual: excessiveLowLayer ? `more than FEW below ${mins.ceilingFt} ft` : `no more than FEW below ${mins.ceilingFt} ft`,
+            pass: !excessiveLowLayer,
+          });
           if (excessiveLowLayer) ok = false;
         }
         const vfrPhaseLabel = vfrPhase === "circuit" ? "circuit" : "solo navigation";
@@ -933,24 +961,24 @@
         const ceilingMin = mins.takeoffCeilingFt;
         const visibilityMin = mins.takeoffVisibilityKm;
         if (isArrivalPhase) {
-          checks.push(mins.arrivalNote || "Approach: verify published approach minima/RVR.");
+          factors.push({ label: "Approach", actual: mins.arrivalNote || "verify published approach minima/RVR", pass: null });
         } else {
           if (ceilingMin !== null) {
             addCheck("Take-off ceiling", noCeilingReported ? "no ceiling reported" : (ceilingFt === null ? "unknown" : `${round(ceilingFt, 0)} ft`), `${ceilingMin} ft`, noCeilingReported || (ceilingFt !== null && ceilingFt >= ceilingMin));
           } else {
-            checks.push("Take-off ceiling: check published minima for MEP.");
+            factors.push({ label: "Take-off ceiling", actual: "check published minima for MEP", pass: null });
           }
           if (visibilityMin !== null) {
             addCheck("Take-off visibility", formatVisibilityKm(metar.visibilityM), `${visibilityMin} km`, visibilityKm !== null && visibilityKm >= visibilityMin);
           } else {
-            checks.push("Take-off visibility: check published minima for MEP.");
+            factors.push({ label: "Take-off visibility", actual: "check published minima for MEP", pass: null });
           }
         }
         statusEl.textContent = `${ok ? "OK" : "CHECK"} - ${phaseLabel} IFR ${isArrivalPhase ? "OM-C weather minima where assessable from METAR" : "OM-C take-off minima where assessable from METAR"}.`;
       }
 
       statusEl.className = ok ? "res-main summary-line-ok" : "res-main summary-line-warn";
-      detailEl.textContent = `${checks.join(" | ")} | Limits: ${selectedOmCWeatherLimitsText()}.`;
+      detailEl.innerHTML = renderWeatherDetail(factors, selectedOmCWeatherLimitsText());
       return { ok, assessed: true, text: `${statusEl.textContent} ${detailEl.textContent}` };
     }
 
@@ -983,6 +1011,7 @@
       const horizon = new Date(now.getTime() + TAF_ADVISORY_HOURS * 3600000);
       const relevantGroups = taf.groups.filter(group => group.end > now && group.start < horizon);
       const risks = [];
+      const tafGroups = [];
       const flightRules = document.getElementById("flightRules")?.value || "vfr";
       const mins = selectedVfrMinima();
       const ifrMins = selectedIfrMinima();
@@ -993,31 +1022,47 @@
         const parsed = parseMetar(text);
         const label = group.type === "BASE" ? "Prevailing" : group.type;
         const groupRisks = [];
+        const groupFactors = [];
         const hasWind = /\b(VRB|\d{3})\d{2,3}(?:G\d{2,3})?(KT|MPS)\b/.test(text);
         if (hasWind && parsed.windSpeed !== null) {
           const wind = computeWindComponentsForHeading(parsed.windDir, parsed.windSpeed, runwayHeading);
           const xwindKt = Math.abs(wind.crosswind);
           if (flightRules === "vfr" && mins) {
-            if (xwindKt > mins.xwindKt) groupRisks.push(`XWC ${round(xwindKt, 1)} kt > ${mins.xwindKt} kt`);
-            if (parsed.windSpeed > mins.maxWindKt) groupRisks.push(`surface wind ${round(parsed.windSpeed, 1)} kt > ${mins.maxWindKt} kt`);
+            const xwindPass = xwindKt <= mins.xwindKt;
+            const windPass = parsed.windSpeed <= mins.maxWindKt;
+            groupFactors.push({ label: "XWC", actual: `${round(xwindKt, 1)} kt`, symbol: xwindPass ? "≤" : ">", required: `${mins.xwindKt} kt`, pass: xwindPass });
+            groupFactors.push({ label: "Surface wind", actual: `${round(parsed.windSpeed, 1)} kt`, symbol: windPass ? "≤" : ">", required: `${mins.maxWindKt} kt`, pass: windPass });
+            if (!xwindPass) groupRisks.push(`XWC ${round(xwindKt, 1)} kt > ${mins.xwindKt} kt`);
+            if (!windPass) groupRisks.push(`surface wind ${round(parsed.windSpeed, 1)} kt > ${mins.maxWindKt} kt`);
           }
         }
         if (flightRules === "vfr" && mins) {
-          if (parsed.visibilityM !== null && parsed.visibilityM / 1000 < mins.visibilityKm) {
-            groupRisks.push(`visibility ${formatVisibilityKm(parsed.visibilityM)} < ${mins.visibilityKm} km`);
+          if (parsed.visibilityM !== null) {
+            const visPass = parsed.visibilityM / 1000 >= mins.visibilityKm;
+            groupFactors.push({ label: "Visibility", actual: formatVisibilityKm(parsed.visibilityM), symbol: visPass ? "≥" : "<", required: `${mins.visibilityKm} km`, pass: visPass });
+            if (!visPass) groupRisks.push(`visibility ${formatVisibilityKm(parsed.visibilityM)} < ${mins.visibilityKm} km`);
           }
-          if (parsed.cloudCeilingFt !== null && parsed.cloudCeilingFt < mins.ceilingFt) {
-            groupRisks.push(`ceiling ${round(parsed.cloudCeilingFt, 0)} ft < ${mins.ceilingFt} ft`);
+          if (parsed.cloudCeilingFt !== null) {
+            const ceilingPass = parsed.cloudCeilingFt >= mins.ceilingFt;
+            groupFactors.push({ label: "Ceiling", actual: `${round(parsed.cloudCeilingFt, 0)} ft`, symbol: ceilingPass ? "≥" : "<", required: `${mins.ceilingFt} ft`, pass: ceilingPass });
+            if (!ceilingPass) groupRisks.push(`ceiling ${round(parsed.cloudCeilingFt, 0)} ft < ${mins.ceilingFt} ft`);
           }
         } else if (flightRules === "ifr" && !isArrival) {
           const ceilingMin = ifrMins.takeoffCeilingFt;
           const visibilityMin = ifrMins.takeoffVisibilityKm;
-          if (visibilityMin !== null && parsed.visibilityM !== null && parsed.visibilityM / 1000 < visibilityMin) {
-            groupRisks.push(`visibility ${formatVisibilityKm(parsed.visibilityM)} < ${visibilityMin} km`);
+          if (visibilityMin !== null && parsed.visibilityM !== null) {
+            const visPass = parsed.visibilityM / 1000 >= visibilityMin;
+            groupFactors.push({ label: "Visibility", actual: formatVisibilityKm(parsed.visibilityM), symbol: visPass ? "≥" : "<", required: `${visibilityMin} km`, pass: visPass });
+            if (!visPass) groupRisks.push(`visibility ${formatVisibilityKm(parsed.visibilityM)} < ${visibilityMin} km`);
           }
-          if (ceilingMin !== null && parsed.cloudCeilingFt !== null && parsed.cloudCeilingFt < ceilingMin) {
-            groupRisks.push(`ceiling ${round(parsed.cloudCeilingFt, 0)} ft < ${ceilingMin} ft`);
+          if (ceilingMin !== null && parsed.cloudCeilingFt !== null) {
+            const ceilingPass = parsed.cloudCeilingFt >= ceilingMin;
+            groupFactors.push({ label: "Ceiling", actual: `${round(parsed.cloudCeilingFt, 0)} ft`, symbol: ceilingPass ? "≥" : "<", required: `${ceilingMin} ft`, pass: ceilingPass });
+            if (!ceilingPass) groupRisks.push(`ceiling ${round(parsed.cloudCeilingFt, 0)} ft < ${ceilingMin} ft`);
           }
+        }
+        if (groupFactors.length > 0) {
+          tafGroups.push({ label, factors: groupFactors });
         }
         if (groupRisks.length > 0) {
           risks.push(`${label}: ${groupRisks.join(", ")}`);
@@ -1028,74 +1073,44 @@
         const text = `CHECK - ${phase} TAF indicates possible OM-C minima risk within ${TAF_ADVISORY_HOURS} hours.`;
         statusEl.textContent = text;
         statusEl.className = "res-main summary-line-warn";
-        detailEl.textContent = `${risks.join(" | ")} | Limits: ${selectedOmCWeatherLimitsText()}.`;
+        detailEl.innerHTML = tafGroups.length > 0
+          ? renderTafGroups(tafGroups, selectedOmCWeatherLimitsText())
+          : `${escHtml(risks.join(" | "))} <span class="weather-limits">Limits: ${escHtml(selectedOmCWeatherLimitsText())}.</span>`;
         return { ok: false, assessed: true, text: `${text} ${detailEl.textContent}` };
       }
 
       const text = `OK - ${phase} TAF has no parsed OM-C minima risk within ${TAF_ADVISORY_HOURS} hours.`;
       statusEl.textContent = text;
       statusEl.className = "res-main summary-line-ok";
-      detailEl.textContent = relevantGroups.length > 0
-        ? `${relevantGroups.length} TAF group(s) reviewed. TEMPO/PROB groups remain advisory. Limits: ${selectedOmCWeatherLimitsText()}.`
-        : `No TAF groups overlap the next ${TAF_ADVISORY_HOURS} hours. Limits: ${selectedOmCWeatherLimitsText()}.`;
+      detailEl.innerHTML = tafGroups.length > 0
+        ? `${renderTafGroups(tafGroups, selectedOmCWeatherLimitsText())} <span class="weather-limits">TEMPO/PROB groups remain advisory.</span>`
+        : `${relevantGroups.length > 0 ? `${relevantGroups.length} TAF group(s) reviewed; no parsed minima factors found.` : `No TAF groups overlap the next ${TAF_ADVISORY_HOURS} hours.`} <span class="weather-limits">Limits: ${escHtml(selectedOmCWeatherLimitsText())}.</span>`;
       return { ok: true, assessed: true, text: `${text} ${detailEl.textContent}` };
     }
 
-    const RISK_LEVELS = {
-      1: { label: "LOW", className: "risk-level-1" },
-      2: { label: "MEDIUM", className: "risk-level-2" },
-      3: { label: "HIGH", className: "risk-level-3" },
-      4: { label: "SEVERE", className: "risk-level-4" },
-    };
-    const OM_AIRPORT_RISK_FACTOR_COUNT = 7;
-
-    const WEATHER_RISK_BANDS = "Weather is one OM-C factor, not separate observed/forecast scores. LOW: CAVOK/Vis >=10 km, ceiling >=5000 ft or none, wind <=10 kt, XWC <=10 kt. MEDIUM: not LOW but Vis >=5 km, ceiling >=1500 ft or none, wind <=25 kt, XWC within AFM demonstrated limit. HIGH: Vis 1.5-5 km, ceiling 500-1500 ft, or wind 25-40 kt. SEVERE: Vis <1.5 km, ceiling <500 ft, wind >40 kt, or XWC above AFM demonstrated limit.";
-
     function runwayLengthRisk(lengthM) {
       if (!Number.isFinite(lengthM) || lengthM <= 0) {
-        return { level: null, label: "Runway length", detail: "Not assessed - declared distance unavailable." };
+        return { label: "Runway length", detail: "Not assessed - declared distance unavailable." };
       }
-      if (lengthM > 1300) return { level: 1, label: "Runway length", detail: `${round(lengthM, 0)} m > 1300 m.` };
-      if (lengthM > 800) return { level: 2, label: "Runway length", detail: `${round(lengthM, 0)} m > 800 m.` };
-      if (lengthM >= 600) return { level: 3, label: "Runway length", detail: `${round(lengthM, 0)} m between 600 and 800 m.` };
-      return { level: 4, label: "Runway length", detail: `${round(lengthM, 0)} m < 600 m.` };
+      if (lengthM > 1300) return { label: "Runway length", detail: `${round(lengthM, 0)} m > 1300 m.` };
+      if (lengthM > 800) return { label: "Runway length", detail: `${round(lengthM, 0)} m > 800 m.` };
+      if (lengthM >= 600) return { label: "Runway length", detail: `${round(lengthM, 0)} m between 600 and 800 m.` };
+      return { label: "Runway length", detail: `${round(lengthM, 0)} m < 600 m.` };
     }
 
     function surfaceRisk(surfaceKey, surfaceCfg) {
       const parsed = splitSurfaceKey(surfaceKey);
       const label = surfaceCfg?.label || surfaceKey || "Surface";
       if (parsed.base === "grass" && parsed.condition === "wet") {
-        return { level: 3, label: "Paved/grass surface", detail: `${label}: wet grass treated as OM-C Level 3.` };
+        return { label: "Paved/grass surface", detail: `${label}: wet grass. Review against the OM aerodrome category criteria.` };
       }
       if (parsed.base === "grass") {
-        return { level: 2, label: "Paved/grass surface", detail: `${label}: grass surface treated as OM-C Level 2 unless wet.` };
+        return { label: "Paved/grass surface", detail: `${label}: grass surface. Review against the OM aerodrome category criteria.` };
       }
       if (parsed.condition === "wet") {
-        return { level: 2, label: "Paved/grass surface", detail: `${label}: wet paved surface treated as OM-C Level 2.` };
+        return { label: "Paved/grass surface", detail: `${label}: wet paved surface. Review against the OM aerodrome category criteria.` };
       }
-      return { level: 1, label: "Paved/grass surface", detail: `${label}: paved dry surface.` };
-    }
-
-    function parsedWeatherRisk(parsed, runwayHeading) {
-      if (!parsed) return null;
-      const windSpd = Number(parsed.windSpeed) || 0;
-      const wind = parsed.windDir
-        ? computeWindComponentsForHeading(parsed.windDir, windSpd, runwayHeading)
-        : { crosswind: 0, windIsVRB: false };
-      const xwind = Math.abs(wind.crosswind || 0);
-      const visibilityM = parsed.visibilityM;
-      const ceilingFt = parsed.cloudCeilingFt;
-
-      if (windSpd > MAX_WIND || (!wind.windIsVRB && xwind > MAX_XWIND) || (visibilityM !== null && visibilityM < 1500) || (ceilingFt !== null && ceilingFt < 500)) {
-        return 4;
-      }
-      if ((visibilityM !== null && visibilityM < 5000) || (ceilingFt !== null && ceilingFt < 1500) || windSpd > 25) {
-        return 3;
-      }
-      if (!parsed.cavok || windSpd > 10 || (ceilingFt !== null && ceilingFt < 5000) || (visibilityM !== null && visibilityM < 9999)) {
-        return 2;
-      }
-      return 1;
+      return { label: "Paved/grass surface", detail: `${label}: paved dry surface.` };
     }
 
     function weatherRiskReason(parsed, runwayHeading) {
@@ -1118,17 +1133,16 @@
 
     function actualWeatherRisk(label, metar, runwayHeading) {
       if (!metar) {
-        return { level: null, label, detail: "Not assessed - fetch METAR for actual weather." };
+        return { label, detail: "Not assessed - fetch METAR for actual weather." };
       }
-      const level = parsedWeatherRisk(metar, runwayHeading);
-      const detail = level === 1
+      const detail = metar.cavok
         ? `CAVOK or equivalent benign conditions parsed. ${weatherRiskReason(metar, runwayHeading)}.`
         : `${weatherRiskReason(metar, runwayHeading)}.`;
-      return { level, label, detail };
+      return { label, detail };
     }
 
     function forecastWeatherRisk(taf, runwayHeading) {
-      if (!taf) return { level: null, detail: "TAF not assessed." };
+      if (!taf) return { detail: "TAF not assessed." };
       const now = new Date();
       const horizon = new Date(now.getTime() + TAF_ADVISORY_HOURS * 3600000);
       const relevantGroups = taf.groups.filter(group => group.end > now && group.start < horizon);
@@ -1136,106 +1150,52 @@
         group,
         parsed: parseMetar(group.tokens.join(" ")),
       }));
-      const levelEntries = parsedGroups
-        .map(({ group, parsed }) => ({
-          group,
-          parsed,
-          level: parsedWeatherRisk(parsed, runwayHeading),
-        }))
-        .filter(entry => entry.level !== null);
-      const level = levelEntries.length > 0 ? Math.max(...levelEntries.map(entry => entry.level)) : 1;
-      const worst = levelEntries.find(entry => entry.level === level);
-      const detail = `${relevantGroups.length} TAF group(s) reviewed within ${TAF_ADVISORY_HOURS} hours.${worst ? ` Worst forecast: ${weatherRiskReason(worst.parsed, runwayHeading)}.` : ""}`;
-      return { level, detail };
+      const parsedDetails = parsedGroups
+        .map(({ group, parsed }) => `${group.type === "BASE" ? "Prevailing" : group.type}: ${weatherRiskReason(parsed, runwayHeading)}`)
+        .join(" | ");
+      const detail = `${relevantGroups.length} TAF group(s) reviewed within ${TAF_ADVISORY_HOURS} hours.${parsedDetails ? ` ${parsedDetails}.` : ""}`;
+      return { detail };
     }
 
     function combinedWeatherRisk(label, metar, taf, runwayHeading) {
       const actual = metar
         ? actualWeatherRisk("Actual weather", metar, runwayHeading)
-        : { level: null, detail: "METAR not assessed." };
+        : { detail: "METAR not assessed." };
       const forecast = forecastWeatherRisk(taf, runwayHeading);
-      const levels = [actual.level, forecast.level].filter(level => level !== null);
-      if (levels.length === 0) return { level: null, label, detail: "Not assessed - fetch METAR or TAF for weather." };
-      const level = Math.max(...levels);
       return {
-        level,
         label,
         detail: `METAR: ${actual.detail} Forecast advisory: ${forecast.detail}`,
       };
-    }
-
-    function riskBadgeHtml(level) {
-      const meta = level ? RISK_LEVELS[level] : null;
-      return meta
-        ? `<span class="risk-word ${meta.className}">${meta.label}</span>`
-        : `<span class="risk-word risk-unassessed">N/A</span>`;
     }
 
     function renderRiskAssessment({ depItems, arrItems }) {
       const groups = [
         { phase: "Departure", items: depItems },
         { phase: "Arrival", items: arrItems },
-      ].map(group => {
-        const scoredLevels = group.items.map(item => item.level).filter(level => level !== null);
-        const assessedScore = scoredLevels.reduce((sum, level) => sum + level, 0);
-        const omittedAssumedLow = Math.max(0, OM_AIRPORT_RISK_FACTOR_COUNT - scoredLevels.length);
-        const score = assessedScore + omittedAssumedLow;
-        const totalLevel = scoredLevels.length === 0
-          ? null
-          : score <= 7
-            ? 1
-            : score <= 12
-              ? 2
-              : score <= 17
-                ? 3
-                : 4;
-        const hasLevel4Factor = scoredLevels.includes(4);
-        return {
-          ...group,
-          score,
-          assessedScore,
-          assessedCount: scoredLevels.length,
-          totalLevel,
-          displayLevel: hasLevel4Factor ? 4 : totalLevel,
-          hasLevel4Factor,
-        };
-      });
-      const assessedGroups = groups.filter(group => group.displayLevel !== null);
-      const displayLevel = assessedGroups.length > 0 ? Math.max(...assessedGroups.map(group => group.displayLevel)) : null;
-      const overallMeta = displayLevel ? RISK_LEVELS[displayLevel] : null;
+      ];
       const statusEl = document.getElementById("omcRiskStatus");
       const detailEl = document.getElementById("omcRiskDetail");
       const omittedEl = document.getElementById("omcRiskOmitted");
       if (!statusEl || !detailEl || !omittedEl) return;
 
-      statusEl.className = `res-main ${overallMeta?.className || "summary-line-warn"}`;
-      const phaseScores = groups
-        .filter(group => group.totalLevel !== null)
-        .map(group => `${group.phase} best-case score ${group.score} ${RISK_LEVELS[group.totalLevel].label}/L${group.totalLevel} (${group.assessedCount}/${OM_AIRPORT_RISK_FACTOR_COUNT} factors)`)
-        .join("; ");
-      const anyLevel4Factor = groups.some(group => group.hasLevel4Factor);
-      const partial = groups.some(group => group.assessedCount < OM_AIRPORT_RISK_FACTOR_COUNT);
-      statusEl.textContent = displayLevel
-        ? `OM-C aerodrome RA: ${overallMeta.label} / Level ${displayLevel}${partial ? " (partial)" : ""}. ${phaseScores}${anyLevel4Factor ? "; Level 4 factor - not permitted" : ""}.`
-        : "OM-C aerodrome RA not assessed.";
+      statusEl.className = "res-main";
+      statusEl.textContent = "OM-C aerodrome/route RA cues only - assign Cat A-D using the OM.";
 
       detailEl.innerHTML = `
         <table class="risk-table">
-          <thead><tr><th>Phase</th><th>OM-C factor</th><th>Risk</th><th>Basis</th></tr></thead>
+          <thead><tr><th>Phase</th><th>OM factor</th><th>Basis for pilot RA</th></tr></thead>
           <tbody>
             ${groups.map(group => group.items.map(item => `
               <tr>
                 <td>${escHtml(group.phase)}</td>
                 <td>${escHtml(item.label)}</td>
-                <td>${riskBadgeHtml(item.level)}</td>
                 <td>${escHtml(item.detail)}</td>
               </tr>
             `).join("")).join("")}
           </tbody>
         </table>
-        <div class="risk-bands">${escHtml(WEATHER_RISK_BANDS)}</div>
       `;
-      omittedEl.textContent = "Best-case score assumes omitted subjective factors are Level 1. Not assessed here: lighting, airfield complexity/topography/terrain/slope, arrival/approach/departure complexity, wildlife threat and other subjective threats.";
+      omittedEl.textContent = "Aid only: not an OM category calculation. Check route/airport category A-D in the OM and include subjective factors not assessed here: lighting, airfield complexity, topography/terrain/slope, arrival/approach/departure complexity, wildlife threat and other local threats.";
     }
 
     function round(x, decimals = 0) {
@@ -2025,14 +1985,12 @@
         combinedWeatherRisk("Weather condition", effectiveArrivalMetar, effectiveArrivalTaf, arrHeading),
       ];
       renderRiskAssessment({ depItems: depRiskItems, arrItems: arrRiskItems });
-      const omcRiskLevel = Math.max(...[...depRiskItems, ...arrRiskItems].map(item => item.level).filter(level => level !== null), 0);
 
       const nonCompliance = [];
       if (!wbOk) nonCompliance.push("W&B outside AFM limits");
       if (!toOk) nonCompliance.push("take-off requirement not met");
       if (!ldgCriterionOk) nonCompliance.push("landing requirement not met");
       if (!windOk) nonCompliance.push("wind limits or recommendations exceeded");
-      if (omcRiskLevel >= 4) nonCompliance.push("OM-C aerodrome RA Level 4");
       const complianceAlertRow = document.getElementById("complianceAlertRow");
       const complianceAlert = document.getElementById("complianceAlert");
       if (nonCompliance.length > 0) {
@@ -2278,13 +2236,6 @@
     .risk-table { border-collapse: collapse; font-size: 7.1px; width: 100%; }
     .risk-table th, .risk-table td { border-bottom: 1px solid #e5e7eb; padding: 1px 2px; text-align: left; vertical-align: top; }
     .risk-table th { background: #eff6ff; color: #075985; font-size: 6.4px; text-transform: uppercase; }
-    .risk-word { font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
-    .risk-level-1 { color: #047857; }
-    .risk-level-2 { color: #b45309; }
-    .risk-level-3 { color: #c2410c; }
-    .risk-level-4 { color: #b91c1c; }
-    .risk-unassessed { color: #64748b; }
-    .risk-bands { color: #475569; font-size: 6.8px; line-height: 1.2; margin-top: 2px; }
     .footer { margin-top: auto; font-size: 7px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 3px; }
     p { margin: 3px 0; }
     @media print { .report-actions { display:none; } }
@@ -2406,7 +2357,7 @@
           ${renderWeatherCell("Arr forecast", "arrTafMinimaStatus", "arrTafMinimaDetail", true)}
         </div>
         <div class="risk-report">
-          <p><strong>OM-C aerodrome RA:</strong> ${escHtml(getText("omcRiskStatus"))}</p>
+          <p><strong>OM-C aerodrome/route RA cues:</strong> ${escHtml(getText("omcRiskStatus"))}</p>
           ${document.getElementById("omcRiskDetail")?.innerHTML || ""}
           <p class="muted">${escHtml(getText("omcRiskOmitted"))}</p>
         </div>

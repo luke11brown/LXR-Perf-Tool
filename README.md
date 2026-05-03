@@ -16,7 +16,7 @@ procedures.
 - Departure and arrival performance panels using pressure altitude, ISA
   deviation, surface condition, runway distances, wind, and OM-C factors.
 - METAR and TAF fetch/parse helpers for weather minima review.
-- OM-C aerodrome risk assessment display.
+- OM-C aerodrome/route risk assessment cues for the pilot's Cat A-D assessment.
 - Runway requirement visualisation for take-off and landing.
 - Printable PDF snapshot laid out as two A5 panels on A4 landscape, intended to
   fold into a kneeboard.
