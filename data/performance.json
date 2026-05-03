@@ -86,7 +86,6 @@
     "maxRecommendedTailwind": 5,
     "cgMinMass": 430,
     "maxMass": 630,
-    "maxFuelKg": 72,
     "maxFuelL": 100,
     "maxBagKg": 25,
     "cgMin": 720,

@@ -1,0 +1,13 @@
+[
+  {
+    "id": "avgas_100ll_ul91",
+    "label": "AVGAS 100LL / UL91",
+    "densityKgPerL": 0.72
+  },
+  {
+    "id": "mogas_sp95_sp98_e5",
+    "label": "MOGAS SP95/SP98/E5",
+    "densityKgPerL": 0.75,
+    "default": true
+  }
+]

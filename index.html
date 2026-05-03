@@ -44,12 +44,6 @@
               <label for="regSelect">Registration</label>
               <select id="regSelect">
                 <option value="custom" selected>Custom / manual</option>
-                <option value="F-HEGB">F-HEGB</option>
-                <option value="F-HEGC">F-HEGC</option>
-                <option value="F-HLDF">F-HLDF</option>
-                <option value="F-HLDG">F-HLDG</option>
-                <option value="F-HTGH">F-HTGH</option>
-                <option value="F-HXCD">F-HXCD</option>
               </select>
             </div>
             <div class="field">
@@ -63,22 +57,22 @@
           <div class="grid" style="margin-top:0.6rem">
             <div class="field">
               <label for="emptyWeight">Empty aircraft weight (kg)</label>
-              <input id="emptyWeight" type="number" inputmode="decimal" value="360" />
+              <input id="emptyWeight" type="number" inputmode="decimal" />
             </div>
             <div class="field">
               <label for="emptyArm">Empty CG (mm)</label>
-              <input id="emptyArm" type="number" inputmode="decimal" value="673" />
+              <input id="emptyArm" type="number" inputmode="decimal" />
             </div>
           </div>
 
           <div class="grid" style="margin-top:0.6rem">
             <div class="field">
               <label for="upholsteryWt">Upholstery weight (kg)</label>
-              <input id="upholsteryWt" type="number" inputmode="decimal" value="3.7" />
+              <input id="upholsteryWt" type="number" inputmode="decimal" />
             </div>
             <div class="field">
               <label for="upholsteryArm">Upholstery arm (mm)</label>
-              <input id="upholsteryArm" type="number" inputmode="decimal" value="1076" />
+              <input id="upholsteryArm" type="number" inputmode="decimal" />
               <div class="inline-note">Use this only if the aircraft weighing report lists upholstery as a separate item.</div>
             </div>
           </div>
@@ -86,25 +80,19 @@
           <div class="grid-3" style="margin-top:0.75rem">
             <div class="field">
               <label for="pilotWt">Pilot (kg)</label>
-              <input id="pilotWt" type="number" inputmode="decimal" value="90" />
+              <input id="pilotWt" type="number" inputmode="decimal" />
             </div>
             <div class="field">
               <label for="pilotArm">Pilot arm (mm)</label>
-              <select id="pilotArm">
-                <option value="1050">Fwd (1050)</option>
-                <option value="1150" selected>Aft (1150)</option>
-              </select>
+              <select id="pilotArm"></select>
             </div>
             <div class="field">
               <label for="paxWt">Passenger (kg)</label>
-              <input id="paxWt" type="number" inputmode="decimal" value="85" />
+              <input id="paxWt" type="number" inputmode="decimal" />
             </div>
             <div class="field">
               <label for="paxArm">Passenger arm (mm)</label>
-              <select id="paxArm">
-                <option value="1050">Fwd (1050)</option>
-                <option value="1150" selected>Aft (1150)</option>
-              </select>
+              <select id="paxArm"></select>
             </div>
             <div class="field">
               <label for="bagWt">Baggage (kg)</label>
@@ -113,22 +101,19 @@
             </div>
             <div class="field">
               <label>Baggage arm (mm)</label>
-              <input type="number" value="1580" readonly />
+              <input id="bagArm" type="number" readonly />
             </div>
           </div>
 
           <div class="grid" style="margin-top:0.75rem">
             <div class="field">
               <label for="fuelL">Fuel (L usable)</label>
-              <input id="fuelL" type="number" inputmode="decimal" value="50" />
+              <input id="fuelL" type="number" inputmode="decimal" />
               <div id="fuelWarn" class="inline-warning" style="display:none;"></div>
             </div>
             <div class="field">
               <label for="fuelType">Fuel type</label>
-              <select id="fuelType">
-                <option value="0.72">MOGAS (UL91)</option>
-                <option value="0.75">AVGAS (100LL)</option>
-              </select>
+              <select id="fuelType"></select>
             </div>
           </div>
 
@@ -140,8 +125,8 @@
             <div class="field">
               <label>Notes</label>
               <div class="inline-note">
-                AFM limits: fuel ≤ 72&nbsp;kg / 100&nbsp;L, baggage ≤ 25&nbsp;kg, MTOW/MLW 630&nbsp;kg, CG envelope as
-                per AFM.
+                AFM limits: usable fuel ≤ 100&nbsp;L, baggage ≤ 25&nbsp;kg, MTOW/MLW 630&nbsp;kg, CG envelope as
+                per AFM. Fuel mass uses the selected AFM density.
               </div>
             </div>
           </div>

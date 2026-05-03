@@ -1,4 +1,7 @@
     let REG_DATA = {};
+    let FUEL_TYPES = [];
+    let LOADING_CONFIG = {};
+    let WEATHER_MINIMA = {};
     let ALT_GRID_TOLD = [];
     let TEMP_DEV_GRID = [];
     let TO_TABLE = {};
@@ -15,7 +18,6 @@
     let WIND_FACTOR_LIMIT_TAIL = 0;
     let CG_MIN_MASS = 0;
     let MAX_MASS = 0;
-    let MAX_FUEL_KG = 0;
     let MAX_FUEL_L = 0;
     let MAX_BAG_KG = 0;
     let CG_MIN = 0;
@@ -31,6 +33,18 @@
 
     async function loadAircraftData() {
       REG_DATA = await loadJson("./data/aircraft.json", "aircraft data");
+    }
+
+    async function loadFuelTypes() {
+      FUEL_TYPES = await loadJson("./data/fuel-types.json", "fuel type data");
+    }
+
+    async function loadLoadingConfig() {
+      LOADING_CONFIG = await loadJson("./data/loading.json", "loading data");
+    }
+
+    async function loadWeatherMinima() {
+      WEATHER_MINIMA = await loadJson("./data/weather-minima.json", "weather minima data");
     }
 
     async function loadPerformanceData() {
@@ -54,7 +68,6 @@
       MAX_RECOMMENDED_TAILWIND = limits.maxRecommendedTailwind || 0;
       CG_MIN_MASS = limits.cgMinMass || 0;
       MAX_MASS = limits.maxMass || 0;
-      MAX_FUEL_KG = limits.maxFuelKg || 0;
       MAX_FUEL_L = limits.maxFuelL || 0;
       MAX_BAG_KG = limits.maxBagKg || 0;
       CG_MIN = limits.cgMin || 0;
@@ -128,6 +141,86 @@
         { value: "manual", label: "Manual entry" },
       ]);
       updateIntersectionControls();
+    }
+
+    function populateAircraftSelect() {
+      const select = document.getElementById("regSelect");
+      if (!select) return;
+      const previousValue = select.value || "custom";
+      select.innerHTML = `<option value="custom">Custom / manual</option>`;
+
+      Object.keys(REG_DATA).forEach((reg) => {
+        const opt = document.createElement("option");
+        opt.value = reg;
+        opt.textContent = reg;
+        select.appendChild(opt);
+      });
+
+      select.value = REG_DATA[previousValue] ? previousValue : "custom";
+    }
+
+    function populateFuelTypeSelect() {
+      const select = document.getElementById("fuelType");
+      if (!select) return;
+      const previousValue = select.value;
+      select.innerHTML = "";
+
+      FUEL_TYPES.forEach((fuel) => {
+        const density = Number(fuel.densityKgPerL);
+        if (!fuel.id || !Number.isFinite(density)) return;
+        const opt = document.createElement("option");
+        opt.value = String(density);
+        opt.textContent = `${fuel.label || fuel.id} (${density} kg/L)`;
+        opt.dataset.fuelId = fuel.id;
+        if (fuel.default) opt.selected = true;
+        select.appendChild(opt);
+      });
+
+      if ([...select.options].some((opt) => opt.value === previousValue)) {
+        select.value = previousValue;
+      }
+    }
+
+    function setInputValue(id, value) {
+      const el = document.getElementById(id);
+      if (!el || value === undefined || value === null) return;
+      el.value = value;
+    }
+
+    function populateSeatArmSelect(selectId) {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      const previousValue = select.value;
+      select.innerHTML = "";
+
+      (LOADING_CONFIG.seatArms || []).forEach((seatArm) => {
+        const arm = Number(seatArm.armMm);
+        if (!Number.isFinite(arm)) return;
+        const opt = document.createElement("option");
+        opt.value = String(arm);
+        opt.textContent = `${seatArm.label || arm} (${arm})`;
+        if (seatArm.default) opt.selected = true;
+        select.appendChild(opt);
+      });
+
+      if ([...select.options].some((opt) => opt.value === previousValue)) {
+        select.value = previousValue;
+      }
+    }
+
+    function applyLoadingDefaults() {
+      const defaults = LOADING_CONFIG.defaults || {};
+      const stations = LOADING_CONFIG.stations || {};
+      setInputValue("emptyWeight", defaults.emptyWeightKg);
+      setInputValue("emptyArm", defaults.emptyArmMm);
+      setInputValue("upholsteryWt", defaults.upholsteryWeightKg);
+      setInputValue("upholsteryArm", defaults.upholsteryArmMm);
+      setInputValue("pilotWt", defaults.pilotWeightKg);
+      setInputValue("paxWt", defaults.passengerWeightKg);
+      setInputValue("fuelL", defaults.fuelLiters);
+      setInputValue("bagArm", stations.baggageArmMm);
+      populateSeatArmSelect("pilotArm");
+      populateSeatArmSelect("paxArm");
     }
 
     function setFieldGroupDisabled(ids, disabled) {
@@ -743,11 +836,37 @@
       return visibilityM >= 9999 ? "10 km or more" : `${round(visibilityM / 1000, 1)} km`;
     }
 
-    function assessWeatherMinima({ phase, metar, windSpd, crosswind }) {
-      const flightRules = document.getElementById("flightRules")?.value || "vfr";
+    function resolveWeatherLimit(value) {
+      return value === "maxCrosswind" ? MAX_XWIND : value;
+    }
+
+    function selectedVfrMinima() {
       const pilotQualification = document.getElementById("pilotQualification")?.value || "student";
       const vfrPhase = document.getElementById("vfrPhase")?.value || "circuit";
+      const vfrMinima = WEATHER_MINIMA.vfr || {};
+      const vfrQualification = vfrMinima[pilotQualification]
+        ? pilotQualification
+        : (pilotQualification.startsWith("ir_") ? "ppl_gt100_no_ir" : "student");
+      const mins = vfrMinima[vfrQualification]?.[vfrPhase];
+      if (!mins) return null;
+      return {
+        ...mins,
+        xwindKt: resolveWeatherLimit(mins.xwindKt),
+      };
+    }
+
+    function selectedIfrMinima() {
+      const pilotQualification = document.getElementById("pilotQualification")?.value || "student";
       const ifrAircraftClass = document.getElementById("ifrAircraftClass")?.value || "sep";
+      const ifrMinima = WEATHER_MINIMA.ifr || {};
+      if (pilotQualification === "ir_high" && ifrAircraftClass === "sep") return ifrMinima.high_ir_sep || {};
+      if (pilotQualification === "ir_high") return ifrMinima.high_ir_mep || {};
+      return ifrMinima.low_ir || {};
+    }
+
+    function assessWeatherMinima({ phase, metar, windSpd, crosswind }) {
+      const flightRules = document.getElementById("flightRules")?.value || "vfr";
+      const vfrPhase = document.getElementById("vfrPhase")?.value || "circuit";
       const isArrivalPhase = phase === "arrival";
       const statusEl = document.getElementById(isArrivalPhase ? "arrWeatherMinimaStatus" : "depWeatherMinimaStatus");
       const detailEl = document.getElementById(isArrivalPhase ? "arrWeatherMinimaDetail" : "depWeatherMinimaDetail");
@@ -783,24 +902,13 @@
       }
 
       if (flightRules === "vfr") {
-        const vfrMinima = {
-          student: {
-            circuit: { ceilingFt: 1500, visibilityKm: 5, xwindKt: 10, maxWindKt: 20 },
-            solo_nav: { ceilingFt: 5000, visibilityKm: 8, xwindKt: 10, maxWindKt: 20, maxLowCloudAmount: "FEW" },
-          },
-          ppl_lt100: {
-            circuit: { ceilingFt: 1500, visibilityKm: 5, xwindKt: 15, maxWindKt: 25 },
-            solo_nav: { ceilingFt: 3000, visibilityKm: 8, xwindKt: 15, maxWindKt: 25 },
-          },
-          ppl_gt100_no_ir: {
-            circuit: { ceilingFt: 1500, visibilityKm: 5, xwindKt: MAX_XWIND, maxWindKt: 30 },
-            solo_nav: { ceilingFt: 2500, visibilityKm: 5, xwindKt: MAX_XWIND, maxWindKt: 30 },
-          },
-        };
-        const vfrQualification = vfrMinima[pilotQualification]
-          ? pilotQualification
-          : (pilotQualification.startsWith("ir_") ? "ppl_gt100_no_ir" : "student");
-        const mins = vfrMinima[vfrQualification][vfrPhase];
+        const mins = selectedVfrMinima();
+        if (!mins) {
+          statusEl.textContent = `CHECK - ${phaseLabel} VFR minima unavailable for selected pilot category.`;
+          statusEl.className = "res-main summary-line-warn";
+          detailEl.textContent = "Check data/weather-minima.json.";
+          return { ok: false, assessed: false, text: `${statusEl.textContent} ${detailEl.textContent}` };
+        }
         const ceilingPass = noCeilingReported || (ceilingFt !== null && ceilingFt >= mins.ceilingFt);
         const visPass = visibilityKm !== null && visibilityKm >= mins.visibilityKm;
         const xwindPass = xwindKt <= mins.xwindKt;
@@ -821,14 +929,11 @@
         const vfrPhaseLabel = vfrPhase === "circuit" ? "circuit" : "solo navigation";
         statusEl.textContent = `${ok ? "OK" : "CHECK"} - ${phaseLabel} VFR ${vfrPhaseLabel} minima for selected pilot category.`;
       } else {
-        const highIr = pilotQualification === "ir_high";
-        const sep = ifrAircraftClass === "sep";
-        const ceilingMin = highIr && sep ? 1000 : (!highIr ? 1500 : null);
-        const visibilityMin = highIr && sep ? 3 : (!highIr ? 5 : null);
+        const mins = selectedIfrMinima();
+        const ceilingMin = mins.takeoffCeilingFt;
+        const visibilityMin = mins.takeoffVisibilityKm;
         if (isArrivalPhase) {
-          checks.push(highIr
-            ? "Approach: verify published approach minima/RVR."
-            : "Approach: verify published approach minima + 200 ft and published RVR + 500 m.");
+          checks.push(mins.arrivalNote || "Approach: verify published approach minima/RVR.");
         } else {
           if (ceilingMin !== null) {
             addCheck("Take-off ceiling", noCeilingReported ? "no ceiling reported" : (ceilingFt === null ? "unknown" : `${round(ceilingFt, 0)} ft`), `${ceilingMin} ft`, noCeilingReported || (ceilingFt !== null && ceilingFt >= ceilingMin));
@@ -851,37 +956,14 @@
 
     function selectedOmCWeatherLimitsText() {
       const flightRules = document.getElementById("flightRules")?.value || "vfr";
-      const pilotQualification = document.getElementById("pilotQualification")?.value || "student";
       const vfrPhase = document.getElementById("vfrPhase")?.value || "circuit";
-      const ifrAircraftClass = document.getElementById("ifrAircraftClass")?.value || "sep";
       if (flightRules === "vfr") {
-        const vfrMinima = {
-          student: {
-            circuit: { ceilingFt: 1500, visibilityKm: 5, xwindKt: 10, maxWindKt: 20 },
-            solo_nav: { ceilingFt: 5000, visibilityKm: 8, xwindKt: 10, maxWindKt: 20 },
-          },
-          ppl_lt100: {
-            circuit: { ceilingFt: 1500, visibilityKm: 5, xwindKt: 15, maxWindKt: 25 },
-            solo_nav: { ceilingFt: 3000, visibilityKm: 8, xwindKt: 15, maxWindKt: 25 },
-          },
-          ppl_gt100_no_ir: {
-            circuit: { ceilingFt: 1500, visibilityKm: 5, xwindKt: MAX_XWIND, maxWindKt: 30 },
-            solo_nav: { ceilingFt: 2500, visibilityKm: 5, xwindKt: MAX_XWIND, maxWindKt: 30 },
-          },
-        };
-        const vfrQualification = vfrMinima[pilotQualification]
-          ? pilotQualification
-          : (pilotQualification.startsWith("ir_") ? "ppl_gt100_no_ir" : "student");
-        const mins = vfrMinima[vfrQualification]?.[vfrPhase];
+        const mins = selectedVfrMinima();
         return mins
           ? `VFR ${vfrPhase === "circuit" ? "circuit" : "solo"}: C≥${mins.ceilingFt} ft, Vis≥${mins.visibilityKm} km, XWC≤${mins.xwindKt} kt, W≤${mins.maxWindKt} kt`
           : "VFR limits unavailable.";
       }
-      const highIr = pilotQualification === "ir_high";
-      const sep = ifrAircraftClass === "sep";
-      if (highIr && sep) return "IFR SEP: TO C≥1000 ft, Vis≥3 km; ARR published minima/RVR.";
-      if (!highIr) return "IFR: TO C≥1500 ft, Vis≥5 km; ARR published minima/RVR + margin.";
-      return "IFR MEP: check published take-off minima; arrival approach minima/RVR to be verified.";
+      return selectedIfrMinima().limitsText || "IFR limits unavailable.";
     }
 
     function assessTafAdvisory({ phase, taf, runwayHeading }) {
@@ -902,27 +984,8 @@
       const relevantGroups = taf.groups.filter(group => group.end > now && group.start < horizon);
       const risks = [];
       const flightRules = document.getElementById("flightRules")?.value || "vfr";
-      const pilotQualification = document.getElementById("pilotQualification")?.value || "student";
-      const vfrPhase = document.getElementById("vfrPhase")?.value || "circuit";
-      const ifrAircraftClass = document.getElementById("ifrAircraftClass")?.value || "sep";
-      const vfrMinima = {
-        student: {
-          circuit: { ceilingFt: 1500, visibilityKm: 5, xwindKt: 10, maxWindKt: 20 },
-          solo_nav: { ceilingFt: 5000, visibilityKm: 8, xwindKt: 10, maxWindKt: 20 },
-        },
-        ppl_lt100: {
-          circuit: { ceilingFt: 1500, visibilityKm: 5, xwindKt: 15, maxWindKt: 25 },
-          solo_nav: { ceilingFt: 3000, visibilityKm: 8, xwindKt: 15, maxWindKt: 25 },
-        },
-        ppl_gt100_no_ir: {
-          circuit: { ceilingFt: 1500, visibilityKm: 5, xwindKt: MAX_XWIND, maxWindKt: 30 },
-          solo_nav: { ceilingFt: 2500, visibilityKm: 5, xwindKt: MAX_XWIND, maxWindKt: 30 },
-        },
-      };
-      const vfrQualification = vfrMinima[pilotQualification]
-        ? pilotQualification
-        : (pilotQualification.startsWith("ir_") ? "ppl_gt100_no_ir" : "student");
-      const mins = vfrMinima[vfrQualification]?.[vfrPhase];
+      const mins = selectedVfrMinima();
+      const ifrMins = selectedIfrMinima();
 
       relevantGroups.forEach((group) => {
         const text = group.tokens.join(" ");
@@ -947,10 +1010,8 @@
             groupRisks.push(`ceiling ${round(parsed.cloudCeilingFt, 0)} ft < ${mins.ceilingFt} ft`);
           }
         } else if (flightRules === "ifr" && !isArrival) {
-          const highIr = pilotQualification === "ir_high";
-          const sep = ifrAircraftClass === "sep";
-          const ceilingMin = highIr && sep ? 1000 : (!highIr ? 1500 : null);
-          const visibilityMin = highIr && sep ? 3 : (!highIr ? 5 : null);
+          const ceilingMin = ifrMins.takeoffCeilingFt;
+          const visibilityMin = ifrMins.takeoffVisibilityKm;
           if (visibilityMin !== null && parsed.visibilityM !== null && parsed.visibilityM / 1000 < visibilityMin) {
             groupRisks.push(`visibility ${formatVisibilityKm(parsed.visibilityM)} < ${visibilityMin} km`);
           }
@@ -1396,17 +1457,18 @@
       const paxWt = parseFloat(document.getElementById("paxWt").value) || 0;
       const paxArm = parseFloat(document.getElementById("paxArm").value) || 0;
       const bagWt = parseFloat(document.getElementById("bagWt").value) || 0;
-      const bagArm = 1580;
+      const bagArm = Number(LOADING_CONFIG.stations?.baggageArmMm) || 0;
+      const fuelArm = Number(LOADING_CONFIG.stations?.fuelArmMm) || 0;
       const fuelL = parseFloat(document.getElementById("fuelL").value) || 0;
-      const fuelDensity = parseFloat(document.getElementById("fuelType").value);
+      const fuelDensity = parseFloat(document.getElementById("fuelType").value) || 0;
 
       const fuelKg = fuelL * fuelDensity;
       document.getElementById("fuelKg").value = round(fuelKg, 1);
 
       const fuelWarn = document.getElementById("fuelWarn");
-      if (fuelKg > MAX_FUEL_KG || fuelL > MAX_FUEL_L) {
+      if (fuelL > MAX_FUEL_L) {
         fuelWarn.style.display = "block";
-        fuelWarn.textContent = `Fuel exceeds AFM limit (${MAX_FUEL_KG} kg / ${MAX_FUEL_L} L) for selected fuel type.`;
+        fuelWarn.textContent = `Fuel exceeds AFM usable fuel limit (${MAX_FUEL_L} L).`;
       } else fuelWarn.style.display = "none";
 
       const bagWarn = document.getElementById("bagWarn");
@@ -1429,7 +1491,7 @@
       const momPilot = moment(mPilot, pilotArm);
       const momPax = moment(mPax, paxArm);
       const momBag = moment(mBag, bagArm);
-      const momFuel = moment(mFuel, 774);
+      const momFuel = moment(mFuel, fuelArm);
 
       const massTO = mEmpty + mUpholstery + mPilot + mPax + mBag + mFuel;
       const momTO = momEmpty + momUpholstery + momPilot + momPax + momBag + momFuel;
@@ -1454,7 +1516,7 @@
       const insidePolyTO = pointInPoly(cgTO, massTO, CG_POLY);
       const insidePolyLW = pointInPoly(cgLW, massLW, CG_POLY);
 
-      const fuelOk = fuelKg <= MAX_FUEL_KG && fuelL <= MAX_FUEL_L;
+      const fuelOk = fuelL <= MAX_FUEL_L;
       const bagOk = mBag <= MAX_BAG_KG;
 
       const wbOk =
@@ -1914,8 +1976,8 @@
       }
 
       const sumWbText = wbOk
-        ? `OK – TOW ${round(massTO, 1)} kg at ${round(cgTO, 0)} mm; landing weight ${round(massLW, 1)} kg at ${round(cgLW, 0)} mm. Fuel and baggage within AFM limits.`
-        : `NOT OK – check masses, CG envelope, fuel (≤ ${MAX_FUEL_KG} kg / ${MAX_FUEL_L} L) and baggage (≤ ${MAX_BAG_KG} kg).`;
+        ? `OK – TOW ${round(massTO, 1)} kg at ${round(cgTO, 0)} mm; landing weight ${round(massLW, 1)} kg at ${round(cgLW, 0)} mm. Fuel volume and baggage within AFM limits.`
+        : `NOT OK – check masses, CG envelope, fuel (≤ ${MAX_FUEL_L} L usable) and baggage (≤ ${MAX_BAG_KG} kg).`;
       setSummaryLine("sumWb", sumWbText, wbOk);
 
       const toOk = activeTakeoffOk;
@@ -1987,7 +2049,7 @@
         ["Pilot", mPilot, pilotArm, momPilot],
         ["Passenger", mPax, paxArm, momPax],
         ["Baggage", mBag, bagArm, momBag],
-        ["Fuel", mFuel, 774, momFuel],
+        ["Fuel", mFuel, fuelArm, momFuel],
       ];
 
       const tbody = document.getElementById("momentTable");
@@ -2104,7 +2166,7 @@
       const compactSummaryText = (text, maxLength = 130) => stripStatusPrefix(text)
         .replace(/\s+/g, " ")
         .replace(/Wind speeds ≤ 40 kt, crosswind within 18 kt demonstrated where assessed, tailwind within \d+(?:\.\d+)? kt recommendation\./, "Wind limits ok.")
-        .replace(/Fuel and baggage within AFM limits\./, "Fuel/baggage ok.")
+        .replace(/Fuel volume and baggage within AFM limits\./, "Fuel/baggage ok.")
         .slice(0, maxLength);
       const renderCompactStatusLine = (label, text, maxLength) => {
         const token = statusToken(text);
@@ -2147,7 +2209,7 @@
       const bagKgReport = numValue("bagWt");
       const towBad = !(tow >= CG_MIN_MASS && tow <= MAX_MASS && cgTo >= CG_MIN && cgTo <= CG_MAX && pointInPoly(cgTo, tow, CG_POLY));
       const lwBad = !(lw >= CG_MIN_MASS && lw <= MAX_MASS && cgLw >= CG_MIN && cgLw <= CG_MAX && pointInPoly(cgLw, lw, CG_POLY));
-      const fuelBad = fuelKgReport > MAX_FUEL_KG || fuelLReport > MAX_FUEL_L;
+      const fuelBad = fuelLReport > MAX_FUEL_L;
       const bagBad = bagKgReport > MAX_BAG_KG;
       const wbBad = /check|outside/i.test(getText("wbStatusPill"));
       const depWindBad = hasLimitWarning("depWindLimitWarn");
@@ -2251,7 +2313,7 @@
           <div class="k">Upholstery</div><div class="v">${escHtml(getValue("upholsteryWt"))} kg @ ${escHtml(getValue("upholsteryArm"))} mm</div>
           <div class="k">Pilot</div><div class="v">${escHtml(getValue("pilotWt"))} kg @ ${escHtml(getValue("pilotArm"))} mm</div>
           <div class="k">Passenger</div><div class="v">${escHtml(getValue("paxWt"))} kg @ ${escHtml(getValue("paxArm"))} mm</div>
-          <div class="k">Baggage</div><div class="v${classIfBad(bagBad)}">${escHtml(getValue("bagWt"))} kg @ 1580 mm</div>
+          <div class="k">Baggage</div><div class="v${classIfBad(bagBad)}">${escHtml(getValue("bagWt"))} kg @ ${escHtml(getValue("bagArm"))} mm</div>
           <div class="k">Fuel</div><div class="v${classIfBad(fuelBad)}">${escHtml(getValue("fuelL"))} L / ${escHtml(getText("fuelKg")) || escHtml(getValue("fuelKg"))} kg (${escHtml(getSelectedText("fuelType"))})</div>
           </div>
           <div class="box wb">
@@ -2369,6 +2431,9 @@
       try {
         await Promise.all([
           loadAircraftData(),
+          loadFuelTypes(),
+          loadLoadingConfig(),
+          loadWeatherMinima(),
           loadPerformanceData(),
           loadRunwayPresets(),
         ]);
@@ -2380,6 +2445,9 @@
 
       buildCGChart();
       initTabs();
+      populateAircraftSelect();
+      populateFuelTypeSelect();
+      applyLoadingDefaults();
 
       document.getElementById("calcBtn").addEventListener("click", calculateAll);
       document.getElementById("exportPdfBtn").addEventListener("click", exportReportToPdf);
@@ -2395,8 +2463,9 @@
         const reg = regSelect.value;
         const data = REG_DATA[reg];
         if (data) {
-          const upholsteryWeight = data.upholsteryWeight !== undefined ? data.upholsteryWeight : 3.7;
-          const upholsteryArm = data.upholsteryArm !== undefined ? data.upholsteryArm : 1076;
+          const defaults = LOADING_CONFIG.defaults || {};
+          const upholsteryWeight = data.upholsteryWeight !== undefined ? data.upholsteryWeight : defaults.upholsteryWeightKg;
+          const upholsteryArm = data.upholsteryArm !== undefined ? data.upholsteryArm : defaults.upholsteryArmMm;
           document.getElementById("emptyWeight").value = data.weight;
           document.getElementById("emptyArm").value = data.cg;
           document.getElementById("upholsteryWt").value = upholsteryWeight;

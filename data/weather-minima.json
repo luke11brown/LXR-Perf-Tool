@@ -1,0 +1,67 @@
+{
+  "vfr": {
+    "student": {
+      "circuit": {
+        "ceilingFt": 1500,
+        "visibilityKm": 5,
+        "xwindKt": 10,
+        "maxWindKt": 20
+      },
+      "solo_nav": {
+        "ceilingFt": 5000,
+        "visibilityKm": 8,
+        "xwindKt": 10,
+        "maxWindKt": 20,
+        "maxLowCloudAmount": "FEW"
+      }
+    },
+    "ppl_lt100": {
+      "circuit": {
+        "ceilingFt": 1500,
+        "visibilityKm": 5,
+        "xwindKt": 15,
+        "maxWindKt": 25
+      },
+      "solo_nav": {
+        "ceilingFt": 3000,
+        "visibilityKm": 8,
+        "xwindKt": 15,
+        "maxWindKt": 25
+      }
+    },
+    "ppl_gt100_no_ir": {
+      "circuit": {
+        "ceilingFt": 1500,
+        "visibilityKm": 5,
+        "xwindKt": "maxCrosswind",
+        "maxWindKt": 30
+      },
+      "solo_nav": {
+        "ceilingFt": 2500,
+        "visibilityKm": 5,
+        "xwindKt": "maxCrosswind",
+        "maxWindKt": 30
+      }
+    }
+  },
+  "ifr": {
+    "low_ir": {
+      "takeoffCeilingFt": 1500,
+      "takeoffVisibilityKm": 5,
+      "arrivalNote": "Approach: verify published approach minima + 200 ft and published RVR + 500 m.",
+      "limitsText": "IFR: TO C>=1500 ft, Vis>=5 km; ARR published minima/RVR + margin."
+    },
+    "high_ir_sep": {
+      "takeoffCeilingFt": 1000,
+      "takeoffVisibilityKm": 3,
+      "arrivalNote": "Approach: verify published approach minima/RVR.",
+      "limitsText": "IFR SEP: TO C>=1000 ft, Vis>=3 km; ARR published minima/RVR."
+    },
+    "high_ir_mep": {
+      "takeoffCeilingFt": null,
+      "takeoffVisibilityKm": null,
+      "arrivalNote": "Approach: verify published approach minima/RVR.",
+      "limitsText": "IFR MEP: check published take-off minima; arrival approach minima/RVR to be verified."
+    }
+  }
+}

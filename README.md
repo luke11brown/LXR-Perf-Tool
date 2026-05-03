@@ -26,8 +26,9 @@ procedures.
 ### Weight and balance
 
 The app sums mass and moment for the empty aircraft, upholstery, pilot,
-passenger, baggage, and fuel. Fuel mass is calculated from the selected fuel
-type/density. It then calculates:
+passenger, baggage, and fuel. Fuel mass is calculated from the selected AFM
+fuel density: 0.72 kg/L for AVGAS 100LL or UL91, and 0.75 kg/L for Mogas
+SP95/SP98/E5. It then calculates:
 
 - Take-off mass and CG with fuel.
 - Landing/no-fuel mass and CG.
@@ -120,10 +121,17 @@ authoritative sources.
 
 ## Data Files
 
-- `data/aircraft.json` - registration-specific empty mass and CG data.
+- `data/aircraft.json` - registration-specific empty mass, CG, and upholstery
+  data used to build the registration dropdown.
+- `data/fuel-types.json` - approved fuel grade labels and densities used to
+  build the fuel type dropdown.
+- `data/loading.json` - loading defaults, seat arm options, baggage arm, and
+  fuel arm.
 - `data/performance.json` - digitised AFM performance tables, wind correction
   factors, surface factors, CG envelope, and aircraft limits.
 - `data/runways.json` - runway presets used by the app.
+- `data/weather-minima.json` - editable OM-C VFR/IFR weather minima used by
+  the METAR/TAF cross-checks.
 
 ## Project Structure
 

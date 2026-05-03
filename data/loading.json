@@ -1,0 +1,28 @@
+{
+  "defaults": {
+    "emptyWeightKg": 360,
+    "emptyArmMm": 673,
+    "upholsteryWeightKg": 3.7,
+    "upholsteryArmMm": 1076,
+    "pilotWeightKg": 90,
+    "passengerWeightKg": 85,
+    "fuelLiters": 50
+  },
+  "seatArms": [
+    {
+      "id": "fwd",
+      "label": "Fwd",
+      "armMm": 1050
+    },
+    {
+      "id": "aft",
+      "label": "Aft",
+      "armMm": 1150,
+      "default": true
+    }
+  ],
+  "stations": {
+    "baggageArmMm": 1580,
+    "fuelArmMm": 774
+  }
+}
