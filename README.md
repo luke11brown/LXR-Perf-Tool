@@ -16,7 +16,6 @@ procedures.
 - Departure and arrival performance panels using pressure altitude, ISA
   deviation, surface condition, runway distances, wind, and OM-C factors.
 - METAR and TAF fetch/parse helpers for weather minima review.
-- OM-C aerodrome/route risk assessment cues for the pilot's Cat A-D assessment.
 - Runway requirement visualisation for take-off and landing.
 - Printable PDF snapshot laid out as two A5 panels on A4 landscape, intended to
   fold into a kneeboard.
@@ -108,7 +107,7 @@ runway requirements:
 The UI keeps both dry and wet landing values visible. The active landing check
 uses the selected arrival surface/weather condition.
 
-### Weather and risk helpers
+### Weather helpers
 
 METAR and TAF parsing is intentionally limited to fields useful for quick
 cross-checks: wind, visibility, cloud ceiling, temperature, QNH, and forecast

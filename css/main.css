@@ -948,33 +948,6 @@
       color: var(--warn);
     }
 
-    .risk-grid {
-      margin-top: 0.4rem;
-      overflow-x: auto;
-    }
-
-    .risk-table {
-      border-collapse: collapse;
-      font-size: 0.75rem;
-      min-width: 620px;
-      width: 100%;
-    }
-
-    .risk-table th,
-    .risk-table td {
-      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-      padding: 0.35rem 0.4rem;
-      text-align: left;
-      vertical-align: top;
-    }
-
-    .risk-table th {
-      color: var(--muted);
-      font-size: 0.66rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-
     .bad-value {
       color: var(--danger) !important;
       font-weight: 700;
