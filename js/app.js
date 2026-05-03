@@ -988,7 +988,7 @@
       if (flightRules === "vfr") {
         const mins = selectedVfrMinima();
         return mins
-          ? `VFR ${vfrPhase === "circuit" ? "circuit" : "solo"}: C≥${mins.ceilingFt} ft, Vis≥${mins.visibilityKm} km, XWC≤${mins.xwindKt} kt, W≤${mins.maxWindKt} kt`
+          ? `VFR ${vfrPhase === "circuit" ? "circuit" : "solo"}: Ceiling ≥ ${mins.ceilingFt} ft, visibility ≥ ${mins.visibilityKm} km, XWC ≤ ${mins.xwindKt} kt, surface wind ≤ ${mins.maxWindKt} kt`
           : "VFR limits unavailable.";
       }
       return selectedIfrMinima().limitsText || "IFR limits unavailable.";
@@ -1123,9 +1123,9 @@
       const visibilityM = parsed.visibilityM;
       const ceilingFt = parsed.cloudCeilingFt;
       const parts = [
-        `Vis ${formatVisibilityKm(visibilityM)}`,
+        `Visibility ${formatVisibilityKm(visibilityM)}`,
         `ceiling ${ceilingFt === null ? "none parsed" : `${round(ceilingFt, 0)} ft`}`,
-        `wind ${round(windSpd, 1)} kt`,
+        `surface wind ${round(windSpd, 1)} kt`,
         wind.windIsVRB ? "XWC not assessed (VRB)" : `XWC ${round(xwind, 1)} kt`,
       ];
       return parts.join(", ");
@@ -2132,27 +2132,16 @@
         const badge = token ? `<span class="${statusClass(token)}">${escHtml(token)}</span>` : "";
         return `<p class="status-text"><strong>${escHtml(label)}:</strong> ${badge}${body ? ` ${escHtml(body)}` : ""}</p>`;
       };
-      const conciseWeatherDetail = (status, detail, forecast = false) => {
-        const token = statusToken(status);
-        const detailText = String(detail || "").replace(/\s*\|\s*Limits:.*$/i, "").replace(/\s*Limits:.*$/i, "");
-        if (!token) return stripStatusPrefix(status) || "Not assessed";
-        if (forecast) {
-          if (token === "OK") return "No parsed risk.";
-          if (token === "CHECK") return detailText.replace(/\s*\|\s*/g, "; ").slice(0, 58);
-        }
-        if (token === "OK") return "Within limits.";
-        const issues = detailText
-          .split(/\s*\|\s*/)
-          .filter(item => /<|>|more than|unknown/i.test(item))
-          .slice(0, 2)
-          .join("; ");
-        return (issues || stripStatusPrefix(status) || "Review required.").slice(0, 58);
+      const weatherDetailHtmlForExport = (detailId) => {
+        const detailEl = document.getElementById(detailId);
+        const html = detailEl?.innerHTML?.trim();
+        if (html) return html;
+        return escHtml(getText(detailId) || "Not assessed.");
       };
-      const renderWeatherCell = (label, statusId, detailId, forecast = false) => {
+      const renderWeatherCell = (label, statusId, detailId) => {
         const status = getText(statusId);
         const token = statusToken(status);
-        const body = conciseWeatherDetail(status, getText(detailId), forecast);
-        return `<div class="wx-cell"><div class="wx-label">${escHtml(label)}</div><div><span class="${statusClass(token)}">${escHtml(token || "INFO")}</span></div><div>${escHtml(body)}</div></div>`;
+        return `<div class="wx-cell"><div class="wx-label">${escHtml(label)}</div><div><span class="${statusClass(token)}">${escHtml(token || "INFO")}</span></div><div>${weatherDetailHtmlForExport(detailId)}</div></div>`;
       };
       const startsNotOk = (id) => /^NOT OK/i.test(getText(id));
       const hasLimitWarning = (id) => /exceeds|not permitted|capped/i.test(getText(id));
@@ -2232,6 +2221,13 @@
     .wx-cell { background: #fff; border: 1px solid #fde68a; border-radius: 5px; padding: 3px; line-height: 1.2; min-height: 34px; }
     .wx-label { color: #92400e; font-size: 6.8px; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; }
     .wx-limits { color: #475569; font-size: 8px; margin-top: 2px; }
+    .weather-factor { border: 1px solid #cbd5e1; border-radius: 3px; display: inline-block; line-height: 1.15; margin: 1px 1px 1px 0; padding: 1px 2px; }
+    .weather-factor.ok { background: #ecfdf5; border-color: #86efac; color: #047857; }
+    .weather-factor.warn { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+    .weather-factor.info { background: #f8fafc; color: #475569; }
+    .weather-group { display: block; margin-top: 1px; }
+    .weather-group-label { color: #475569; font-weight: 800; margin-right: 2px; }
+    .weather-limits { color: #475569; display: inline-block; margin-top: 1px; }
     .risk-report { margin-top: 3px; }
     .risk-table { border-collapse: collapse; font-size: 7.1px; width: 100%; }
     .risk-table th, .risk-table td { border-bottom: 1px solid #e5e7eb; padding: 1px 2px; text-align: left; vertical-align: top; }
