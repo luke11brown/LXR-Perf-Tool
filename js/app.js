@@ -88,7 +88,6 @@
     const METAR_STALE_MINUTES = 90;
     const METAR_FETCH_TIMEOUT_MS = 12000;
     const TAF_ADVISORY_HOURS = 6;
-    const TAF_STALE_HOURS = 30;
 
     async function loadRunwayPresets() {
       try {
@@ -531,15 +530,14 @@
       return `${hours}h ${minutes}m old`;
     }
 
-    function getTafAgeHours(issuedAt) {
-      if (!(issuedAt instanceof Date) || Number.isNaN(issuedAt.getTime())) return null;
-      return Math.max(0, (Date.now() - issuedAt.getTime()) / 3600000);
+    function formatUtcHm(date) {
+      if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+      return `${String(date.getUTCHours()).padStart(2, "0")}${String(date.getUTCMinutes()).padStart(2, "0")}`;
     }
 
-    function formatTafAge(ageHours) {
-      if (ageHours === null) return "age unknown";
-      if (ageHours < 1) return "less than 1 h old";
-      return `${round(ageHours, 1)} h old`;
+    function formatUtcDayHm(date) {
+      if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+      return `${String(date.getUTCDate()).padStart(2, "0")}${formatUtcHm(date)}`;
     }
 
     function parseMetar(rawMetar, observedLine = "") {
@@ -801,18 +799,13 @@
         if (isArrival) arrivalTaf = taf;
         else departureTaf = taf;
         calculateAll();
-        const ageHours = getTafAgeHours(taf.issuedAt);
         const expired = taf.validTo instanceof Date && taf.validTo <= new Date();
-        const stale = ageHours !== null && ageHours > TAF_STALE_HOURS;
         const validityText = taf.validFrom && taf.validTo
-          ? `valid ${taf.validFrom.toUTCString()} to ${taf.validTo.toUTCString()}`
+          ? `valid ${formatUtcDayHm(taf.validFrom)}/${formatUtcDayHm(taf.validTo)}`
           : "validity unknown";
-        const cautionText = expired
-          ? " EXPIRED - do not use for current planning."
-          : stale
-            ? " STALE - verify before use."
-            : "";
-        status.textContent = `${stationLabel} TAF applied (${formatTafAge(ageHours)}, ${validityText}).${cautionText} ${taf.raw}`;
+        const issuedText = taf.issuedAt ? `issued ${formatUtcHm(taf.issuedAt)}, ` : "";
+        const cautionText = expired ? " EXPIRED - do not use for current planning." : "";
+        status.textContent = `${stationLabel} TAF applied (${issuedText}${validityText}).${cautionText} ${taf.raw}`;
       } catch (err) {
         if (isArrival) arrivalTaf = null;
         else departureTaf = null;
@@ -2056,6 +2049,9 @@
         }
         return escHtml((getText(detailId) || "Not assessed.").replace(/\s*Limits:.*$/i, "").trim());
       };
+      const rawWeatherText = (item) => item?.raw || "Not fetched.";
+      const effectiveArrivalMetarReport = arrivalMetar || (arrivalUsesDepartureRunway ? departureMetar : null);
+      const effectiveArrivalTafReport = arrivalTaf || (arrivalUsesDepartureRunway ? departureTaf : null);
       const renderWeatherCell = (label, statusId, detailId) => {
         const status = getText(statusId);
         const token = statusToken(status);
@@ -2147,6 +2143,7 @@
     .weather-group-label { color: #475569; font-weight: 800; margin-right: 2px; }
     .weather-limits { color: #475569; display: inline-block; margin-top: 1px; }
     .weather-note { color: #475569; display: inline-block; margin-top: 1px; }
+    .wx-raw p { line-height: 1.2; overflow-wrap: anywhere; }
     .footer { margin-top: auto; font-size: 7px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 3px; }
     p { margin: 3px 0; }
     @media print { .report-actions { display:none; } }
@@ -2267,6 +2264,14 @@
           ${renderWeatherCell("Arr actual", "arrWeatherMinimaStatus", "arrWeatherMinimaDetail")}
           ${renderWeatherCell("Arr forecast", "arrTafMinimaStatus", "arrTafMinimaDetail", true)}
         </div>
+      </div>
+
+      <h2>Weather used</h2>
+      <div class="box warn wx-raw">
+        <p><strong>Departure METAR:</strong> ${escHtml(rawWeatherText(departureMetar))}</p>
+        <p><strong>Departure TAF:</strong> ${escHtml(rawWeatherText(departureTaf))}</p>
+        <p><strong>Arrival METAR:</strong> ${escHtml(rawWeatherText(effectiveArrivalMetarReport))}</p>
+        <p><strong>Arrival TAF:</strong> ${escHtml(rawWeatherText(effectiveArrivalTafReport))}</p>
       </div>
 
       <div class="footer">This PDF is a snapshot of the app data. It is not an AFM replacement.</div>
