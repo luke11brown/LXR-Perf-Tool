@@ -632,6 +632,12 @@
       margin-top: 0.14rem;
     }
 
+    .weather-note {
+      color: var(--muted);
+      display: inline-block;
+      margin-top: 0.14rem;
+    }
+
     .row {
       display: flex;
       flex-wrap: wrap;

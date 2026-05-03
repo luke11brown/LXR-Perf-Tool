@@ -88,6 +88,7 @@
     const METAR_STALE_MINUTES = 90;
     const METAR_FETCH_TIMEOUT_MS = 12000;
     const TAF_ADVISORY_HOURS = 6;
+    const TAF_STALE_HOURS = 30;
 
     async function loadRunwayPresets() {
       try {
@@ -530,6 +531,17 @@
       return `${hours}h ${minutes}m old`;
     }
 
+    function getTafAgeHours(issuedAt) {
+      if (!(issuedAt instanceof Date) || Number.isNaN(issuedAt.getTime())) return null;
+      return Math.max(0, (Date.now() - issuedAt.getTime()) / 3600000);
+    }
+
+    function formatTafAge(ageHours) {
+      if (ageHours === null) return "age unknown";
+      if (ageHours < 1) return "less than 1 h old";
+      return `${round(ageHours, 1)} h old`;
+    }
+
     function parseMetar(rawMetar, observedLine = "") {
       const metar = String(rawMetar || "").trim().replace(/\s+/g, " ");
       const wind = metar.match(/\b(VRB|\d{3})(\d{2,3})(?:G\d{2,3})?(KT|MPS)\b/);
@@ -607,10 +619,18 @@
       return { start, end };
     }
 
+    function parseNoaaTimestamp(rawText) {
+      const match = String(rawText || "").match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
+      if (!match) return null;
+      return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4]), Number(match[5])));
+    }
+
     function parseTaf(rawTaf) {
       const taf = String(rawTaf || "").trim().replace(/\s+/g, " ");
+      const issuedAt = parseNoaaTimestamp(taf);
+      const reference = issuedAt || new Date();
       const validWindow = taf.match(/\b(\d{4}\/\d{4})\b/)?.[1] || "";
-      const baseWindow = parseTafWindow(validWindow) || { start: new Date(), end: new Date(Date.now() + TAF_ADVISORY_HOURS * 3600000) };
+      const baseWindow = parseTafWindow(validWindow, reference) || { start: reference, end: new Date(reference.getTime() + TAF_ADVISORY_HOURS * 3600000) };
       const tokens = taf.split(" ");
       const groups = [];
       let current = { type: "BASE", start: baseWindow.start, end: baseWindow.end, tokens: [] };
@@ -623,7 +643,7 @@
           groups.push(current);
           current = {
             type: "FM",
-            start: tafDateForDay(fm[1], fm[2], fm[3]),
+            start: tafDateForDay(fm[1], fm[2], fm[3], baseWindow.start),
             end: baseWindow.end,
             tokens: [],
           };
@@ -636,14 +656,14 @@
         }
         const groupWindow = token.match(/^(\d{4}\/\d{4})$/);
         if (groupWindow && current.type !== "BASE") {
-          const parsedWindow = parseTafWindow(groupWindow[1]);
+          const parsedWindow = parseTafWindow(groupWindow[1], baseWindow.start);
           if (parsedWindow) {
             current.start = parsedWindow.start;
             current.end = parsedWindow.end;
             return;
           }
         }
-        if (/^(TAF|AMD|COR)$/.test(token) || /^[A-Z]{4}$/.test(token) || /^\d{6}Z$/.test(token) || /^\d{4}\/\d{4}$/.test(token)) {
+        if (/^(TAF|AMD|COR)$/.test(token) || /^[A-Z]{4}$/.test(token) || /^\d{6}Z$/.test(token) || /^\d{4}\/\d{4}$/.test(token) || /^\d{4}\/\d{2}\/\d{2}$/.test(token) || /^\d{2}:\d{2}$/.test(token)) {
           return;
         }
         current.tokens.push(token);
@@ -657,7 +677,7 @@
         }
       });
 
-      return { raw: taf, groups };
+      return { raw: taf, groups, issuedAt, validFrom: baseWindow.start, validTo: baseWindow.end };
     }
 
     async function fetchTafForStation(station) {
@@ -781,7 +801,18 @@
         if (isArrival) arrivalTaf = taf;
         else departureTaf = taf;
         calculateAll();
-        status.textContent = `${stationLabel} TAF applied. ${taf.raw}`;
+        const ageHours = getTafAgeHours(taf.issuedAt);
+        const expired = taf.validTo instanceof Date && taf.validTo <= new Date();
+        const stale = ageHours !== null && ageHours > TAF_STALE_HOURS;
+        const validityText = taf.validFrom && taf.validTo
+          ? `valid ${taf.validFrom.toUTCString()} to ${taf.validTo.toUTCString()}`
+          : "validity unknown";
+        const cautionText = expired
+          ? " EXPIRED - do not use for current planning."
+          : stale
+            ? " STALE - verify before use."
+            : "";
+        status.textContent = `${stationLabel} TAF applied (${formatTafAge(ageHours)}, ${validityText}).${cautionText} ${taf.raw}`;
       } catch (err) {
         if (isArrival) arrivalTaf = null;
         else departureTaf = null;
@@ -1010,13 +1041,14 @@
       const now = new Date();
       const horizon = new Date(now.getTime() + TAF_ADVISORY_HOURS * 3600000);
       const relevantGroups = taf.groups.filter(group => group.end > now && group.start < horizon);
+      const groupsForReview = relevantGroups.length > 0 ? relevantGroups : taf.groups;
       const concerns = [];
       const tafGroups = [];
       const flightRules = document.getElementById("flightRules")?.value || "vfr";
       const mins = selectedVfrMinima();
       const ifrMins = selectedIfrMinima();
 
-      relevantGroups.forEach((group) => {
+      groupsForReview.forEach((group) => {
         const text = group.tokens.join(" ");
         if (!text.trim()) return;
         const parsed = parseMetar(text);
@@ -1070,7 +1102,9 @@
       });
 
       if (concerns.length > 0) {
-        const text = `CHECK - ${phase} TAF indicates possible OM-C minima concern within ${TAF_ADVISORY_HOURS} hours.`;
+        const text = relevantGroups.length > 0
+          ? `CHECK - ${phase} TAF indicates possible OM-C minima concern within ${TAF_ADVISORY_HOURS} hours.`
+          : `CHECK - ${phase} TAF has parsed OM-C minima concerns outside the next ${TAF_ADVISORY_HOURS} hours.`;
         statusEl.textContent = text;
         statusEl.className = "res-main summary-line-warn";
         detailEl.innerHTML = tafGroups.length > 0
@@ -1079,12 +1113,14 @@
         return { ok: false, assessed: true, text: `${text} ${detailEl.textContent}` };
       }
 
-      const text = `OK - ${phase} TAF has no parsed OM-C minima concern within ${TAF_ADVISORY_HOURS} hours.`;
+      const text = relevantGroups.length > 0
+        ? `OK - ${phase} TAF has no parsed OM-C minima concern within ${TAF_ADVISORY_HOURS} hours.`
+        : `INFO - ${phase} TAF validity does not overlap the next ${TAF_ADVISORY_HOURS} hours.`;
       statusEl.textContent = text;
-      statusEl.className = "res-main summary-line-ok";
+      statusEl.className = relevantGroups.length > 0 ? "res-main summary-line-ok" : "res-main summary-line-warn";
       detailEl.innerHTML = tafGroups.length > 0
-        ? `${renderTafGroups(tafGroups, selectedOmCWeatherLimitsText())} <span class="weather-limits">TEMPO/PROB groups remain advisory.</span>`
-        : `${relevantGroups.length > 0 ? `${relevantGroups.length} TAF group(s) reviewed; no parsed minima factors found.` : `No TAF groups overlap the next ${TAF_ADVISORY_HOURS} hours.`} <span class="weather-limits">Limits: ${escHtml(selectedOmCWeatherLimitsText())}.</span>`;
+        ? `${renderTafGroups(tafGroups, selectedOmCWeatherLimitsText())} <span class="weather-note">${relevantGroups.length > 0 ? "TEMPO/PROB groups remain advisory." : `TAF validity does not overlap the next ${TAF_ADVISORY_HOURS} hours; showing parsed TAF groups for context.`}</span>`
+        : `${groupsForReview.length > 0 ? `${groupsForReview.length} TAF group(s) reviewed; no parsed minima factors found.` : "TAF contains no parseable forecast groups."} <span class="weather-limits">Limits: ${escHtml(selectedOmCWeatherLimitsText())}.</span>`;
       return { ok: true, assessed: true, text: `${text} ${detailEl.textContent}` };
     }
 
@@ -1979,18 +2015,18 @@
       const complianceText = getText("complianceAlert");
       const classIfBad = (bad) => bad ? " bad-value" : "";
       const statusToken = (text) => {
-        const match = String(text || "").match(/\b(NOT OK|CHECK|OK)\b/i);
+        const match = String(text || "").match(/\b(NOT OK|CHECK|OK|INFO)\b/i);
         return match ? match[1].toUpperCase() : "";
       };
       const statusClass = (token) => token === "NOT OK"
         ? "bad-value"
-        : token === "CHECK"
+          : token === "CHECK" || token === "INFO"
           ? "warn-value"
           : token === "OK"
             ? "ok"
             : "";
       const stripStatusPrefix = (text) => String(text || "")
-        .replace(/^\s*(NOT OK|CHECK|OK)\s*[-–—]\s*/i, "")
+        .replace(/^\s*(NOT OK|CHECK|OK|INFO)\s*[-–—]\s*/i, "")
         .trim();
       const renderStatusLine = (label, text) => {
         const token = statusToken(text);
@@ -2012,8 +2048,13 @@
       const weatherDetailHtmlForExport = (detailId) => {
         const detailEl = document.getElementById(detailId);
         const html = detailEl?.innerHTML?.trim();
-        if (html) return html;
-        return escHtml(getText(detailId) || "Not assessed.");
+        if (html) {
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = html;
+          wrapper.querySelectorAll(".weather-limits").forEach(el => el.remove());
+          return wrapper.innerHTML.replace(/\s*Limits:.*$/i, "").trim();
+        }
+        return escHtml((getText(detailId) || "Not assessed.").replace(/\s*Limits:.*$/i, "").trim());
       };
       const renderWeatherCell = (label, statusId, detailId) => {
         const status = getText(statusId);
@@ -2105,6 +2146,7 @@
     .weather-group { display: block; margin-top: 1px; }
     .weather-group-label { color: #475569; font-weight: 800; margin-right: 2px; }
     .weather-limits { color: #475569; display: inline-block; margin-top: 1px; }
+    .weather-note { color: #475569; display: inline-block; margin-top: 1px; }
     .footer { margin-top: auto; font-size: 7px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 3px; }
     p { margin: 3px 0; }
     @media print { .report-actions { display:none; } }
