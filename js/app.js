@@ -88,6 +88,13 @@
     const METAR_STALE_MINUTES = 90;
     const METAR_FETCH_TIMEOUT_MS = 12000;
     const TAF_ADVISORY_HOURS = 6;
+    const EMY_AVIATION_URL = "https://www.emy.gr/en/aviation";
+    const EMY_PROXY_URLS = [
+      "https://api.allorigins.win/raw?url=",
+      "https://corsproxy.io/?",
+      "https://api.codetabs.com/v1/proxy?quest=",
+    ];
+    let emyCharts = { wind: [], sigwx: [], updatedAt: null, error: null };
 
     async function loadRunwayPresets() {
       try {
@@ -187,6 +194,40 @@
       el.value = value;
     }
 
+    function formatDurationHhmm(hours) {
+      const finiteHours = Math.max(0, Number(hours) || 0);
+      const totalMinutes = Math.round(finiteHours * 60);
+      const hh = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+      const mm = String(totalMinutes % 60).padStart(2, "0");
+      return `${hh}${mm}`;
+    }
+
+    function parseDurationHhmm(value) {
+      const raw = String(value ?? "").trim();
+      if (!raw) return 0;
+      const colonMatch = raw.match(/^(\d{1,2}):(\d{2})$/);
+      if (colonMatch) {
+        const hours = Number(colonMatch[1]);
+        const minutes = Number(colonMatch[2]);
+        return Number.isFinite(hours) && Number.isFinite(minutes) ? Math.max(0, hours + Math.min(minutes, 59) / 60) : 0;
+      }
+      const digits = raw.replace(/\D/g, "");
+      if (digits.length >= 3) {
+        const padded = digits.padStart(4, "0").slice(-4);
+        const hours = Number(padded.slice(0, 2));
+        const minutes = Number(padded.slice(2, 4));
+        return Number.isFinite(hours) && Number.isFinite(minutes) ? Math.max(0, hours + Math.min(minutes, 59) / 60) : 0;
+      }
+      const decimalHours = Number(raw);
+      return Number.isFinite(decimalHours) ? Math.max(0, decimalHours) : 0;
+    }
+
+    function normalizeDurationField(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = formatDurationHhmm(parseDurationHhmm(el.value));
+    }
+
     function populateSeatArmSelect(selectId) {
       const select = document.getElementById(selectId);
       if (!select) return;
@@ -218,6 +259,8 @@
       setInputValue("pilotWt", defaults.pilotWeightKg);
       setInputValue("paxWt", defaults.passengerWeightKg);
       setInputValue("fuelL", defaults.fuelLiters);
+      setInputValue("flightDurationH", typeof defaults.flightDurationHours === "number" ? formatDurationHhmm(defaults.flightDurationHours) : defaults.flightDurationHours);
+      setInputValue("fuelBurnLph", defaults.fuelConsumptionLph);
       setInputValue("bagArm", stations.baggageArmMm);
       populateSeatArmSelect("pilotArm");
       populateSeatArmSelect("paxArm");
@@ -927,7 +970,7 @@
         const text = `OM-C weather minima not assessed - fetch a ${phaseLabel} METAR first.`;
         statusEl.textContent = text;
         statusEl.className = "res-main summary-line-warn";
-        detailEl.textContent = `Visibility and cloud ceiling are parsed from the fetched METAR. Limits: ${selectedOmCWeatherLimitsText()}.`;
+        detailEl.textContent = `Visibility/cloud ceiling are parsed from the fetched METAR; wind checks use the editable wind fields. Limits: ${selectedOmCWeatherLimitsText()}.`;
         return { ok: false, assessed: false, text };
       }
 
@@ -1122,17 +1165,40 @@
       return Math.round(x * f) / f;
     }
 
+    function pointOnSegment(px, py, ax, ay, bx, by, tolerance = 1e-6) {
+      const cross = (px - ax) * (by - ay) - (py - ay) * (bx - ax);
+      if (Math.abs(cross) > tolerance * Math.max(1, Math.abs(bx - ax), Math.abs(by - ay))) return false;
+      const dot = (px - ax) * (px - bx) + (py - ay) * (py - by);
+      return dot <= tolerance;
+    }
+
     function pointInPoly(px, py, poly) {
       let inside = false;
       for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
         const xi = poly[i].x, yi = poly[i].y;
         const xj = poly[j].x, yj = poly[j].y;
+        if (pointOnSegment(px, py, xi, yi, xj, yj)) return true;
         const intersect =
           yi > py !== yj > py &&
-          px < ((xj - xi) * (py - yi)) / ((yj - yi) || 1e-9) + xi;
+          px <= ((xj - xi) * (py - yi)) / ((yj - yi) || 1e-9) + xi;
         if (intersect) inside = !inside;
       }
       return inside;
+    }
+
+
+    function formatFuelVolumeAndMass(liters, density) {
+      const safeLiters = Math.max(0, Number(liters) || 0);
+      const safeDensity = Math.max(0, Number(density) || 0);
+      return `${round(safeLiters, 1)} L / ${round(safeLiters * safeDensity, 1)} kg`;
+    }
+
+    function wbPointOk(mass, cg) {
+      const tolerance = 1e-6;
+      const massOk = mass <= MAX_MASS + tolerance && mass >= CG_MIN_MASS - tolerance;
+      const cgOk = cg >= CG_MIN - tolerance && cg <= CG_MAX + tolerance;
+      const polyOk = pointInPoly(cg, mass, CG_POLY);
+      return { massOk, cgOk, polyOk, ok: massOk && cgOk && polyOk };
     }
 
     function interpTOLD(pa, isaDev, table) {
@@ -1226,7 +1292,7 @@
     }
 
     let cgChart;
-    let cgDepDataset, cgArrDataset, cgFuelLineDataset;
+    let cgDepDataset, cgArrDataset, cgZeroFuelDataset, cgFuelLineDataset;
 
     function buildCGChart() {
       const ctx = document.getElementById("cgChart").getContext("2d");
@@ -1242,7 +1308,15 @@
 
       cgArrDataset = {
         type: "scatter",
-        label: "Arrival",
+        label: "Landing",
+        data: [],
+        pointRadius: 5,
+        pointHoverRadius: 6,
+      };
+
+      cgZeroFuelDataset = {
+        type: "scatter",
+        label: "Zero fuel",
         data: [],
         pointRadius: 5,
         pointHoverRadius: 6,
@@ -1277,6 +1351,7 @@
             cgFuelLineDataset,
             cgDepDataset,
             cgArrDataset,
+            cgZeroFuelDataset,
           ],
         },
         options: {
@@ -1340,15 +1415,34 @@
       const fuelArm = Number(LOADING_CONFIG.stations?.fuelArmMm) || 0;
       const fuelL = parseFloat(document.getElementById("fuelL").value) || 0;
       const fuelDensity = parseFloat(document.getElementById("fuelType").value) || 0;
+      const flightDurationH = parseDurationHhmm(document.getElementById("flightDurationH")?.value);
+      const fuelBurnLph = Math.max(0, parseFloat(document.getElementById("fuelBurnLph")?.value) || 0);
+      const plannedFuelBurnRawL = flightDurationH * fuelBurnLph;
+      const plannedFuelBurnL = Math.min(fuelL, plannedFuelBurnRawL);
+      const landingFuelL = Math.max(0, fuelL - plannedFuelBurnL);
 
       const fuelKg = fuelL * fuelDensity;
+      const landingFuelKg = landingFuelL * fuelDensity;
       document.getElementById("fuelKg").value = round(fuelKg, 1);
+      document.getElementById("landingFuel").value = formatFuelVolumeAndMass(landingFuelL, fuelDensity);
 
       const fuelWarn = document.getElementById("fuelWarn");
-      if (fuelL > MAX_FUEL_L) {
+      const fuelWarnings = [];
+      if (fuelL > MAX_FUEL_L) fuelWarnings.push(`Fuel exceeds AFM usable fuel limit (${MAX_FUEL_L} L).`);
+      if (fuelDensity <= 0 && fuelL > 0) fuelWarnings.push("Select a fuel type to calculate fuel mass.");
+      if (fuelWarnings.length > 0) {
         fuelWarn.style.display = "block";
-        fuelWarn.textContent = `Fuel exceeds AFM usable fuel limit (${MAX_FUEL_L} L).`;
+        fuelWarn.textContent = fuelWarnings.join(" ");
       } else fuelWarn.style.display = "none";
+
+      const landingFuelWarn = document.getElementById("landingFuelWarn");
+      if (plannedFuelBurnRawL > fuelL) {
+        landingFuelWarn.style.display = "block";
+        landingFuelWarn.textContent = `Planned burn ${round(plannedFuelBurnRawL, 1)} L exceeds take-off fuel; landing fuel clamped to 0 L.`;
+      } else {
+        landingFuelWarn.style.display = "none";
+        landingFuelWarn.textContent = "";
+      }
 
       const bagWarn = document.getElementById("bagWarn");
       if (bagWt > MAX_BAG_KG) {
@@ -1364,6 +1458,7 @@
       const mPax = paxWt;
       const mBag = bagWt;
       const mFuel = fuelKg;
+      const mLandingFuel = landingFuelKg;
 
       const momEmpty = moment(mEmpty, emptyArm);
       const momUpholstery = moment(mUpholstery, upholsteryArm);
@@ -1371,65 +1466,75 @@
       const momPax = moment(mPax, paxArm);
       const momBag = moment(mBag, bagArm);
       const momFuel = moment(mFuel, fuelArm);
+      const momLandingFuel = moment(mLandingFuel, fuelArm);
 
-      const massTO = mEmpty + mUpholstery + mPilot + mPax + mBag + mFuel;
-      const momTO = momEmpty + momUpholstery + momPilot + momPax + momBag + momFuel;
+      const massZF = mEmpty + mUpholstery + mPilot + mPax + mBag;
+      const momZF = momEmpty + momUpholstery + momPilot + momPax + momBag;
+      const cgZF = momZF / (massZF || 1);
+
+      const massTO = massZF + mFuel;
+      const momTO = momZF + momFuel;
       const cgTO = momTO / (massTO || 1);
 
-      const massLW = mEmpty + mUpholstery + mPilot + mPax + mBag;
-      const momLW = momEmpty + momUpholstery + momPilot + momPax + momBag;
+      const massLW = massZF + mLandingFuel;
+      const momLW = momZF + momLandingFuel;
       const cgLW = momLW / (massLW || 1);
+
+      const maxFuelByWeightL = fuelDensity > 0 ? Math.min(MAX_FUEL_L, Math.max(0, (MAX_MASS - massZF) / fuelDensity)) : 0;
+      const maxFuelByWeightText = fuelDensity > 0
+        ? `${round(maxFuelByWeightL, 1)} L / ${round(maxFuelByWeightL * fuelDensity, 1)} kg`
+        : "Select fuel type";
+      document.getElementById("maxFuelByWeight").value = maxFuelByWeightText;
 
       document.getElementById("tow").textContent = round(massTO, 1);
       document.getElementById("cg").textContent = isFinite(cgTO) ? round(cgTO, 0) : "–";
       document.getElementById("lw").textContent = round(massLW, 1);
       document.getElementById("cgArr").textContent = isFinite(cgLW) ? round(cgLW, 0) : "–";
+      document.getElementById("zfw").textContent = round(massZF, 1);
+      document.getElementById("cgZf").textContent = isFinite(cgZF) ? round(cgZF, 0) : "–";
 
       const wbStatusPill = document.getElementById("wbStatusPill");
 
-      const massOkTO = massTO <= MAX_MASS && massTO >= CG_MIN_MASS;
-      const massOkLW = massLW <= MAX_MASS && massLW >= CG_MIN_MASS;
-      const cgBasicTO = cgTO >= CG_MIN && cgTO <= CG_MAX;
-      const cgBasicLW = cgLW >= CG_MIN && cgLW <= CG_MAX;
-
-      const insidePolyTO = pointInPoly(cgTO, massTO, CG_POLY);
-      const insidePolyLW = pointInPoly(cgLW, massLW, CG_POLY);
-
+      const toPoint = wbPointOk(massTO, cgTO);
+      const landingPoint = wbPointOk(massLW, cgLW);
+      const zeroFuelPoint = wbPointOk(massZF, cgZF);
       const fuelOk = fuelL <= MAX_FUEL_L;
       const bagOk = mBag <= MAX_BAG_KG;
 
-      const wbOk =
-        massOkTO && massOkLW &&
-        cgBasicTO && cgBasicLW &&
-        insidePolyTO && insidePolyLW &&
-        fuelOk && bagOk;
+      const wbOk = toPoint.ok && landingPoint.ok && zeroFuelPoint.ok && fuelOk && bagOk;
 
-      ["tow", "cg"].forEach(id => document.getElementById(id).classList.toggle("bad-value", !massOkTO || !cgBasicTO || !insidePolyTO));
-      ["lw", "cgArr"].forEach(id => document.getElementById(id).classList.toggle("bad-value", !massOkLW || !cgBasicLW || !insidePolyLW));
+      ["tow", "cg"].forEach(id => document.getElementById(id).classList.toggle("bad-value", !toPoint.ok));
+      ["lw", "cgArr"].forEach(id => document.getElementById(id).classList.toggle("bad-value", !landingPoint.ok));
+      ["zfw", "cgZf"].forEach(id => document.getElementById(id).classList.toggle("bad-value", !zeroFuelPoint.ok));
 
       if (wbOk) {
-        wbStatusPill.textContent = "All points inside AFM envelope and limits";
+        wbStatusPill.textContent = "Take-off, landing and zero-fuel points inside AFM envelope and limits";
         wbStatusPill.classList.remove("bad");
         wbStatusPill.classList.add("ok");
       } else {
-        wbStatusPill.textContent = "Check W&B – outside AFM limits";
+        wbStatusPill.textContent = "Check W&B – one or more points outside AFM limits";
         wbStatusPill.classList.remove("ok");
         wbStatusPill.classList.add("bad");
       }
 
-      if (cgDepDataset && cgArrDataset && cgFuelLineDataset) {
+      if (cgDepDataset && cgArrDataset && cgZeroFuelDataset && cgFuelLineDataset) {
         cgDepDataset.data = (isFinite(cgTO) && isFinite(massTO)) ? [{ x: cgTO, y: massTO }] : [];
         cgArrDataset.data = (isFinite(cgLW) && isFinite(massLW)) ? [{ x: cgLW, y: massLW }] : [];
-        cgDepDataset.backgroundColor = (massOkTO && cgBasicTO && insidePolyTO) ? "#f97316" : "#ef4444";
+        cgZeroFuelDataset.data = (isFinite(cgZF) && isFinite(massZF)) ? [{ x: cgZF, y: massZF }] : [];
+        cgDepDataset.backgroundColor = toPoint.ok ? "#f97316" : "#ef4444";
         cgDepDataset.borderColor = "#ffffff";
         cgDepDataset.borderWidth = 2;
-        cgArrDataset.backgroundColor = (massOkLW && cgBasicLW && insidePolyLW) ? "#a855f7" : "#ef4444";
+        cgArrDataset.backgroundColor = landingPoint.ok ? "#a855f7" : "#ef4444";
         cgArrDataset.borderColor = "#ffffff";
         cgArrDataset.borderWidth = 2;
-        cgFuelLineDataset.data =
-          (isFinite(cgTO) && isFinite(massTO) && isFinite(cgLW) && isFinite(massLW))
-            ? [{ x: cgTO, y: massTO }, { x: cgLW, y: massLW }]
-            : [];
+        cgZeroFuelDataset.backgroundColor = zeroFuelPoint.ok ? "#22c55e" : "#ef4444";
+        cgZeroFuelDataset.borderColor = "#ffffff";
+        cgZeroFuelDataset.borderWidth = 2;
+        cgFuelLineDataset.data = [
+          ...(isFinite(cgTO) && isFinite(massTO) ? [{ x: cgTO, y: massTO }] : []),
+          ...(isFinite(cgLW) && isFinite(massLW) ? [{ x: cgLW, y: massLW }] : []),
+          ...(isFinite(cgZF) && isFinite(massZF) ? [{ x: cgZF, y: massZF }] : []),
+        ];
         cgChart.update();
       }
 
@@ -1855,8 +1960,8 @@
       }
 
       const sumWbText = wbOk
-        ? `OK – TOW ${round(massTO, 1)} kg at ${round(cgTO, 0)} mm; landing weight ${round(massLW, 1)} kg at ${round(cgLW, 0)} mm. Fuel volume and baggage within AFM limits.`
-        : `NOT OK – check masses, CG envelope, fuel (≤ ${MAX_FUEL_L} L usable) and baggage (≤ ${MAX_BAG_KG} kg).`;
+        ? `OK – TOW ${round(massTO, 1)} kg at ${round(cgTO, 0)} mm; landing ${round(massLW, 1)} kg at ${round(cgLW, 0)} mm after ${round(plannedFuelBurnL, 1)} L burn; zero fuel ${round(massZF, 1)} kg at ${round(cgZF, 0)} mm. Max fuel by 630 kg limit ${round(maxFuelByWeightL, 1)} L.`
+        : `NOT OK – check take-off, landing and zero-fuel CG envelope, fuel (≤ ${MAX_FUEL_L} L usable) and baggage (≤ ${MAX_BAG_KG} kg).`;
       setSummaryLine("sumWb", sumWbText, wbOk);
 
       const toOk = activeTakeoffOk;
@@ -1913,7 +2018,8 @@
         ["Pilot", mPilot, pilotArm, momPilot],
         ["Passenger", mPax, paxArm, momPax],
         ["Baggage", mBag, bagArm, momBag],
-        ["Fuel", mFuel, fuelArm, momFuel],
+        ["Take-off fuel", mFuel, fuelArm, momFuel],
+        ["Landing fuel", mLandingFuel, fuelArm, momLandingFuel],
       ];
 
       const tbody = document.getElementById("momentTable");
@@ -1922,7 +2028,7 @@
         rows.forEach(([label, mass, arm, moment]) => {
           if (!mass || mass <= 0) return;
           const tr = document.createElement("tr");
-          const rowBad = (label === "Baggage" && !bagOk) || (label === "Fuel" && !fuelOk);
+          const rowBad = (label === "Baggage" && !bagOk) || (label === "Take-off fuel" && !fuelOk);
           tr.classList.toggle("bad-value", rowBad);
           tr.innerHTML = `
       <td>${label}</td>
@@ -1937,10 +2043,14 @@
         document.getElementById("mtMomTO").textContent = Math.round(momTO).toLocaleString();
         document.getElementById("mtMassLW").textContent = round(massLW, 1);
         document.getElementById("mtMomLW").textContent = Math.round(momLW).toLocaleString();
+        document.getElementById("mtMassZF").textContent = round(massZF, 1);
+        document.getElementById("mtMomZF").textContent = Math.round(momZF).toLocaleString();
         document.getElementById("mtArmTO").textContent = isFinite(cgTO) ? round(cgTO, 0) : "–";
         document.getElementById("mtArmLW").textContent = isFinite(cgLW) ? round(cgLW, 0) : "–";
-        document.getElementById("mtMassTO").closest("tr")?.classList.toggle("bad-value", !massOkTO || !cgBasicTO || !insidePolyTO);
-        document.getElementById("mtMassLW").closest("tr")?.classList.toggle("bad-value", !massOkLW || !cgBasicLW || !insidePolyLW);
+        document.getElementById("mtArmZF").textContent = isFinite(cgZF) ? round(cgZF, 0) : "–";
+        document.getElementById("mtMassTO").closest("tr")?.classList.toggle("bad-value", !toPoint.ok);
+        document.getElementById("mtMassLW").closest("tr")?.classList.toggle("bad-value", !landingPoint.ok);
+        document.getElementById("mtMassZF").closest("tr")?.classList.toggle("bad-value", !zeroFuelPoint.ok);
 
       }
     }
@@ -1988,6 +2098,190 @@
       return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
         "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
       }[ch]));
+    }
+
+    function emyTabUrl(tab) {
+      return `${EMY_AVIATION_URL}?tab=${encodeURIComponent(tab)}`;
+    }
+
+    function emyProxyUrls(url) {
+      return EMY_PROXY_URLS.map((prefix) => `${prefix}${encodeURIComponent(url)}`);
+    }
+
+    function absoluteUrl(url, base = EMY_AVIATION_URL) {
+      try {
+        return new URL(url, base).href;
+      } catch (err) {
+        return "";
+      }
+    }
+
+    function safeDecodeUrl(url) {
+      try {
+        return decodeURIComponent(url);
+      } catch (err) {
+        return url;
+      }
+    }
+
+    function extractUrlsFromText(text) {
+      const urls = new Set();
+      const patterns = [
+        /https?:\/\/[^\s"'<>\\)]+/gi,
+        /(?:src|href|url|image|path|file)["'\s:=]+([^"'<>\s]+?)(?=["'\s<>]|$)/gi,
+        /url\(([^)]+)\)/gi,
+        /["'](\/?[^"']*(?:aviation|sig|significant|wind|height|chart|map|fl\d{2,3})[^"']*)["']/gi,
+      ];
+      patterns.forEach((pattern) => {
+        let match;
+        while ((match = pattern.exec(text)) !== null) {
+          const raw = (match[1] || match[0] || "").trim().replace(/^['"]|['"]$/g, "");
+          if (raw && !raw.startsWith("data:") && !raw.startsWith("#")) urls.add(raw);
+        }
+      });
+      return [...urls];
+    }
+
+    function extractEmyChartLinks(html, kind) {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const wanted = kind === "sigwx" ? /sig|significant|sigwx|weather/i : /wind|height|level|upper|fl\s?\d{2,3}/i;
+      const unwanted = kind === "sigwx" ? /wind|height|upper|fl\s?\d{2,3}/i : /sig|significant|sigwx/i;
+      const likelyChartUrl = /aviation|sig|significant|wind|height|chart|map|fl\d{2,3}|weather/i;
+      const candidates = [];
+
+      function addCandidate(url, label, sourceText = "") {
+        const href = absoluteUrl(String(url || "").replace(/&amp;/g, "&"));
+        if (!href) return;
+        const isPdf = /\.pdf(?:[?#].*)?$/i.test(href);
+        const isImage = /\.(?:png|jpe?g|gif|webp|svg)(?:[?#].*)?$/i.test(href);
+        const haystack = `${label || ""} ${sourceText || ""} ${safeDecodeUrl(href)}`;
+        if (!isPdf && !isImage && !likelyChartUrl.test(haystack)) return;
+        const score = (wanted.test(haystack) ? 3 : 0)
+          - (unwanted.test(haystack) ? 2 : 0)
+          + (isImage ? 2 : 0)
+          + (isPdf ? 1 : 0)
+          + (/greece|europe|sfc|fl\d{2,3}|valid|issued|chart|map/i.test(haystack) ? 1 : 0);
+        if (score <= 0) return;
+        if (candidates.some((item) => item.url === href)) return;
+        candidates.push({
+          url: href,
+          label: (label || sourceText || href.split("/").pop() || "EMY chart").replace(/\s+/g, " ").trim().slice(0, 120),
+          type: isPdf ? "pdf" : "image",
+          score,
+        });
+      }
+
+      doc.querySelectorAll("img, source, picture *").forEach((el) => {
+        const parentText = el.closest("a, figure, li, div, section, article")?.textContent || "";
+        ["src", "srcset", "data-src", "data-original", "data-image", "data-url", "href"].forEach((attr) => {
+          const value = el.getAttribute(attr);
+          if (!value) return;
+          value.split(",").map((part) => part.trim().split(/\s+/)[0]).forEach((url) => {
+            addCandidate(url, el.getAttribute("alt") || el.getAttribute("title") || parentText, parentText);
+          });
+        });
+      });
+
+      doc.querySelectorAll("a[href], [style], [data-src], [data-url], [data-image], [data-file]").forEach((el) => {
+        const parentText = el.closest("li, div, section, article")?.textContent || "";
+        ["href", "style", "data-src", "data-url", "data-image", "data-file"].forEach((attr) => {
+          const value = el.getAttribute(attr);
+          if (!value) return;
+          extractUrlsFromText(value).forEach((url) => addCandidate(url, el.textContent || el.getAttribute("title") || value, parentText));
+          addCandidate(value, el.textContent || el.getAttribute("title") || value, parentText);
+        });
+      });
+
+      extractUrlsFromText(html).forEach((url) => addCandidate(url, url, "EMY aviation page source"));
+
+      return candidates
+        .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label))
+        .slice(0, kind === "sigwx" ? 6 : 10);
+    }
+
+    function renderEmyChartList(kind) {
+      const container = document.getElementById(kind === "sigwx" ? "emySigwxCharts" : "emyWindCharts");
+      if (!container) return;
+      const charts = emyCharts[kind] || [];
+      if (!charts.length) {
+        container.classList.add("empty");
+        container.textContent = kind === "sigwx"
+          ? "No SIGWX chart images/PDFs could be extracted automatically. Open the EMY SIGWX link above."
+          : "No winds-aloft chart images/PDFs could be extracted automatically. Open the EMY winds link above.";
+        return;
+      }
+      container.classList.remove("empty");
+      container.innerHTML = charts.map((chart, index) => {
+        const title = escHtml(chart.label || `${kind.toUpperCase()} chart ${index + 1}`);
+        const url = escHtml(chart.url);
+        const media = chart.type === "pdf"
+          ? `<a class="emy-chart-pdf" href="${url}" target="_blank" rel="noopener">Open PDF chart</a>`
+          : `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="${title}" loading="lazy"></a>`;
+        return `<article class="emy-chart-card"><div class="emy-chart-title"><strong>${title}</strong><span>${url}</span></div>${media}</article>`;
+      }).join("");
+    }
+
+    function updateEmyChartStatus(text, isWarning = false) {
+      const status = document.getElementById("emyChartStatus");
+      if (!status) return;
+      status.textContent = text;
+      status.classList.toggle("inline-warning", isWarning);
+    }
+
+    async function fetchEmyAviationHtml(tab) {
+      const directUrl = emyTabUrl(tab);
+      let lastError = null;
+      for (const url of [...emyProxyUrls(directUrl), directUrl]) {
+        try {
+          const response = await fetchWithTimeout(url);
+          if (!response.ok) throw new Error(`EMY returned ${response.status}`);
+          return await response.text();
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      throw lastError || new Error("EMY page unavailable");
+    }
+
+    async function refreshEmyCharts() {
+      updateEmyChartStatus("Fetching EMY aviation page and extracting chart links...");
+      try {
+        const [windHtml, sigwxHtml] = await Promise.all([
+          fetchEmyAviationHtml("heightLevelAviationTab"),
+          fetchEmyAviationHtml("sigWeatherAviationTab"),
+        ]);
+        emyCharts = {
+          wind: extractEmyChartLinks(windHtml, "wind"),
+          sigwx: extractEmyChartLinks(sigwxHtml, "sigwx"),
+          updatedAt: new Date(),
+          error: null,
+        };
+        renderEmyChartList("wind");
+        renderEmyChartList("sigwx");
+        const total = emyCharts.wind.length + emyCharts.sigwx.length;
+        updateEmyChartStatus(total
+          ? `Extracted ${total} EMY chart link(s) at ${emyCharts.updatedAt.toLocaleTimeString()}.`
+          : "EMY page loaded, but no chart image/PDF links matched the winds/SIGWX filters. Use the source links above.", !total);
+      } catch (err) {
+        emyCharts = { wind: [], sigwx: [], updatedAt: null, error: err.message };
+        renderEmyChartList("wind");
+        renderEmyChartList("sigwx");
+        updateEmyChartStatus(`Could not extract EMY charts automatically: ${err.message}. Use the source links above.`, true);
+      }
+    }
+
+    function renderEmyChartsForExport(kind) {
+      const charts = (emyCharts[kind] || []).filter((chart) => chart.type === "image").slice(0, kind === "sigwx" ? 2 : 4);
+      if (!charts.length) {
+        const sourceUrl = kind === "sigwx" ? emyTabUrl("sigWeatherAviationTab") : emyTabUrl("heightLevelAviationTab");
+        return `<p class="weather-panel-note">No extracted ${kind === "sigwx" ? "SIGWX" : "winds aloft"} image was available in the app at export time. Open and print the EMY source chart directly:</p><p><a class="chart-link" href="${sourceUrl}">${sourceUrl}</a></p>`;
+      }
+      return charts.map((chart) => `
+        <figure class="weather-export-chart">
+          <figcaption>${escHtml(chart.label)}</figcaption>
+          <img src="${escHtml(chart.url)}" alt="${escHtml(chart.label)}">
+        </figure>
+      `).join("");
     }
 
     function exportReportToPdf() {
@@ -2065,11 +2359,14 @@
       const lw = textNum("lw");
       const cgTo = textNum("cg");
       const cgLw = textNum("cgArr");
+      const zfw = textNum("zfw");
+      const cgZf = textNum("cgZf");
       const fuelKgReport = numValue("fuelKg");
       const fuelLReport = numValue("fuelL");
       const bagKgReport = numValue("bagWt");
-      const towBad = !(tow >= CG_MIN_MASS && tow <= MAX_MASS && cgTo >= CG_MIN && cgTo <= CG_MAX && pointInPoly(cgTo, tow, CG_POLY));
-      const lwBad = !(lw >= CG_MIN_MASS && lw <= MAX_MASS && cgLw >= CG_MIN && cgLw <= CG_MAX && pointInPoly(cgLw, lw, CG_POLY));
+      const towBad = !wbPointOk(tow, cgTo).ok;
+      const lwBad = !wbPointOk(lw, cgLw).ok;
+      const zfwBad = !wbPointOk(zfw, cgZf).ok;
       const fuelBad = fuelLReport > MAX_FUEL_L;
       const bagBad = bagKgReport > MAX_BAG_KG;
       const wbBad = /check|outside/i.test(getText("wbStatusPill"));
@@ -2146,7 +2443,14 @@
     .wx-raw p { line-height: 1.2; overflow-wrap: anywhere; }
     .footer { margin-top: auto; font-size: 7px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 3px; }
     p { margin: 3px 0; }
-    @media print { .report-actions { display:none; } }
+    .chart-link { color: #075985; font-weight: 800; overflow-wrap: anywhere; }
+    .weather-chart-frame { border: 0; flex: 1 1 auto; min-height: 160mm; width: 100%; }
+    .weather-panel-note { color: #475569; font-size: 7.2px; line-height: 1.25; }
+    .weather-export-chart { border: 1px solid #bfdbfe; border-radius: 5px; margin: 4px 0; overflow: hidden; page-break-inside: avoid; }
+    .weather-export-chart figcaption { background: #e0f2fe; color: #075985; font-size: 7px; font-weight: 800; padding: 2px 4px; }
+    .weather-export-chart img { background: #fff; display: block; max-height: 72mm; object-fit: contain; width: 100%; }
+    .a5-spread + .a5-spread { page-break-before: always; margin-top: 8mm; }
+    @media print { .report-actions { display:none; } .a5-spread + .a5-spread { margin-top: 0; } }
   </style>
 </head>
 <body>
@@ -2173,7 +2477,10 @@
           <div class="k">Pilot</div><div class="v">${escHtml(getValue("pilotWt"))} kg @ ${escHtml(getValue("pilotArm"))} mm</div>
           <div class="k">Passenger</div><div class="v">${escHtml(getValue("paxWt"))} kg @ ${escHtml(getValue("paxArm"))} mm</div>
           <div class="k">Baggage</div><div class="v${classIfBad(bagBad)}">${escHtml(getValue("bagWt"))} kg @ ${escHtml(getValue("bagArm"))} mm</div>
-          <div class="k">Fuel</div><div class="v${classIfBad(fuelBad)}">${escHtml(getValue("fuelL"))} L / ${escHtml(getText("fuelKg")) || escHtml(getValue("fuelKg"))} kg (${escHtml(getSelectedText("fuelType"))})</div>
+          <div class="k">T/O fuel</div><div class="v${classIfBad(fuelBad)}">${escHtml(getValue("fuelL"))} L / ${escHtml(getText("fuelKg")) || escHtml(getValue("fuelKg"))} kg (${escHtml(getSelectedText("fuelType"))})</div>
+          <div class="k">Flight fuel burn</div><div class="v">${escHtml(getValue("flightDurationH"))} h × ${escHtml(getValue("fuelBurnLph"))} L/h</div>
+          <div class="k">Landing fuel</div><div class="v">${escHtml(getValue("landingFuel"))}</div>
+          <div class="k">Max fuel @ 630 kg</div><div class="v">${escHtml(getValue("maxFuelByWeight"))}</div>
           </div>
           <div class="box wb">
           <table class="moment-table">
@@ -2183,8 +2490,9 @@
             <thead><tr><th>Item</th><th class="num">Mass kg</th><th class="num">Arm mm</th><th class="num">Moment</th></tr></thead>
             <tbody>${rowsHtml}</tbody>
             <tfoot>
-              <tr class="${towBad ? "bad-value" : ""}"><td><strong>Total with fuel</strong></td><td class="num">${escHtml(getText("mtMassTO"))}</td><td class="num">${escHtml(getText("mtArmTO"))}</td><td class="num">${escHtml(getText("mtMomTO"))}</td></tr>
-              <tr class="${lwBad ? "bad-value" : ""}"><td><strong>Total no fuel</strong></td><td class="num">${escHtml(getText("mtMassLW"))}</td><td class="num">${escHtml(getText("mtArmLW"))}</td><td class="num">${escHtml(getText("mtMomLW"))}</td></tr>
+              <tr class="${towBad ? "bad-value" : ""}"><td><strong>Total with T/O fuel</strong></td><td class="num">${escHtml(getText("mtMassTO"))}</td><td class="num">${escHtml(getText("mtArmTO"))}</td><td class="num">${escHtml(getText("mtMomTO"))}</td></tr>
+              <tr class="${lwBad ? "bad-value" : ""}"><td><strong>Total landing fuel</strong></td><td class="num">${escHtml(getText("mtMassLW"))}</td><td class="num">${escHtml(getText("mtArmLW"))}</td><td class="num">${escHtml(getText("mtMomLW"))}</td></tr>
+              <tr class="${zfwBad ? "bad-value" : ""}"><td><strong>Total zero fuel</strong></td><td class="num">${escHtml(getText("mtMassZF"))}</td><td class="num">${escHtml(getText("mtArmZF"))}</td><td class="num">${escHtml(getText("mtMomZF"))}</td></tr>
             </tfoot>
           </table>
           <p class="${wbBad ? "bad-value" : "ok"}"><strong>W&amp;B status:</strong> ${escHtml(getText("wbStatusPill"))}</p>
@@ -2277,6 +2585,34 @@
       <div class="footer">This PDF is a snapshot of the app data. It is not an AFM replacement.</div>
     </section>
   </div>
+
+  <div class="a5-spread">
+    <section class="a5-panel">
+      <div class="panel-header">
+        <h1>EMY Winds Aloft</h1>
+        <div class="report-meta">
+          <div>Generated ${escHtml(now.toLocaleString())}</div>
+          <div>Weather panel 1/2</div>
+        </div>
+      </div>
+      <p class="weather-panel-note">Extracted from the EMY/HNMS aviation page where browser/network policy allows. Verify chart issue and validity times against the official EMY source before flight.</p>
+      ${renderEmyChartsForExport("wind")}
+      <div class="footer">Source: EMY/HNMS upper-atmosphere wind maps.</div>
+    </section>
+
+    <section class="a5-panel">
+      <div class="panel-header">
+        <h1>EMY SIGWX</h1>
+        <div class="report-meta">
+          <div>Generated ${escHtml(now.toLocaleString())}</div>
+          <div>Weather panel 2/2</div>
+        </div>
+      </div>
+      <p class="weather-panel-note">Extracted from the EMY/HNMS aviation page where browser/network policy allows. Verify chart issue and validity times against the official EMY source before flight.</p>
+      ${renderEmyChartsForExport("sigwx")}
+      <div class="footer">Source: EMY/HNMS significant-weather maps.</div>
+    </section>
+  </div>
 </body>
 </html>`;
 
@@ -2317,6 +2653,11 @@
       document.getElementById("fetchTafBtn").addEventListener("click", () => fetchAndAssessTaf("departure"));
       document.getElementById("fetchArrivalMetarBtn").addEventListener("click", () => fetchAndApplyMetar("arrival"));
       document.getElementById("fetchArrivalTafBtn").addEventListener("click", () => fetchAndAssessTaf("arrival"));
+      document.getElementById("refreshEmyChartsBtn")?.addEventListener("click", refreshEmyCharts);
+      document.getElementById("flightDurationH")?.addEventListener("blur", () => {
+        normalizeDurationField("flightDurationH");
+        calculateAll();
+      });
 
       const regSelect = document.getElementById("regSelect");
       const regInfo = document.getElementById("regInfo");
@@ -2430,5 +2771,6 @@
       updateWeatherMinimaControls();
       updateRunwayEditState();
       calculateAll();
+      refreshEmyCharts();
       window.addEventListener("resize", calculateAll);
     });
