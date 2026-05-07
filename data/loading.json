@@ -7,7 +7,7 @@
     "pilotWeightKg": 90,
     "passengerWeightKg": 85,
     "fuelLiters": 50,
-    "flightDurationHours": 1,
+    "flightDurationHours": "0100",
     "fuelConsumptionLph": 15
   },
   "seatArms": [
@@ -61,6 +61,11 @@
       "id": "seat_1140",
       "label": "1140 mm",
       "armMm": 1140
+    },
+    {
+      "id": "seat_1150",
+      "label": "1150 mm",
+      "armMm": 1150
     }
   ],
   "stations": {

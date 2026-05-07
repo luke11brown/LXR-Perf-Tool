@@ -88,6 +88,9 @@
     const METAR_STALE_MINUTES = 90;
     const METAR_FETCH_TIMEOUT_MS = 12000;
     const TAF_ADVISORY_HOURS = 6;
+    const EMY_AVIATION_URL = "https://emy.gr/en/aviation";
+    const EMY_PROXY_URL = "https://api.codetabs.com/v1/proxy?quest=";
+    let emyCharts = { wind: [], sigwx: [], updatedAt: null, error: null };
 
     async function loadRunwayPresets() {
       try {
@@ -187,6 +190,40 @@
       el.value = value;
     }
 
+    function formatDurationHhmm(hours) {
+      const finiteHours = Math.max(0, Number(hours) || 0);
+      const totalMinutes = Math.round(finiteHours * 60);
+      const hh = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+      const mm = String(totalMinutes % 60).padStart(2, "0");
+      return `${hh}${mm}`;
+    }
+
+    function parseDurationHhmm(value) {
+      const raw = String(value ?? "").trim();
+      if (!raw) return 0;
+      const colonMatch = raw.match(/^(\d{1,2}):(\d{2})$/);
+      if (colonMatch) {
+        const hours = Number(colonMatch[1]);
+        const minutes = Number(colonMatch[2]);
+        return Number.isFinite(hours) && Number.isFinite(minutes) ? Math.max(0, hours + Math.min(minutes, 59) / 60) : 0;
+      }
+      const digits = raw.replace(/\D/g, "");
+      if (digits.length >= 3) {
+        const padded = digits.padStart(4, "0").slice(-4);
+        const hours = Number(padded.slice(0, 2));
+        const minutes = Number(padded.slice(2, 4));
+        return Number.isFinite(hours) && Number.isFinite(minutes) ? Math.max(0, hours + Math.min(minutes, 59) / 60) : 0;
+      }
+      const decimalHours = Number(raw);
+      return Number.isFinite(decimalHours) ? Math.max(0, decimalHours) : 0;
+    }
+
+    function normalizeDurationField(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = formatDurationHhmm(parseDurationHhmm(el.value));
+    }
+
     function populateSeatArmSelect(selectId) {
       const select = document.getElementById(selectId);
       if (!select) return;
@@ -218,7 +255,7 @@
       setInputValue("pilotWt", defaults.pilotWeightKg);
       setInputValue("paxWt", defaults.passengerWeightKg);
       setInputValue("fuelL", defaults.fuelLiters);
-      setInputValue("flightDurationH", defaults.flightDurationHours);
+      setInputValue("flightDurationH", typeof defaults.flightDurationHours === "number" ? formatDurationHhmm(defaults.flightDurationHours) : defaults.flightDurationHours);
       setInputValue("fuelBurnLph", defaults.fuelConsumptionLph);
       setInputValue("bagArm", stations.baggageArmMm);
       populateSeatArmSelect("pilotArm");
@@ -929,7 +966,7 @@
         const text = `OM-C weather minima not assessed - fetch a ${phaseLabel} METAR first.`;
         statusEl.textContent = text;
         statusEl.className = "res-main summary-line-warn";
-        detailEl.textContent = `Visibility and cloud ceiling are parsed from the fetched METAR. Limits: ${selectedOmCWeatherLimitsText()}.`;
+        detailEl.textContent = `Visibility/cloud ceiling are parsed from the fetched METAR; wind checks use the editable wind fields. Limits: ${selectedOmCWeatherLimitsText()}.`;
         return { ok: false, assessed: false, text };
       }
 
@@ -1365,9 +1402,10 @@
       const fuelArm = Number(LOADING_CONFIG.stations?.fuelArmMm) || 0;
       const fuelL = parseFloat(document.getElementById("fuelL").value) || 0;
       const fuelDensity = parseFloat(document.getElementById("fuelType").value) || 0;
-      const flightDurationH = Math.max(0, parseFloat(document.getElementById("flightDurationH")?.value) || 0);
+      const flightDurationH = parseDurationHhmm(document.getElementById("flightDurationH")?.value);
       const fuelBurnLph = Math.max(0, parseFloat(document.getElementById("fuelBurnLph")?.value) || 0);
-      const plannedFuelBurnL = Math.min(fuelL, flightDurationH * fuelBurnLph);
+      const plannedFuelBurnRawL = flightDurationH * fuelBurnLph;
+      const plannedFuelBurnL = Math.min(fuelL, plannedFuelBurnRawL);
       const landingFuelL = Math.max(0, fuelL - plannedFuelBurnL);
 
       const fuelKg = fuelL * fuelDensity;
@@ -1385,9 +1423,9 @@
       } else fuelWarn.style.display = "none";
 
       const landingFuelWarn = document.getElementById("landingFuelWarn");
-      if (flightDurationH * fuelBurnLph > fuelL) {
+      if (plannedFuelBurnRawL > fuelL) {
         landingFuelWarn.style.display = "block";
-        landingFuelWarn.textContent = `Planned burn ${round(flightDurationH * fuelBurnLph, 1)} L exceeds take-off fuel; landing fuel clamped to 0 L.`;
+        landingFuelWarn.textContent = `Planned burn ${round(plannedFuelBurnRawL, 1)} L exceeds take-off fuel; landing fuel clamped to 0 L.`;
       } else {
         landingFuelWarn.style.display = "none";
         landingFuelWarn.textContent = "";
@@ -2049,6 +2087,146 @@
       }[ch]));
     }
 
+    function emyTabUrl(tab) {
+      return `${EMY_AVIATION_URL}?tab=${encodeURIComponent(tab)}`;
+    }
+
+    function emyProxyUrl(url) {
+      return `${EMY_PROXY_URL}${encodeURIComponent(url)}`;
+    }
+
+    function absoluteUrl(url, base = EMY_AVIATION_URL) {
+      try {
+        return new URL(url, base).href;
+      } catch (err) {
+        return "";
+      }
+    }
+
+    function extractEmyChartLinks(html, kind) {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const wanted = kind === "sigwx" ? /sig|significant|sigwx|weather/i : /wind|height|level|upper|fl\s?\d{2,3}/i;
+      const unwanted = kind === "sigwx" ? /wind|height|upper|fl\s?\d{2,3}/i : /sig|significant|sigwx/i;
+      const candidates = [];
+
+      function addCandidate(url, label, sourceText = "") {
+        const href = absoluteUrl(url);
+        if (!href || !/\.(?:png|jpe?g|gif|webp|pdf)(?:[?#].*)?$/i.test(href)) return;
+        const haystack = `${label || ""} ${sourceText || ""} ${href}`;
+        const score = (wanted.test(haystack) ? 2 : 0) - (unwanted.test(haystack) ? 1 : 0) + (/\.(?:png|jpe?g|gif|webp)(?:[?#].*)?$/i.test(href) ? 1 : 0);
+        if (score <= 0) return;
+        if (candidates.some((item) => item.url === href)) return;
+        candidates.push({
+          url: href,
+          label: (label || sourceText || href.split("/").pop() || "EMY chart").replace(/\s+/g, " ").trim(),
+          type: /\.pdf(?:[?#].*)?$/i.test(href) ? "pdf" : "image",
+          score,
+        });
+      }
+
+      doc.querySelectorAll("img").forEach((img) => {
+        const src = img.currentSrc || img.getAttribute("src") || img.getAttribute("data-src") || img.getAttribute("data-original");
+        const parentText = img.closest("a, figure, li, div, section")?.textContent || "";
+        addCandidate(src, img.getAttribute("alt") || img.getAttribute("title") || parentText, parentText);
+      });
+
+      doc.querySelectorAll("a[href]").forEach((link) => {
+        const href = link.getAttribute("href");
+        const text = link.textContent || link.getAttribute("title") || href;
+        const parentText = link.closest("li, div, section")?.textContent || "";
+        addCandidate(href, text, parentText);
+      });
+
+      return candidates
+        .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label))
+        .slice(0, kind === "sigwx" ? 4 : 8);
+    }
+
+    function renderEmyChartList(kind) {
+      const container = document.getElementById(kind === "sigwx" ? "emySigwxCharts" : "emyWindCharts");
+      if (!container) return;
+      const charts = emyCharts[kind] || [];
+      if (!charts.length) {
+        container.classList.add("empty");
+        container.textContent = kind === "sigwx"
+          ? "No SIGWX chart images/PDFs could be extracted automatically. Open the EMY SIGWX link above."
+          : "No winds-aloft chart images/PDFs could be extracted automatically. Open the EMY winds link above.";
+        return;
+      }
+      container.classList.remove("empty");
+      container.innerHTML = charts.map((chart, index) => {
+        const title = escHtml(chart.label || `${kind.toUpperCase()} chart ${index + 1}`);
+        const url = escHtml(chart.url);
+        const media = chart.type === "pdf"
+          ? `<a class="emy-chart-pdf" href="${url}" target="_blank" rel="noopener">Open PDF chart</a>`
+          : `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="${title}" loading="lazy"></a>`;
+        return `<article class="emy-chart-card"><div class="emy-chart-title"><strong>${title}</strong><span>${url}</span></div>${media}</article>`;
+      }).join("");
+    }
+
+    function updateEmyChartStatus(text, isWarning = false) {
+      const status = document.getElementById("emyChartStatus");
+      if (!status) return;
+      status.textContent = text;
+      status.classList.toggle("inline-warning", isWarning);
+    }
+
+    async function fetchEmyAviationHtml(tab) {
+      const directUrl = emyTabUrl(tab);
+      let lastError = null;
+      for (const url of [emyProxyUrl(directUrl), directUrl]) {
+        try {
+          const response = await fetchWithTimeout(url);
+          if (!response.ok) throw new Error(`EMY returned ${response.status}`);
+          return await response.text();
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      throw lastError || new Error("EMY page unavailable");
+    }
+
+    async function refreshEmyCharts() {
+      updateEmyChartStatus("Fetching EMY aviation page and extracting chart links...");
+      try {
+        const [windHtml, sigwxHtml] = await Promise.all([
+          fetchEmyAviationHtml("heightLevelAviationTab"),
+          fetchEmyAviationHtml("sigWeatherAviationTab"),
+        ]);
+        emyCharts = {
+          wind: extractEmyChartLinks(windHtml, "wind"),
+          sigwx: extractEmyChartLinks(sigwxHtml, "sigwx"),
+          updatedAt: new Date(),
+          error: null,
+        };
+        renderEmyChartList("wind");
+        renderEmyChartList("sigwx");
+        const total = emyCharts.wind.length + emyCharts.sigwx.length;
+        updateEmyChartStatus(total
+          ? `Extracted ${total} EMY chart link(s) at ${emyCharts.updatedAt.toLocaleTimeString()}.`
+          : "EMY page loaded, but no chart image/PDF links matched the winds/SIGWX filters. Use the source links above.", !total);
+      } catch (err) {
+        emyCharts = { wind: [], sigwx: [], updatedAt: null, error: err.message };
+        renderEmyChartList("wind");
+        renderEmyChartList("sigwx");
+        updateEmyChartStatus(`Could not extract EMY charts automatically: ${err.message}. Use the source links above.`, true);
+      }
+    }
+
+    function renderEmyChartsForExport(kind) {
+      const charts = (emyCharts[kind] || []).filter((chart) => chart.type === "image").slice(0, kind === "sigwx" ? 2 : 4);
+      if (!charts.length) {
+        const sourceUrl = kind === "sigwx" ? emyTabUrl("sigWeatherAviationTab") : emyTabUrl("heightLevelAviationTab");
+        return `<p class="weather-panel-note">No extracted ${kind === "sigwx" ? "SIGWX" : "winds aloft"} image was available in the app at export time. Open and print the EMY source chart directly:</p><p><a class="chart-link" href="${sourceUrl}">${sourceUrl}</a></p>`;
+      }
+      return charts.map((chart) => `
+        <figure class="weather-export-chart">
+          <figcaption>${escHtml(chart.label)}</figcaption>
+          <img src="${escHtml(chart.url)}" alt="${escHtml(chart.label)}">
+        </figure>
+      `).join("");
+    }
+
     function exportReportToPdf() {
       calculateAll();
 
@@ -2211,6 +2389,9 @@
     .chart-link { color: #075985; font-weight: 800; overflow-wrap: anywhere; }
     .weather-chart-frame { border: 0; flex: 1 1 auto; min-height: 160mm; width: 100%; }
     .weather-panel-note { color: #475569; font-size: 7.2px; line-height: 1.25; }
+    .weather-export-chart { border: 1px solid #bfdbfe; border-radius: 5px; margin: 4px 0; overflow: hidden; page-break-inside: avoid; }
+    .weather-export-chart figcaption { background: #e0f2fe; color: #075985; font-size: 7px; font-weight: 800; padding: 2px 4px; }
+    .weather-export-chart img { background: #fff; display: block; max-height: 72mm; object-fit: contain; width: 100%; }
     .a5-spread + .a5-spread { page-break-before: always; margin-top: 8mm; }
     @media print { .report-actions { display:none; } .a5-spread + .a5-spread { margin-top: 0; } }
   </style>
@@ -2357,10 +2538,9 @@
           <div>Weather panel 1/2</div>
         </div>
       </div>
-      <p class="weather-panel-note">Live EMY upper-atmosphere wind maps. If your browser blocks the embedded frame during printing, open the source link and print the chart directly.</p>
-      <p><a class="chart-link" href="https://emy.gr/en/aviation?tab=heightLevelAviationTab">https://emy.gr/en/aviation?tab=heightLevelAviationTab</a></p>
-      <iframe class="weather-chart-frame" src="https://emy.gr/en/aviation?tab=heightLevelAviationTab" title="EMY upper atmosphere wind maps"></iframe>
-      <div class="footer">External EMY/HNMS aviation chart page embedded at print time.</div>
+      <p class="weather-panel-note">Extracted from the EMY/HNMS aviation page where browser/network policy allows. Verify chart issue and validity times against the official EMY source before flight.</p>
+      ${renderEmyChartsForExport("wind")}
+      <div class="footer">Source: EMY/HNMS upper-atmosphere wind maps.</div>
     </section>
 
     <section class="a5-panel">
@@ -2371,10 +2551,9 @@
           <div>Weather panel 2/2</div>
         </div>
       </div>
-      <p class="weather-panel-note">Live EMY significant-weather maps. If your browser blocks the embedded frame during printing, open the source link and print the chart directly.</p>
-      <p><a class="chart-link" href="https://emy.gr/en/aviation?tab=sigWeatherAviationTab">https://emy.gr/en/aviation?tab=sigWeatherAviationTab</a></p>
-      <iframe class="weather-chart-frame" src="https://emy.gr/en/aviation?tab=sigWeatherAviationTab" title="EMY significant weather maps"></iframe>
-      <div class="footer">External EMY/HNMS aviation chart page embedded at print time.</div>
+      <p class="weather-panel-note">Extracted from the EMY/HNMS aviation page where browser/network policy allows. Verify chart issue and validity times against the official EMY source before flight.</p>
+      ${renderEmyChartsForExport("sigwx")}
+      <div class="footer">Source: EMY/HNMS significant-weather maps.</div>
     </section>
   </div>
 </body>
@@ -2417,6 +2596,11 @@
       document.getElementById("fetchTafBtn").addEventListener("click", () => fetchAndAssessTaf("departure"));
       document.getElementById("fetchArrivalMetarBtn").addEventListener("click", () => fetchAndApplyMetar("arrival"));
       document.getElementById("fetchArrivalTafBtn").addEventListener("click", () => fetchAndAssessTaf("arrival"));
+      document.getElementById("refreshEmyChartsBtn")?.addEventListener("click", refreshEmyCharts);
+      document.getElementById("flightDurationH")?.addEventListener("blur", () => {
+        normalizeDurationField("flightDurationH");
+        calculateAll();
+      });
 
       const regSelect = document.getElementById("regSelect");
       const regInfo = document.getElementById("regInfo");
@@ -2530,5 +2714,6 @@
       updateWeatherMinimaControls();
       updateRunwayEditState();
       calculateAll();
+      refreshEmyCharts();
       window.addEventListener("resize", calculateAll);
     });

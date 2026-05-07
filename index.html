@@ -118,14 +118,14 @@
             </div>
           </div>
 
-          <div class="grid-3" style="margin-top:0.4rem">
+          <div class="grid-3 wb-fuel-planning-grid" style="margin-top:0.4rem">
             <div class="field">
               <label>Take-off fuel weight (kg)</label>
               <input id="fuelKg" type="number" readonly />
             </div>
             <div class="field">
-              <label for="flightDurationH">Flight duration (h)</label>
-              <input id="flightDurationH" type="number" inputmode="decimal" step="0.1" />
+              <label for="flightDurationH">Flight duration (HHMM)</label>
+              <input id="flightDurationH" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="0100" />
             </div>
             <div class="field">
               <label for="fuelBurnLph">Average consumption (L/h)</label>
@@ -280,6 +280,7 @@
               </div>
             </div>
           </div>
+          <div class="inline-note metar-source-note">If a runway has no on-field METAR (e.g. LGKM), the preset may fetch the nearest proxy METAR (LGKV for LGKM). The fetched report fills QNH/OAT/wind as a starting point; overwrite QNH, OAT and actual wind with observed local values before using the OM-C and runway checks.</div>
           <div class="inline-note" id="metarStatus"></div>
           <div class="inline-note" id="tafStatus"></div>
 
@@ -423,6 +424,7 @@
               </div>
             </div>
           </div>
+          <div class="inline-note metar-source-note">For airfields without an on-field METAR, use the proxy METAR only for regional cloud/visibility context, then enter the actual arrival QNH, OAT and wind. OM-C wind/runway calculations use the edited fields below.</div>
           <div class="inline-note" id="arrivalMetarStatus"></div>
           <div class="inline-note" id="arrivalTafStatus"></div>
           <div class="grid-3" style="margin-top:0.75rem">
@@ -726,8 +728,22 @@
         </section>
 
         <section class="card weather-frame-card">
-          <h2>Live EMY aviation page</h2>
-          <iframe class="weather-frame" src="https://emy.gr/en/aviation?tab=heightLevelAviationTab" title="EMY aviation weather charts"></iframe>
+          <h2>Extracted current charts</h2>
+          <small>The app attempts to read the EMY aviation page, extract the current chart image/PDF links, and display the products directly. If EMY or a browser CORS policy blocks the request, use the source links above.</small>
+          <div class="weather-chart-actions">
+            <button id="refreshEmyChartsBtn" type="button">Refresh EMY charts</button>
+            <span class="inline-note" id="emyChartStatus">Charts not loaded yet.</span>
+          </div>
+          <div class="weather-product-grid">
+            <section class="weather-product-card">
+              <h3>Winds aloft / height levels</h3>
+              <div id="emyWindCharts" class="weather-chart-list empty">Awaiting EMY chart extraction.</div>
+            </section>
+            <section class="weather-product-card">
+              <h3>SIGWX</h3>
+              <div id="emySigwxCharts" class="weather-chart-list empty">Awaiting EMY chart extraction.</div>
+            </section>
+          </div>
         </section>
       </div>
     </section>
