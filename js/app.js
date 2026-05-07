@@ -2093,8 +2093,37 @@
         "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
       }[ch]));
     }
+    function writeReportWindow(win, html) {
+      if (!win || win.closed) return false;
+      try {
+        win.document.open();
+        win.document.write(html);
+        win.document.close();
+        win.focus?.();
+        return true;
+      } catch (err) {
+        console.error("Could not write report window:", err);
+        return false;
+      }
+    }
+
+    function openReportBlobFallback(html) {
+      const reportUrl = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+      const link = document.createElement("a");
+      link.href = reportUrl;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.download = "elixir-performance-report.html";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(reportUrl), 60000);
+    }
+
     function exportReportToPdf() {
-      calculateAll();
+      const reportWindow = window.open("", "_blank");
+      try {
+        calculateAll();
 
       const momentRows = collectMomentRowsForExport();
       const now = new Date();
@@ -2419,13 +2448,17 @@
 </body>
 </html>`;
 
-      const reportUrl = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-      const win = window.open(reportUrl, "_blank", "noopener");
-      if (!win) {
-        window.setTimeout(() => URL.revokeObjectURL(reportUrl), 60000);
-        return;
+      if (!writeReportWindow(reportWindow, html)) {
+        openReportBlobFallback(html);
       }
-      window.setTimeout(() => URL.revokeObjectURL(reportUrl), 60000);
+      } catch (err) {
+        console.error("Could not export PDF report:", err);
+        const message = err?.message || String(err || "Unknown error");
+        const errorHtml = `<!doctype html><html><head><meta charset="utf-8"><title>Report export error</title></head><body><h1>Report export failed</h1><p>${escHtml(message)}</p><p>Return to the planner, check the entered data, and try Export PDF again.</p></body></html>`;
+        if (!writeReportWindow(reportWindow, errorHtml)) {
+          alert(`Could not export PDF report: ${message}`);
+        }
+      }
     }
 
     window.addEventListener("DOMContentLoaded", async () => {
