@@ -592,12 +592,15 @@
     .wb-fuel-planning-grid .field {
       display: grid;
       grid-template-rows: minmax(2.35rem, auto) auto;
+      row-gap: 0.28rem;
     }
 
     .wb-fuel-planning-grid label {
       align-items: end;
       display: flex;
+      line-height: 1.25;
       min-height: 2.35rem;
+      padding-bottom: 0.08rem;
     }
 
     .metar-source-note {

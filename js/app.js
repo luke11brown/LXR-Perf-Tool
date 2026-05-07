@@ -88,8 +88,12 @@
     const METAR_STALE_MINUTES = 90;
     const METAR_FETCH_TIMEOUT_MS = 12000;
     const TAF_ADVISORY_HOURS = 6;
-    const EMY_AVIATION_URL = "https://emy.gr/en/aviation";
-    const EMY_PROXY_URL = "https://api.codetabs.com/v1/proxy?quest=";
+    const EMY_AVIATION_URL = "https://www.emy.gr/en/aviation";
+    const EMY_PROXY_URLS = [
+      "https://api.allorigins.win/raw?url=",
+      "https://corsproxy.io/?",
+      "https://api.codetabs.com/v1/proxy?quest=",
+    ];
     let emyCharts = { wind: [], sigwx: [], updatedAt: null, error: null };
 
     async function loadRunwayPresets() {
@@ -1161,14 +1165,22 @@
       return Math.round(x * f) / f;
     }
 
+    function pointOnSegment(px, py, ax, ay, bx, by, tolerance = 1e-6) {
+      const cross = (px - ax) * (by - ay) - (py - ay) * (bx - ax);
+      if (Math.abs(cross) > tolerance * Math.max(1, Math.abs(bx - ax), Math.abs(by - ay))) return false;
+      const dot = (px - ax) * (px - bx) + (py - ay) * (py - by);
+      return dot <= tolerance;
+    }
+
     function pointInPoly(px, py, poly) {
       let inside = false;
       for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
         const xi = poly[i].x, yi = poly[i].y;
         const xj = poly[j].x, yj = poly[j].y;
+        if (pointOnSegment(px, py, xi, yi, xj, yj)) return true;
         const intersect =
           yi > py !== yj > py &&
-          px < ((xj - xi) * (py - yi)) / ((yj - yi) || 1e-9) + xi;
+          px <= ((xj - xi) * (py - yi)) / ((yj - yi) || 1e-9) + xi;
         if (intersect) inside = !inside;
       }
       return inside;
@@ -1182,8 +1194,9 @@
     }
 
     function wbPointOk(mass, cg) {
-      const massOk = mass <= MAX_MASS && mass >= CG_MIN_MASS;
-      const cgOk = cg >= CG_MIN && cg <= CG_MAX;
+      const tolerance = 1e-6;
+      const massOk = mass <= MAX_MASS + tolerance && mass >= CG_MIN_MASS - tolerance;
+      const cgOk = cg >= CG_MIN - tolerance && cg <= CG_MAX + tolerance;
       const polyOk = pointInPoly(cg, mass, CG_POLY);
       return { massOk, cgOk, polyOk, ok: massOk && cgOk && polyOk };
     }
@@ -2091,8 +2104,8 @@
       return `${EMY_AVIATION_URL}?tab=${encodeURIComponent(tab)}`;
     }
 
-    function emyProxyUrl(url) {
-      return `${EMY_PROXY_URL}${encodeURIComponent(url)}`;
+    function emyProxyUrls(url) {
+      return EMY_PROXY_URLS.map((prefix) => `${prefix}${encodeURIComponent(url)}`);
     }
 
     function absoluteUrl(url, base = EMY_AVIATION_URL) {
@@ -2103,43 +2116,87 @@
       }
     }
 
+    function safeDecodeUrl(url) {
+      try {
+        return decodeURIComponent(url);
+      } catch (err) {
+        return url;
+      }
+    }
+
+    function extractUrlsFromText(text) {
+      const urls = new Set();
+      const patterns = [
+        /https?:\/\/[^\s"'<>\\)]+/gi,
+        /(?:src|href|url|image|path|file)["'\s:=]+([^"'<>\s]+?)(?=["'\s<>]|$)/gi,
+        /url\(([^)]+)\)/gi,
+        /["'](\/?[^"']*(?:aviation|sig|significant|wind|height|chart|map|fl\d{2,3})[^"']*)["']/gi,
+      ];
+      patterns.forEach((pattern) => {
+        let match;
+        while ((match = pattern.exec(text)) !== null) {
+          const raw = (match[1] || match[0] || "").trim().replace(/^['"]|['"]$/g, "");
+          if (raw && !raw.startsWith("data:") && !raw.startsWith("#")) urls.add(raw);
+        }
+      });
+      return [...urls];
+    }
+
     function extractEmyChartLinks(html, kind) {
       const doc = new DOMParser().parseFromString(html, "text/html");
       const wanted = kind === "sigwx" ? /sig|significant|sigwx|weather/i : /wind|height|level|upper|fl\s?\d{2,3}/i;
       const unwanted = kind === "sigwx" ? /wind|height|upper|fl\s?\d{2,3}/i : /sig|significant|sigwx/i;
+      const likelyChartUrl = /aviation|sig|significant|wind|height|chart|map|fl\d{2,3}|weather/i;
       const candidates = [];
 
       function addCandidate(url, label, sourceText = "") {
-        const href = absoluteUrl(url);
-        if (!href || !/\.(?:png|jpe?g|gif|webp|pdf)(?:[?#].*)?$/i.test(href)) return;
-        const haystack = `${label || ""} ${sourceText || ""} ${href}`;
-        const score = (wanted.test(haystack) ? 2 : 0) - (unwanted.test(haystack) ? 1 : 0) + (/\.(?:png|jpe?g|gif|webp)(?:[?#].*)?$/i.test(href) ? 1 : 0);
+        const href = absoluteUrl(String(url || "").replace(/&amp;/g, "&"));
+        if (!href) return;
+        const isPdf = /\.pdf(?:[?#].*)?$/i.test(href);
+        const isImage = /\.(?:png|jpe?g|gif|webp|svg)(?:[?#].*)?$/i.test(href);
+        const haystack = `${label || ""} ${sourceText || ""} ${safeDecodeUrl(href)}`;
+        if (!isPdf && !isImage && !likelyChartUrl.test(haystack)) return;
+        const score = (wanted.test(haystack) ? 3 : 0)
+          - (unwanted.test(haystack) ? 2 : 0)
+          + (isImage ? 2 : 0)
+          + (isPdf ? 1 : 0)
+          + (/greece|europe|sfc|fl\d{2,3}|valid|issued|chart|map/i.test(haystack) ? 1 : 0);
         if (score <= 0) return;
         if (candidates.some((item) => item.url === href)) return;
         candidates.push({
           url: href,
-          label: (label || sourceText || href.split("/").pop() || "EMY chart").replace(/\s+/g, " ").trim(),
-          type: /\.pdf(?:[?#].*)?$/i.test(href) ? "pdf" : "image",
+          label: (label || sourceText || href.split("/").pop() || "EMY chart").replace(/\s+/g, " ").trim().slice(0, 120),
+          type: isPdf ? "pdf" : "image",
           score,
         });
       }
 
-      doc.querySelectorAll("img").forEach((img) => {
-        const src = img.currentSrc || img.getAttribute("src") || img.getAttribute("data-src") || img.getAttribute("data-original");
-        const parentText = img.closest("a, figure, li, div, section")?.textContent || "";
-        addCandidate(src, img.getAttribute("alt") || img.getAttribute("title") || parentText, parentText);
+      doc.querySelectorAll("img, source, picture *").forEach((el) => {
+        const parentText = el.closest("a, figure, li, div, section, article")?.textContent || "";
+        ["src", "srcset", "data-src", "data-original", "data-image", "data-url", "href"].forEach((attr) => {
+          const value = el.getAttribute(attr);
+          if (!value) return;
+          value.split(",").map((part) => part.trim().split(/\s+/)[0]).forEach((url) => {
+            addCandidate(url, el.getAttribute("alt") || el.getAttribute("title") || parentText, parentText);
+          });
+        });
       });
 
-      doc.querySelectorAll("a[href]").forEach((link) => {
-        const href = link.getAttribute("href");
-        const text = link.textContent || link.getAttribute("title") || href;
-        const parentText = link.closest("li, div, section")?.textContent || "";
-        addCandidate(href, text, parentText);
+      doc.querySelectorAll("a[href], [style], [data-src], [data-url], [data-image], [data-file]").forEach((el) => {
+        const parentText = el.closest("li, div, section, article")?.textContent || "";
+        ["href", "style", "data-src", "data-url", "data-image", "data-file"].forEach((attr) => {
+          const value = el.getAttribute(attr);
+          if (!value) return;
+          extractUrlsFromText(value).forEach((url) => addCandidate(url, el.textContent || el.getAttribute("title") || value, parentText));
+          addCandidate(value, el.textContent || el.getAttribute("title") || value, parentText);
+        });
       });
+
+      extractUrlsFromText(html).forEach((url) => addCandidate(url, url, "EMY aviation page source"));
 
       return candidates
         .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label))
-        .slice(0, kind === "sigwx" ? 4 : 8);
+        .slice(0, kind === "sigwx" ? 6 : 10);
     }
 
     function renderEmyChartList(kind) {
@@ -2174,7 +2231,7 @@
     async function fetchEmyAviationHtml(tab) {
       const directUrl = emyTabUrl(tab);
       let lastError = null;
-      for (const url of [emyProxyUrl(directUrl), directUrl]) {
+      for (const url of [...emyProxyUrls(directUrl), directUrl]) {
         try {
           const response = await fetchWithTimeout(url);
           if (!response.ok) throw new Error(`EMY returned ${response.status}`);
@@ -2307,9 +2364,9 @@
       const fuelKgReport = numValue("fuelKg");
       const fuelLReport = numValue("fuelL");
       const bagKgReport = numValue("bagWt");
-      const towBad = !(tow >= CG_MIN_MASS && tow <= MAX_MASS && cgTo >= CG_MIN && cgTo <= CG_MAX && pointInPoly(cgTo, tow, CG_POLY));
-      const lwBad = !(lw >= CG_MIN_MASS && lw <= MAX_MASS && cgLw >= CG_MIN && cgLw <= CG_MAX && pointInPoly(cgLw, lw, CG_POLY));
-      const zfwBad = !(zfw >= CG_MIN_MASS && zfw <= MAX_MASS && cgZf >= CG_MIN && cgZf <= CG_MAX && pointInPoly(cgZf, zfw, CG_POLY));
+      const towBad = !wbPointOk(tow, cgTo).ok;
+      const lwBad = !wbPointOk(lw, cgLw).ok;
+      const zfwBad = !wbPointOk(zfw, cgZf).ok;
       const fuelBad = fuelLReport > MAX_FUEL_L;
       const bagBad = bagKgReport > MAX_BAG_KG;
       const wbBad = /check|outside/i.test(getText("wbStatusPill"));

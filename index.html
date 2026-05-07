@@ -723,13 +723,13 @@
             </a>
           </div>
           <div class="inline-note" style="margin-top:0.7rem;">
-            The live EMY page is embedded below when your browser allows it. If the frame is blocked, use the links above.
+            The chart extractor looks through the lower EMY aviation chart section shown on the official page. If automatic loading is blocked, use the source links above.
           </div>
         </section>
 
         <section class="card weather-frame-card">
           <h2>Extracted current charts</h2>
-          <small>The app attempts to read the EMY aviation page, extract the current chart image/PDF links, and display the products directly. If EMY or a browser CORS policy blocks the request, use the source links above.</small>
+          <small>The app attempts to read the EMY aviation page, including the lower Significant Weather Maps and Upper Atmosphere Wind Maps chart section, then display the current chart image/PDF links directly. If EMY or a browser CORS policy blocks the request, use the source links above.</small>
           <div class="weather-chart-actions">
             <button id="refreshEmyChartsBtn" type="button">Refresh EMY charts</button>
             <span class="inline-note" id="emyChartStatus">Charts not loaded yet.</span>
