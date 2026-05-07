@@ -2153,12 +2153,6 @@
       const stripStatusPrefix = (text) => String(text || "")
         .replace(/^\s*(NOT OK|CHECK|OK|INFO)\s*[-–—]\s*/i, "")
         .trim();
-      const renderStatusLine = (label, text) => {
-        const token = statusToken(text);
-        const body = stripStatusPrefix(text);
-        const badge = token ? `<span class="${statusClass(token)}">${escHtml(token)}</span>` : "";
-        return `<p class="status-text"><strong>${escHtml(label)}:</strong> ${badge}${body ? ` ${escHtml(body)}` : ""}</p>`;
-      };
       const compactSummaryText = (text, maxLength = 130) => stripStatusPrefix(text)
         .replace(/\s+/g, " ")
         .replace(/Wind speeds ≤ 40 kt, crosswind within 18 kt demonstrated where assessed, tailwind within \d+(?:\.\d+)? kt recommendation\./, "Wind limits ok.")
@@ -2199,7 +2193,6 @@
       const cgLw = textNum("cgArr");
       const zfw = textNum("zfw");
       const cgZf = textNum("cgZf");
-      const fuelKgReport = numValue("fuelKg");
       const fuelLReport = numValue("fuelL");
       const bagKgReport = numValue("bagWt");
       const towBad = !wbPointOk(tow, cgTo).ok;
