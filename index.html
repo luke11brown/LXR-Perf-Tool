@@ -711,38 +711,15 @@
       <div class="section-grid">
         <section class="card">
           <h2>EMY Aviation Charts</h2>
-          <small>Integrated quick access to EMY/HNMS aviation chart products for Greece.</small>
-          <div class="weather-link-grid">
-            <a class="weather-link-card" href="https://emy.gr/en/aviation?tab=heightLevelAviationTab" target="_blank" rel="noopener">
-              <strong>Upper atmosphere wind maps</strong>
-              <span>Open EMY winds aloft / height-level aviation charts.</span>
-            </a>
-            <a class="weather-link-card" href="https://emy.gr/en/aviation?tab=sigWeatherAviationTab" target="_blank" rel="noopener">
-              <strong>Significant weather maps</strong>
-              <span>Open EMY SIGWX aviation charts.</span>
+          <small>Quick access to the official EMY/HNMS aviation chart page for Greece.</small>
+          <div class="weather-link-grid weather-link-grid-single">
+            <a class="weather-link-card" href="https://emy.gr/en/aviation" target="_blank" rel="noopener">
+              <strong>Open EMY aviation charts</strong>
+              <span>Use the same official page for Significant Weather Maps and Upper Atmosphere Wind Maps.</span>
             </a>
           </div>
           <div class="inline-note" style="margin-top:0.7rem;">
-            The chart extractor looks through the lower EMY aviation chart section shown on the official page. If automatic loading is blocked, use the source links above.
-          </div>
-        </section>
-
-        <section class="card weather-frame-card">
-          <h2>Extracted current charts</h2>
-          <small>The app attempts to read the EMY aviation page, including the lower Significant Weather Maps and Upper Atmosphere Wind Maps chart section, then display the current chart image/PDF links directly. If EMY or a browser CORS policy blocks the request, use the source links above.</small>
-          <div class="weather-chart-actions">
-            <button id="refreshEmyChartsBtn" type="button">Refresh EMY charts</button>
-            <span class="inline-note" id="emyChartStatus">Charts not loaded yet.</span>
-          </div>
-          <div class="weather-product-grid">
-            <section class="weather-product-card">
-              <h3>Winds aloft / height levels</h3>
-              <div id="emyWindCharts" class="weather-chart-list empty">Awaiting EMY chart extraction.</div>
-            </section>
-            <section class="weather-product-card">
-              <h3>SIGWX</h3>
-              <div id="emySigwxCharts" class="weather-chart-list empty">Awaiting EMY chart extraction.</div>
-            </section>
+            Automatic EMY chart extraction has been removed because the official site is difficult to scrape reliably. Open the EMY page directly and use the lower aviation chart sections for SIGWX and winds aloft.
           </div>
         </section>
       </div>
