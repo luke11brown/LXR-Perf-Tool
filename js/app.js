@@ -218,6 +218,8 @@
       setInputValue("pilotWt", defaults.pilotWeightKg);
       setInputValue("paxWt", defaults.passengerWeightKg);
       setInputValue("fuelL", defaults.fuelLiters);
+      setInputValue("flightDurationH", defaults.flightDurationHours);
+      setInputValue("fuelBurnLph", defaults.fuelConsumptionLph);
       setInputValue("bagArm", stations.baggageArmMm);
       populateSeatArmSelect("pilotArm");
       populateSeatArmSelect("paxArm");
@@ -1135,6 +1137,20 @@
       return inside;
     }
 
+
+    function formatFuelVolumeAndMass(liters, density) {
+      const safeLiters = Math.max(0, Number(liters) || 0);
+      const safeDensity = Math.max(0, Number(density) || 0);
+      return `${round(safeLiters, 1)} L / ${round(safeLiters * safeDensity, 1)} kg`;
+    }
+
+    function wbPointOk(mass, cg) {
+      const massOk = mass <= MAX_MASS && mass >= CG_MIN_MASS;
+      const cgOk = cg >= CG_MIN && cg <= CG_MAX;
+      const polyOk = pointInPoly(cg, mass, CG_POLY);
+      return { massOk, cgOk, polyOk, ok: massOk && cgOk && polyOk };
+    }
+
     function interpTOLD(pa, isaDev, table) {
       const paClamped = clamp(pa, ALT_GRID_TOLD[0], ALT_GRID_TOLD[ALT_GRID_TOLD.length - 1]);
       const devClamped = clamp(isaDev, TEMP_DEV_GRID[0], TEMP_DEV_GRID[TEMP_DEV_GRID.length - 1]);
@@ -1226,7 +1242,7 @@
     }
 
     let cgChart;
-    let cgDepDataset, cgArrDataset, cgFuelLineDataset;
+    let cgDepDataset, cgArrDataset, cgZeroFuelDataset, cgFuelLineDataset;
 
     function buildCGChart() {
       const ctx = document.getElementById("cgChart").getContext("2d");
@@ -1242,7 +1258,15 @@
 
       cgArrDataset = {
         type: "scatter",
-        label: "Arrival",
+        label: "Landing",
+        data: [],
+        pointRadius: 5,
+        pointHoverRadius: 6,
+      };
+
+      cgZeroFuelDataset = {
+        type: "scatter",
+        label: "Zero fuel",
         data: [],
         pointRadius: 5,
         pointHoverRadius: 6,
@@ -1277,6 +1301,7 @@
             cgFuelLineDataset,
             cgDepDataset,
             cgArrDataset,
+            cgZeroFuelDataset,
           ],
         },
         options: {
@@ -1340,15 +1365,33 @@
       const fuelArm = Number(LOADING_CONFIG.stations?.fuelArmMm) || 0;
       const fuelL = parseFloat(document.getElementById("fuelL").value) || 0;
       const fuelDensity = parseFloat(document.getElementById("fuelType").value) || 0;
+      const flightDurationH = Math.max(0, parseFloat(document.getElementById("flightDurationH")?.value) || 0);
+      const fuelBurnLph = Math.max(0, parseFloat(document.getElementById("fuelBurnLph")?.value) || 0);
+      const plannedFuelBurnL = Math.min(fuelL, flightDurationH * fuelBurnLph);
+      const landingFuelL = Math.max(0, fuelL - plannedFuelBurnL);
 
       const fuelKg = fuelL * fuelDensity;
+      const landingFuelKg = landingFuelL * fuelDensity;
       document.getElementById("fuelKg").value = round(fuelKg, 1);
+      document.getElementById("landingFuel").value = formatFuelVolumeAndMass(landingFuelL, fuelDensity);
 
       const fuelWarn = document.getElementById("fuelWarn");
-      if (fuelL > MAX_FUEL_L) {
+      const fuelWarnings = [];
+      if (fuelL > MAX_FUEL_L) fuelWarnings.push(`Fuel exceeds AFM usable fuel limit (${MAX_FUEL_L} L).`);
+      if (fuelDensity <= 0 && fuelL > 0) fuelWarnings.push("Select a fuel type to calculate fuel mass.");
+      if (fuelWarnings.length > 0) {
         fuelWarn.style.display = "block";
-        fuelWarn.textContent = `Fuel exceeds AFM usable fuel limit (${MAX_FUEL_L} L).`;
+        fuelWarn.textContent = fuelWarnings.join(" ");
       } else fuelWarn.style.display = "none";
+
+      const landingFuelWarn = document.getElementById("landingFuelWarn");
+      if (flightDurationH * fuelBurnLph > fuelL) {
+        landingFuelWarn.style.display = "block";
+        landingFuelWarn.textContent = `Planned burn ${round(flightDurationH * fuelBurnLph, 1)} L exceeds take-off fuel; landing fuel clamped to 0 L.`;
+      } else {
+        landingFuelWarn.style.display = "none";
+        landingFuelWarn.textContent = "";
+      }
 
       const bagWarn = document.getElementById("bagWarn");
       if (bagWt > MAX_BAG_KG) {
@@ -1364,6 +1407,7 @@
       const mPax = paxWt;
       const mBag = bagWt;
       const mFuel = fuelKg;
+      const mLandingFuel = landingFuelKg;
 
       const momEmpty = moment(mEmpty, emptyArm);
       const momUpholstery = moment(mUpholstery, upholsteryArm);
@@ -1371,65 +1415,75 @@
       const momPax = moment(mPax, paxArm);
       const momBag = moment(mBag, bagArm);
       const momFuel = moment(mFuel, fuelArm);
+      const momLandingFuel = moment(mLandingFuel, fuelArm);
 
-      const massTO = mEmpty + mUpholstery + mPilot + mPax + mBag + mFuel;
-      const momTO = momEmpty + momUpholstery + momPilot + momPax + momBag + momFuel;
+      const massZF = mEmpty + mUpholstery + mPilot + mPax + mBag;
+      const momZF = momEmpty + momUpholstery + momPilot + momPax + momBag;
+      const cgZF = momZF / (massZF || 1);
+
+      const massTO = massZF + mFuel;
+      const momTO = momZF + momFuel;
       const cgTO = momTO / (massTO || 1);
 
-      const massLW = mEmpty + mUpholstery + mPilot + mPax + mBag;
-      const momLW = momEmpty + momUpholstery + momPilot + momPax + momBag;
+      const massLW = massZF + mLandingFuel;
+      const momLW = momZF + momLandingFuel;
       const cgLW = momLW / (massLW || 1);
+
+      const maxFuelByWeightL = fuelDensity > 0 ? Math.min(MAX_FUEL_L, Math.max(0, (MAX_MASS - massZF) / fuelDensity)) : 0;
+      const maxFuelByWeightText = fuelDensity > 0
+        ? `${round(maxFuelByWeightL, 1)} L / ${round(maxFuelByWeightL * fuelDensity, 1)} kg`
+        : "Select fuel type";
+      document.getElementById("maxFuelByWeight").value = maxFuelByWeightText;
 
       document.getElementById("tow").textContent = round(massTO, 1);
       document.getElementById("cg").textContent = isFinite(cgTO) ? round(cgTO, 0) : "–";
       document.getElementById("lw").textContent = round(massLW, 1);
       document.getElementById("cgArr").textContent = isFinite(cgLW) ? round(cgLW, 0) : "–";
+      document.getElementById("zfw").textContent = round(massZF, 1);
+      document.getElementById("cgZf").textContent = isFinite(cgZF) ? round(cgZF, 0) : "–";
 
       const wbStatusPill = document.getElementById("wbStatusPill");
 
-      const massOkTO = massTO <= MAX_MASS && massTO >= CG_MIN_MASS;
-      const massOkLW = massLW <= MAX_MASS && massLW >= CG_MIN_MASS;
-      const cgBasicTO = cgTO >= CG_MIN && cgTO <= CG_MAX;
-      const cgBasicLW = cgLW >= CG_MIN && cgLW <= CG_MAX;
-
-      const insidePolyTO = pointInPoly(cgTO, massTO, CG_POLY);
-      const insidePolyLW = pointInPoly(cgLW, massLW, CG_POLY);
-
+      const toPoint = wbPointOk(massTO, cgTO);
+      const landingPoint = wbPointOk(massLW, cgLW);
+      const zeroFuelPoint = wbPointOk(massZF, cgZF);
       const fuelOk = fuelL <= MAX_FUEL_L;
       const bagOk = mBag <= MAX_BAG_KG;
 
-      const wbOk =
-        massOkTO && massOkLW &&
-        cgBasicTO && cgBasicLW &&
-        insidePolyTO && insidePolyLW &&
-        fuelOk && bagOk;
+      const wbOk = toPoint.ok && landingPoint.ok && zeroFuelPoint.ok && fuelOk && bagOk;
 
-      ["tow", "cg"].forEach(id => document.getElementById(id).classList.toggle("bad-value", !massOkTO || !cgBasicTO || !insidePolyTO));
-      ["lw", "cgArr"].forEach(id => document.getElementById(id).classList.toggle("bad-value", !massOkLW || !cgBasicLW || !insidePolyLW));
+      ["tow", "cg"].forEach(id => document.getElementById(id).classList.toggle("bad-value", !toPoint.ok));
+      ["lw", "cgArr"].forEach(id => document.getElementById(id).classList.toggle("bad-value", !landingPoint.ok));
+      ["zfw", "cgZf"].forEach(id => document.getElementById(id).classList.toggle("bad-value", !zeroFuelPoint.ok));
 
       if (wbOk) {
-        wbStatusPill.textContent = "All points inside AFM envelope and limits";
+        wbStatusPill.textContent = "Take-off, landing and zero-fuel points inside AFM envelope and limits";
         wbStatusPill.classList.remove("bad");
         wbStatusPill.classList.add("ok");
       } else {
-        wbStatusPill.textContent = "Check W&B – outside AFM limits";
+        wbStatusPill.textContent = "Check W&B – one or more points outside AFM limits";
         wbStatusPill.classList.remove("ok");
         wbStatusPill.classList.add("bad");
       }
 
-      if (cgDepDataset && cgArrDataset && cgFuelLineDataset) {
+      if (cgDepDataset && cgArrDataset && cgZeroFuelDataset && cgFuelLineDataset) {
         cgDepDataset.data = (isFinite(cgTO) && isFinite(massTO)) ? [{ x: cgTO, y: massTO }] : [];
         cgArrDataset.data = (isFinite(cgLW) && isFinite(massLW)) ? [{ x: cgLW, y: massLW }] : [];
-        cgDepDataset.backgroundColor = (massOkTO && cgBasicTO && insidePolyTO) ? "#f97316" : "#ef4444";
+        cgZeroFuelDataset.data = (isFinite(cgZF) && isFinite(massZF)) ? [{ x: cgZF, y: massZF }] : [];
+        cgDepDataset.backgroundColor = toPoint.ok ? "#f97316" : "#ef4444";
         cgDepDataset.borderColor = "#ffffff";
         cgDepDataset.borderWidth = 2;
-        cgArrDataset.backgroundColor = (massOkLW && cgBasicLW && insidePolyLW) ? "#a855f7" : "#ef4444";
+        cgArrDataset.backgroundColor = landingPoint.ok ? "#a855f7" : "#ef4444";
         cgArrDataset.borderColor = "#ffffff";
         cgArrDataset.borderWidth = 2;
-        cgFuelLineDataset.data =
-          (isFinite(cgTO) && isFinite(massTO) && isFinite(cgLW) && isFinite(massLW))
-            ? [{ x: cgTO, y: massTO }, { x: cgLW, y: massLW }]
-            : [];
+        cgZeroFuelDataset.backgroundColor = zeroFuelPoint.ok ? "#22c55e" : "#ef4444";
+        cgZeroFuelDataset.borderColor = "#ffffff";
+        cgZeroFuelDataset.borderWidth = 2;
+        cgFuelLineDataset.data = [
+          ...(isFinite(cgTO) && isFinite(massTO) ? [{ x: cgTO, y: massTO }] : []),
+          ...(isFinite(cgLW) && isFinite(massLW) ? [{ x: cgLW, y: massLW }] : []),
+          ...(isFinite(cgZF) && isFinite(massZF) ? [{ x: cgZF, y: massZF }] : []),
+        ];
         cgChart.update();
       }
 
@@ -1855,8 +1909,8 @@
       }
 
       const sumWbText = wbOk
-        ? `OK – TOW ${round(massTO, 1)} kg at ${round(cgTO, 0)} mm; landing weight ${round(massLW, 1)} kg at ${round(cgLW, 0)} mm. Fuel volume and baggage within AFM limits.`
-        : `NOT OK – check masses, CG envelope, fuel (≤ ${MAX_FUEL_L} L usable) and baggage (≤ ${MAX_BAG_KG} kg).`;
+        ? `OK – TOW ${round(massTO, 1)} kg at ${round(cgTO, 0)} mm; landing ${round(massLW, 1)} kg at ${round(cgLW, 0)} mm after ${round(plannedFuelBurnL, 1)} L burn; zero fuel ${round(massZF, 1)} kg at ${round(cgZF, 0)} mm. Max fuel by 630 kg limit ${round(maxFuelByWeightL, 1)} L.`
+        : `NOT OK – check take-off, landing and zero-fuel CG envelope, fuel (≤ ${MAX_FUEL_L} L usable) and baggage (≤ ${MAX_BAG_KG} kg).`;
       setSummaryLine("sumWb", sumWbText, wbOk);
 
       const toOk = activeTakeoffOk;
@@ -1913,7 +1967,8 @@
         ["Pilot", mPilot, pilotArm, momPilot],
         ["Passenger", mPax, paxArm, momPax],
         ["Baggage", mBag, bagArm, momBag],
-        ["Fuel", mFuel, fuelArm, momFuel],
+        ["Take-off fuel", mFuel, fuelArm, momFuel],
+        ["Landing fuel", mLandingFuel, fuelArm, momLandingFuel],
       ];
 
       const tbody = document.getElementById("momentTable");
@@ -1922,7 +1977,7 @@
         rows.forEach(([label, mass, arm, moment]) => {
           if (!mass || mass <= 0) return;
           const tr = document.createElement("tr");
-          const rowBad = (label === "Baggage" && !bagOk) || (label === "Fuel" && !fuelOk);
+          const rowBad = (label === "Baggage" && !bagOk) || (label === "Take-off fuel" && !fuelOk);
           tr.classList.toggle("bad-value", rowBad);
           tr.innerHTML = `
       <td>${label}</td>
@@ -1937,10 +1992,14 @@
         document.getElementById("mtMomTO").textContent = Math.round(momTO).toLocaleString();
         document.getElementById("mtMassLW").textContent = round(massLW, 1);
         document.getElementById("mtMomLW").textContent = Math.round(momLW).toLocaleString();
+        document.getElementById("mtMassZF").textContent = round(massZF, 1);
+        document.getElementById("mtMomZF").textContent = Math.round(momZF).toLocaleString();
         document.getElementById("mtArmTO").textContent = isFinite(cgTO) ? round(cgTO, 0) : "–";
         document.getElementById("mtArmLW").textContent = isFinite(cgLW) ? round(cgLW, 0) : "–";
-        document.getElementById("mtMassTO").closest("tr")?.classList.toggle("bad-value", !massOkTO || !cgBasicTO || !insidePolyTO);
-        document.getElementById("mtMassLW").closest("tr")?.classList.toggle("bad-value", !massOkLW || !cgBasicLW || !insidePolyLW);
+        document.getElementById("mtArmZF").textContent = isFinite(cgZF) ? round(cgZF, 0) : "–";
+        document.getElementById("mtMassTO").closest("tr")?.classList.toggle("bad-value", !toPoint.ok);
+        document.getElementById("mtMassLW").closest("tr")?.classList.toggle("bad-value", !landingPoint.ok);
+        document.getElementById("mtMassZF").closest("tr")?.classList.toggle("bad-value", !zeroFuelPoint.ok);
 
       }
     }
@@ -2065,11 +2124,14 @@
       const lw = textNum("lw");
       const cgTo = textNum("cg");
       const cgLw = textNum("cgArr");
+      const zfw = textNum("zfw");
+      const cgZf = textNum("cgZf");
       const fuelKgReport = numValue("fuelKg");
       const fuelLReport = numValue("fuelL");
       const bagKgReport = numValue("bagWt");
       const towBad = !(tow >= CG_MIN_MASS && tow <= MAX_MASS && cgTo >= CG_MIN && cgTo <= CG_MAX && pointInPoly(cgTo, tow, CG_POLY));
       const lwBad = !(lw >= CG_MIN_MASS && lw <= MAX_MASS && cgLw >= CG_MIN && cgLw <= CG_MAX && pointInPoly(cgLw, lw, CG_POLY));
+      const zfwBad = !(zfw >= CG_MIN_MASS && zfw <= MAX_MASS && cgZf >= CG_MIN && cgZf <= CG_MAX && pointInPoly(cgZf, zfw, CG_POLY));
       const fuelBad = fuelLReport > MAX_FUEL_L;
       const bagBad = bagKgReport > MAX_BAG_KG;
       const wbBad = /check|outside/i.test(getText("wbStatusPill"));
@@ -2146,7 +2208,11 @@
     .wx-raw p { line-height: 1.2; overflow-wrap: anywhere; }
     .footer { margin-top: auto; font-size: 7px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 3px; }
     p { margin: 3px 0; }
-    @media print { .report-actions { display:none; } }
+    .chart-link { color: #075985; font-weight: 800; overflow-wrap: anywhere; }
+    .weather-chart-frame { border: 0; flex: 1 1 auto; min-height: 160mm; width: 100%; }
+    .weather-panel-note { color: #475569; font-size: 7.2px; line-height: 1.25; }
+    .a5-spread + .a5-spread { page-break-before: always; margin-top: 8mm; }
+    @media print { .report-actions { display:none; } .a5-spread + .a5-spread { margin-top: 0; } }
   </style>
 </head>
 <body>
@@ -2173,7 +2239,10 @@
           <div class="k">Pilot</div><div class="v">${escHtml(getValue("pilotWt"))} kg @ ${escHtml(getValue("pilotArm"))} mm</div>
           <div class="k">Passenger</div><div class="v">${escHtml(getValue("paxWt"))} kg @ ${escHtml(getValue("paxArm"))} mm</div>
           <div class="k">Baggage</div><div class="v${classIfBad(bagBad)}">${escHtml(getValue("bagWt"))} kg @ ${escHtml(getValue("bagArm"))} mm</div>
-          <div class="k">Fuel</div><div class="v${classIfBad(fuelBad)}">${escHtml(getValue("fuelL"))} L / ${escHtml(getText("fuelKg")) || escHtml(getValue("fuelKg"))} kg (${escHtml(getSelectedText("fuelType"))})</div>
+          <div class="k">T/O fuel</div><div class="v${classIfBad(fuelBad)}">${escHtml(getValue("fuelL"))} L / ${escHtml(getText("fuelKg")) || escHtml(getValue("fuelKg"))} kg (${escHtml(getSelectedText("fuelType"))})</div>
+          <div class="k">Flight fuel burn</div><div class="v">${escHtml(getValue("flightDurationH"))} h × ${escHtml(getValue("fuelBurnLph"))} L/h</div>
+          <div class="k">Landing fuel</div><div class="v">${escHtml(getValue("landingFuel"))}</div>
+          <div class="k">Max fuel @ 630 kg</div><div class="v">${escHtml(getValue("maxFuelByWeight"))}</div>
           </div>
           <div class="box wb">
           <table class="moment-table">
@@ -2183,8 +2252,9 @@
             <thead><tr><th>Item</th><th class="num">Mass kg</th><th class="num">Arm mm</th><th class="num">Moment</th></tr></thead>
             <tbody>${rowsHtml}</tbody>
             <tfoot>
-              <tr class="${towBad ? "bad-value" : ""}"><td><strong>Total with fuel</strong></td><td class="num">${escHtml(getText("mtMassTO"))}</td><td class="num">${escHtml(getText("mtArmTO"))}</td><td class="num">${escHtml(getText("mtMomTO"))}</td></tr>
-              <tr class="${lwBad ? "bad-value" : ""}"><td><strong>Total no fuel</strong></td><td class="num">${escHtml(getText("mtMassLW"))}</td><td class="num">${escHtml(getText("mtArmLW"))}</td><td class="num">${escHtml(getText("mtMomLW"))}</td></tr>
+              <tr class="${towBad ? "bad-value" : ""}"><td><strong>Total with T/O fuel</strong></td><td class="num">${escHtml(getText("mtMassTO"))}</td><td class="num">${escHtml(getText("mtArmTO"))}</td><td class="num">${escHtml(getText("mtMomTO"))}</td></tr>
+              <tr class="${lwBad ? "bad-value" : ""}"><td><strong>Total landing fuel</strong></td><td class="num">${escHtml(getText("mtMassLW"))}</td><td class="num">${escHtml(getText("mtArmLW"))}</td><td class="num">${escHtml(getText("mtMomLW"))}</td></tr>
+              <tr class="${zfwBad ? "bad-value" : ""}"><td><strong>Total zero fuel</strong></td><td class="num">${escHtml(getText("mtMassZF"))}</td><td class="num">${escHtml(getText("mtArmZF"))}</td><td class="num">${escHtml(getText("mtMomZF"))}</td></tr>
             </tfoot>
           </table>
           <p class="${wbBad ? "bad-value" : "ok"}"><strong>W&amp;B status:</strong> ${escHtml(getText("wbStatusPill"))}</p>
@@ -2275,6 +2345,36 @@
       </div>
 
       <div class="footer">This PDF is a snapshot of the app data. It is not an AFM replacement.</div>
+    </section>
+  </div>
+
+  <div class="a5-spread">
+    <section class="a5-panel">
+      <div class="panel-header">
+        <h1>EMY Winds Aloft</h1>
+        <div class="report-meta">
+          <div>Generated ${escHtml(now.toLocaleString())}</div>
+          <div>Weather panel 1/2</div>
+        </div>
+      </div>
+      <p class="weather-panel-note">Live EMY upper-atmosphere wind maps. If your browser blocks the embedded frame during printing, open the source link and print the chart directly.</p>
+      <p><a class="chart-link" href="https://emy.gr/en/aviation?tab=heightLevelAviationTab">https://emy.gr/en/aviation?tab=heightLevelAviationTab</a></p>
+      <iframe class="weather-chart-frame" src="https://emy.gr/en/aviation?tab=heightLevelAviationTab" title="EMY upper atmosphere wind maps"></iframe>
+      <div class="footer">External EMY/HNMS aviation chart page embedded at print time.</div>
+    </section>
+
+    <section class="a5-panel">
+      <div class="panel-header">
+        <h1>EMY SIGWX</h1>
+        <div class="report-meta">
+          <div>Generated ${escHtml(now.toLocaleString())}</div>
+          <div>Weather panel 2/2</div>
+        </div>
+      </div>
+      <p class="weather-panel-note">Live EMY significant-weather maps. If your browser blocks the embedded frame during printing, open the source link and print the chart directly.</p>
+      <p><a class="chart-link" href="https://emy.gr/en/aviation?tab=sigWeatherAviationTab">https://emy.gr/en/aviation?tab=sigWeatherAviationTab</a></p>
+      <iframe class="weather-chart-frame" src="https://emy.gr/en/aviation?tab=sigWeatherAviationTab" title="EMY significant weather maps"></iframe>
+      <div class="footer">External EMY/HNMS aviation chart page embedded at print time.</div>
     </section>
   </div>
 </body>

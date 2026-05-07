@@ -6,19 +6,61 @@
     "upholsteryArmMm": 1076,
     "pilotWeightKg": 90,
     "passengerWeightKg": 85,
-    "fuelLiters": 50
+    "fuelLiters": 50,
+    "flightDurationHours": 1,
+    "fuelConsumptionLph": 15
   },
   "seatArms": [
     {
-      "id": "fwd",
-      "label": "Fwd",
+      "id": "seat_1050",
+      "label": "1050 mm",
       "armMm": 1050
     },
     {
-      "id": "aft",
-      "label": "Aft",
-      "armMm": 1150,
+      "id": "seat_1060",
+      "label": "1060 mm",
+      "armMm": 1060
+    },
+    {
+      "id": "seat_1070",
+      "label": "1070 mm",
+      "armMm": 1070
+    },
+    {
+      "id": "seat_1080",
+      "label": "1080 mm",
+      "armMm": 1080
+    },
+    {
+      "id": "seat_1090",
+      "label": "1090 mm",
+      "armMm": 1090,
       "default": true
+    },
+    {
+      "id": "seat_1100",
+      "label": "1100 mm",
+      "armMm": 1100
+    },
+    {
+      "id": "seat_1110",
+      "label": "1110 mm",
+      "armMm": 1110
+    },
+    {
+      "id": "seat_1120",
+      "label": "1120 mm",
+      "armMm": 1120
+    },
+    {
+      "id": "seat_1130",
+      "label": "1130 mm",
+      "armMm": 1130
+    },
+    {
+      "id": "seat_1140",
+      "label": "1140 mm",
+      "armMm": 1140
     }
   ],
   "stations": {
