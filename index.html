@@ -29,6 +29,7 @@
     <nav class="tab-nav" aria-label="App sections">
       <button class="tab-button active" type="button" data-tab-target="tab-load">Load</button>
       <button class="tab-button" type="button" data-tab-target="tab-performance">Performance</button>
+      <button class="tab-button" type="button" data-tab-target="tab-weather">Weather</button>
       <button class="tab-button" type="button" data-tab-target="tab-summary">Summary</button>
     </nav>
 
@@ -117,16 +118,39 @@
             </div>
           </div>
 
-          <div class="grid" style="margin-top:0.4rem">
+          <div class="grid-3 wb-fuel-planning-grid" style="margin-top:0.4rem">
             <div class="field">
-              <label>Fuel weight (kg)</label>
+              <label>Take-off fuel weight (kg)</label>
               <input id="fuelKg" type="number" readonly />
             </div>
+            <div class="field">
+              <label for="flightDurationH">Flight duration (HHMM)</label>
+              <input id="flightDurationH" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="0100" />
+            </div>
+            <div class="field">
+              <label for="fuelBurnLph">Average consumption (L/h)</label>
+              <input id="fuelBurnLph" type="number" inputmode="decimal" step="0.1" />
+            </div>
+          </div>
+
+          <div class="grid" style="margin-top:0.4rem">
+            <div class="field">
+              <label>Landing fuel remaining</label>
+              <input id="landingFuel" type="text" readonly />
+              <div id="landingFuelWarn" class="inline-warning" style="display:none;"></div>
+            </div>
+            <div class="field">
+              <label>Maximum fuel by 630&nbsp;kg limit</label>
+              <input id="maxFuelByWeight" type="text" readonly />
+            </div>
+          </div>
+
+          <div class="grid" style="margin-top:0.4rem">
             <div class="field">
               <label>Notes</label>
               <div class="inline-note">
                 AFM limits: usable fuel ≤ 100&nbsp;L, baggage ≤ 25&nbsp;kg, MTOW/MLW 630&nbsp;kg, CG envelope as
-                per AFM. Fuel mass uses the selected AFM density.
+                per AFM. Landing assumes entered cruise fuel burn has been consumed.
               </div>
             </div>
           </div>
@@ -147,13 +171,23 @@
               </div>
             </div>
             <div class="res-card">
-              <div class="res-title">Arrival (fuel burned)</div>
+              <div class="res-title">Landing (planned fuel burned)</div>
               <div class="res-main">
                 <strong><span id="lw"></span> kg</strong> at CG
                 <strong><span id="cgArr"></span> mm</strong>
               </div>
               <div class="res-sub">
-                Fuel set to 0&nbsp;kg for arrival point.
+                Uses flight duration × average consumption.
+              </div>
+            </div>
+            <div class="res-card">
+              <div class="res-title">Zero fuel</div>
+              <div class="res-main">
+                <strong><span id="zfw"></span> kg</strong> at CG
+                <strong><span id="cgZf"></span> mm</strong>
+              </div>
+              <div class="res-sub">
+                Fuel removed for zero-fuel CG cross-check.
               </div>
             </div>
           </div>
@@ -185,10 +219,16 @@
                         <td class="num" id="mtMomTO"></td>
                       </tr>
                       <tr>
-                        <td><strong>Total (no fuel)</strong></td>
+                        <td><strong>Total (landing fuel)</strong></td>
                         <td class="num" id="mtMassLW"></td>
                         <td class="num" id="mtArmLW"></td>
                         <td class="num" id="mtMomLW"></td>
+                      </tr>
+                      <tr>
+                        <td><strong>Total (zero fuel)</strong></td>
+                        <td class="num" id="mtMassZF"></td>
+                        <td class="num" id="mtArmZF"></td>
+                        <td class="num" id="mtMomZF"></td>
                       </tr>
                     </tfoot>
                   </table>
@@ -208,8 +248,8 @@
           <canvas id="cgChart" height="260"></canvas>
 
           <p class="muted">
-            Blue area = AFM loading envelope. Red markers show current departure and arrival.
-            Both must lie inside the blue area and within 430–630&nbsp;kg.
+            Blue area = AFM loading envelope. Markers show take-off, landing after planned fuel burn, and zero fuel.
+            All displayed points must lie inside the blue area and within 430–630&nbsp;kg.
           </p>
         </section>
       </div>
@@ -240,6 +280,7 @@
               </div>
             </div>
           </div>
+          <div class="inline-note metar-source-note">If a runway has no on-field METAR (e.g. LGKM), the preset may fetch the nearest proxy METAR (LGKV for LGKM). The fetched report fills QNH/OAT/wind as a starting point; overwrite QNH, OAT and actual wind with observed local values before using the OM-C and runway checks.</div>
           <div class="inline-note" id="metarStatus"></div>
           <div class="inline-note" id="tafStatus"></div>
 
@@ -383,6 +424,7 @@
               </div>
             </div>
           </div>
+          <div class="inline-note metar-source-note">For airfields without an on-field METAR, use the proxy METAR only for regional cloud/visibility context, then enter the actual arrival QNH, OAT and wind. OM-C wind/runway calculations use the edited fields below.</div>
           <div class="inline-note" id="arrivalMetarStatus"></div>
           <div class="inline-note" id="arrivalTafStatus"></div>
           <div class="grid-3" style="margin-top:0.75rem">
@@ -660,6 +702,25 @@
             </div>
           </div>
 
+        </section>
+      </div>
+    </section>
+
+    <section class="section-block tab-panel" id="tab-weather">
+      <div class="section-title">Weather Charts</div>
+      <div class="section-grid">
+        <section class="card">
+          <h2>EMY Aviation Charts</h2>
+          <small>Quick access to the official EMY/HNMS aviation chart page for Greece.</small>
+          <div class="weather-link-grid weather-link-grid-single">
+            <a class="weather-link-card" href="https://emy.gr/en/aviation" target="_blank" rel="noopener">
+              <strong>Open EMY aviation charts</strong>
+              <span>Use the same official page for Significant Weather Maps and Upper Atmosphere Wind Maps.</span>
+            </a>
+          </div>
+          <div class="inline-note" style="margin-top:0.7rem;">
+            Automatic EMY chart extraction has been removed because the official site is difficult to scrape reliably. Open the EMY page directly and use the lower aviation chart sections for SIGWX and winds aloft.
+          </div>
         </section>
       </div>
     </section>
