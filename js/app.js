@@ -2093,12 +2093,6 @@
         "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
       }[ch]));
     }
-
-    function renderEmyChartLinkForExport(kind) {
-      const label = kind === "sigwx" ? "Significant Weather Maps" : "Upper Atmosphere Wind Maps";
-      return `<p class="weather-panel-note">Open the official EMY/HNMS aviation page and use the lower aviation chart sections for ${label}. The same EMY page is used for both SIGWX and winds aloft:</p><p><a class="chart-link" href="${EMY_AVIATION_URL}">${EMY_AVIATION_URL}</a></p>`;
-    }
-
     function exportReportToPdf() {
       calculateAll();
 
@@ -2258,8 +2252,6 @@
     .wx-raw p { line-height: 1.2; overflow-wrap: anywhere; }
     .footer { margin-top: auto; font-size: 7px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 3px; }
     p { margin: 3px 0; }
-    .chart-link { color: #075985; font-weight: 800; overflow-wrap: anywhere; }
-    .weather-panel-note { color: #475569; font-size: 7.2px; line-height: 1.25; }
     .a5-spread + .a5-spread { page-break-before: always; margin-top: 8mm; }
     @media print { .report-actions { display:none; } .a5-spread + .a5-spread { margin-top: 0; } }
   </style>
