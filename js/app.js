@@ -88,13 +88,7 @@
     const METAR_STALE_MINUTES = 90;
     const METAR_FETCH_TIMEOUT_MS = 12000;
     const TAF_ADVISORY_HOURS = 6;
-    const EMY_AVIATION_URL = "https://www.emy.gr/en/aviation";
-    const EMY_PROXY_URLS = [
-      "https://api.allorigins.win/raw?url=",
-      "https://corsproxy.io/?",
-      "https://api.codetabs.com/v1/proxy?quest=",
-    ];
-    let emyCharts = { wind: [], sigwx: [], updatedAt: null, error: null };
+    const EMY_AVIATION_URL = "https://emy.gr/en/aviation";
 
     async function loadRunwayPresets() {
       try {
@@ -1421,9 +1415,9 @@
       const plannedFuelBurnL = Math.min(fuelL, plannedFuelBurnRawL);
       const landingFuelL = Math.max(0, fuelL - plannedFuelBurnL);
 
-      const fuelKg = fuelL * fuelDensity;
-      const landingFuelKg = landingFuelL * fuelDensity;
-      document.getElementById("fuelKg").value = round(fuelKg, 1);
+      const fuelKg = round(fuelL * fuelDensity, 1);
+      const landingFuelKg = round(landingFuelL * fuelDensity, 1);
+      document.getElementById("fuelKg").value = fuelKg;
       document.getElementById("landingFuel").value = formatFuelVolumeAndMass(landingFuelL, fuelDensity);
 
       const fuelWarn = document.getElementById("fuelWarn");
@@ -2100,188 +2094,9 @@
       }[ch]));
     }
 
-    function emyTabUrl(tab) {
-      return `${EMY_AVIATION_URL}?tab=${encodeURIComponent(tab)}`;
-    }
-
-    function emyProxyUrls(url) {
-      return EMY_PROXY_URLS.map((prefix) => `${prefix}${encodeURIComponent(url)}`);
-    }
-
-    function absoluteUrl(url, base = EMY_AVIATION_URL) {
-      try {
-        return new URL(url, base).href;
-      } catch (err) {
-        return "";
-      }
-    }
-
-    function safeDecodeUrl(url) {
-      try {
-        return decodeURIComponent(url);
-      } catch (err) {
-        return url;
-      }
-    }
-
-    function extractUrlsFromText(text) {
-      const urls = new Set();
-      const patterns = [
-        /https?:\/\/[^\s"'<>\\)]+/gi,
-        /(?:src|href|url|image|path|file)["'\s:=]+([^"'<>\s]+?)(?=["'\s<>]|$)/gi,
-        /url\(([^)]+)\)/gi,
-        /["'](\/?[^"']*(?:aviation|sig|significant|wind|height|chart|map|fl\d{2,3})[^"']*)["']/gi,
-      ];
-      patterns.forEach((pattern) => {
-        let match;
-        while ((match = pattern.exec(text)) !== null) {
-          const raw = (match[1] || match[0] || "").trim().replace(/^['"]|['"]$/g, "");
-          if (raw && !raw.startsWith("data:") && !raw.startsWith("#")) urls.add(raw);
-        }
-      });
-      return [...urls];
-    }
-
-    function extractEmyChartLinks(html, kind) {
-      const doc = new DOMParser().parseFromString(html, "text/html");
-      const wanted = kind === "sigwx" ? /sig|significant|sigwx|weather/i : /wind|height|level|upper|fl\s?\d{2,3}/i;
-      const unwanted = kind === "sigwx" ? /wind|height|upper|fl\s?\d{2,3}/i : /sig|significant|sigwx/i;
-      const likelyChartUrl = /aviation|sig|significant|wind|height|chart|map|fl\d{2,3}|weather/i;
-      const candidates = [];
-
-      function addCandidate(url, label, sourceText = "") {
-        const href = absoluteUrl(String(url || "").replace(/&amp;/g, "&"));
-        if (!href) return;
-        const isPdf = /\.pdf(?:[?#].*)?$/i.test(href);
-        const isImage = /\.(?:png|jpe?g|gif|webp|svg)(?:[?#].*)?$/i.test(href);
-        const haystack = `${label || ""} ${sourceText || ""} ${safeDecodeUrl(href)}`;
-        if (!isPdf && !isImage && !likelyChartUrl.test(haystack)) return;
-        const score = (wanted.test(haystack) ? 3 : 0)
-          - (unwanted.test(haystack) ? 2 : 0)
-          + (isImage ? 2 : 0)
-          + (isPdf ? 1 : 0)
-          + (/greece|europe|sfc|fl\d{2,3}|valid|issued|chart|map/i.test(haystack) ? 1 : 0);
-        if (score <= 0) return;
-        if (candidates.some((item) => item.url === href)) return;
-        candidates.push({
-          url: href,
-          label: (label || sourceText || href.split("/").pop() || "EMY chart").replace(/\s+/g, " ").trim().slice(0, 120),
-          type: isPdf ? "pdf" : "image",
-          score,
-        });
-      }
-
-      doc.querySelectorAll("img, source, picture *").forEach((el) => {
-        const parentText = el.closest("a, figure, li, div, section, article")?.textContent || "";
-        ["src", "srcset", "data-src", "data-original", "data-image", "data-url", "href"].forEach((attr) => {
-          const value = el.getAttribute(attr);
-          if (!value) return;
-          value.split(",").map((part) => part.trim().split(/\s+/)[0]).forEach((url) => {
-            addCandidate(url, el.getAttribute("alt") || el.getAttribute("title") || parentText, parentText);
-          });
-        });
-      });
-
-      doc.querySelectorAll("a[href], [style], [data-src], [data-url], [data-image], [data-file]").forEach((el) => {
-        const parentText = el.closest("li, div, section, article")?.textContent || "";
-        ["href", "style", "data-src", "data-url", "data-image", "data-file"].forEach((attr) => {
-          const value = el.getAttribute(attr);
-          if (!value) return;
-          extractUrlsFromText(value).forEach((url) => addCandidate(url, el.textContent || el.getAttribute("title") || value, parentText));
-          addCandidate(value, el.textContent || el.getAttribute("title") || value, parentText);
-        });
-      });
-
-      extractUrlsFromText(html).forEach((url) => addCandidate(url, url, "EMY aviation page source"));
-
-      return candidates
-        .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label))
-        .slice(0, kind === "sigwx" ? 6 : 10);
-    }
-
-    function renderEmyChartList(kind) {
-      const container = document.getElementById(kind === "sigwx" ? "emySigwxCharts" : "emyWindCharts");
-      if (!container) return;
-      const charts = emyCharts[kind] || [];
-      if (!charts.length) {
-        container.classList.add("empty");
-        container.textContent = kind === "sigwx"
-          ? "No SIGWX chart images/PDFs could be extracted automatically. Open the EMY SIGWX link above."
-          : "No winds-aloft chart images/PDFs could be extracted automatically. Open the EMY winds link above.";
-        return;
-      }
-      container.classList.remove("empty");
-      container.innerHTML = charts.map((chart, index) => {
-        const title = escHtml(chart.label || `${kind.toUpperCase()} chart ${index + 1}`);
-        const url = escHtml(chart.url);
-        const media = chart.type === "pdf"
-          ? `<a class="emy-chart-pdf" href="${url}" target="_blank" rel="noopener">Open PDF chart</a>`
-          : `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="${title}" loading="lazy"></a>`;
-        return `<article class="emy-chart-card"><div class="emy-chart-title"><strong>${title}</strong><span>${url}</span></div>${media}</article>`;
-      }).join("");
-    }
-
-    function updateEmyChartStatus(text, isWarning = false) {
-      const status = document.getElementById("emyChartStatus");
-      if (!status) return;
-      status.textContent = text;
-      status.classList.toggle("inline-warning", isWarning);
-    }
-
-    async function fetchEmyAviationHtml(tab) {
-      const directUrl = emyTabUrl(tab);
-      let lastError = null;
-      for (const url of [...emyProxyUrls(directUrl), directUrl]) {
-        try {
-          const response = await fetchWithTimeout(url);
-          if (!response.ok) throw new Error(`EMY returned ${response.status}`);
-          return await response.text();
-        } catch (err) {
-          lastError = err;
-        }
-      }
-      throw lastError || new Error("EMY page unavailable");
-    }
-
-    async function refreshEmyCharts() {
-      updateEmyChartStatus("Fetching EMY aviation page and extracting chart links...");
-      try {
-        const [windHtml, sigwxHtml] = await Promise.all([
-          fetchEmyAviationHtml("heightLevelAviationTab"),
-          fetchEmyAviationHtml("sigWeatherAviationTab"),
-        ]);
-        emyCharts = {
-          wind: extractEmyChartLinks(windHtml, "wind"),
-          sigwx: extractEmyChartLinks(sigwxHtml, "sigwx"),
-          updatedAt: new Date(),
-          error: null,
-        };
-        renderEmyChartList("wind");
-        renderEmyChartList("sigwx");
-        const total = emyCharts.wind.length + emyCharts.sigwx.length;
-        updateEmyChartStatus(total
-          ? `Extracted ${total} EMY chart link(s) at ${emyCharts.updatedAt.toLocaleTimeString()}.`
-          : "EMY page loaded, but no chart image/PDF links matched the winds/SIGWX filters. Use the source links above.", !total);
-      } catch (err) {
-        emyCharts = { wind: [], sigwx: [], updatedAt: null, error: err.message };
-        renderEmyChartList("wind");
-        renderEmyChartList("sigwx");
-        updateEmyChartStatus(`Could not extract EMY charts automatically: ${err.message}. Use the source links above.`, true);
-      }
-    }
-
-    function renderEmyChartsForExport(kind) {
-      const charts = (emyCharts[kind] || []).filter((chart) => chart.type === "image").slice(0, kind === "sigwx" ? 2 : 4);
-      if (!charts.length) {
-        const sourceUrl = kind === "sigwx" ? emyTabUrl("sigWeatherAviationTab") : emyTabUrl("heightLevelAviationTab");
-        return `<p class="weather-panel-note">No extracted ${kind === "sigwx" ? "SIGWX" : "winds aloft"} image was available in the app at export time. Open and print the EMY source chart directly:</p><p><a class="chart-link" href="${sourceUrl}">${sourceUrl}</a></p>`;
-      }
-      return charts.map((chart) => `
-        <figure class="weather-export-chart">
-          <figcaption>${escHtml(chart.label)}</figcaption>
-          <img src="${escHtml(chart.url)}" alt="${escHtml(chart.label)}">
-        </figure>
-      `).join("");
+    function renderEmyChartLinkForExport(kind) {
+      const label = kind === "sigwx" ? "Significant Weather Maps" : "Upper Atmosphere Wind Maps";
+      return `<p class="weather-panel-note">Open the official EMY/HNMS aviation page and use the lower aviation chart sections for ${label}. The same EMY page is used for both SIGWX and winds aloft:</p><p><a class="chart-link" href="${EMY_AVIATION_URL}">${EMY_AVIATION_URL}</a></p>`;
     }
 
     function exportReportToPdf() {
@@ -2444,11 +2259,7 @@
     .footer { margin-top: auto; font-size: 7px; color: #475569; border-top: 2px solid #bae6fd; padding-top: 3px; }
     p { margin: 3px 0; }
     .chart-link { color: #075985; font-weight: 800; overflow-wrap: anywhere; }
-    .weather-chart-frame { border: 0; flex: 1 1 auto; min-height: 160mm; width: 100%; }
     .weather-panel-note { color: #475569; font-size: 7.2px; line-height: 1.25; }
-    .weather-export-chart { border: 1px solid #bfdbfe; border-radius: 5px; margin: 4px 0; overflow: hidden; page-break-inside: avoid; }
-    .weather-export-chart figcaption { background: #e0f2fe; color: #075985; font-size: 7px; font-weight: 800; padding: 2px 4px; }
-    .weather-export-chart img { background: #fff; display: block; max-height: 72mm; object-fit: contain; width: 100%; }
     .a5-spread + .a5-spread { page-break-before: always; margin-top: 8mm; }
     @media print { .report-actions { display:none; } .a5-spread + .a5-spread { margin-top: 0; } }
   </style>
@@ -2595,9 +2406,9 @@
           <div>Weather panel 1/2</div>
         </div>
       </div>
-      <p class="weather-panel-note">Extracted from the EMY/HNMS aviation page where browser/network policy allows. Verify chart issue and validity times against the official EMY source before flight.</p>
-      ${renderEmyChartsForExport("wind")}
-      <div class="footer">Source: EMY/HNMS upper-atmosphere wind maps.</div>
+      <p class="weather-panel-note">Use the official EMY/HNMS aviation page for current chart issue and validity times.</p>
+      ${renderEmyChartLinkForExport("wind")}
+      <div class="footer">Source: EMY/HNMS aviation charts.</div>
     </section>
 
     <section class="a5-panel">
@@ -2608,9 +2419,9 @@
           <div>Weather panel 2/2</div>
         </div>
       </div>
-      <p class="weather-panel-note">Extracted from the EMY/HNMS aviation page where browser/network policy allows. Verify chart issue and validity times against the official EMY source before flight.</p>
-      ${renderEmyChartsForExport("sigwx")}
-      <div class="footer">Source: EMY/HNMS significant-weather maps.</div>
+      <p class="weather-panel-note">Use the official EMY/HNMS aviation page for current chart issue and validity times.</p>
+      ${renderEmyChartLinkForExport("sigwx")}
+      <div class="footer">Source: EMY/HNMS aviation charts.</div>
     </section>
   </div>
 </body>
@@ -2653,7 +2464,6 @@
       document.getElementById("fetchTafBtn").addEventListener("click", () => fetchAndAssessTaf("departure"));
       document.getElementById("fetchArrivalMetarBtn").addEventListener("click", () => fetchAndApplyMetar("arrival"));
       document.getElementById("fetchArrivalTafBtn").addEventListener("click", () => fetchAndAssessTaf("arrival"));
-      document.getElementById("refreshEmyChartsBtn")?.addEventListener("click", refreshEmyCharts);
       document.getElementById("flightDurationH")?.addEventListener("blur", () => {
         normalizeDurationField("flightDurationH");
         calculateAll();
