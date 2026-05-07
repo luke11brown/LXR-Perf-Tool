@@ -2581,5 +2581,6 @@
       updateWeatherMinimaControls();
       updateRunwayEditState();
       calculateAll();
+      refreshEmyCharts();
       window.addEventListener("resize", calculateAll);
     });
