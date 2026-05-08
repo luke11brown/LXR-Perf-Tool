@@ -1158,6 +1158,18 @@
       return Math.round(x * f) / f;
     }
 
+    function formatDecimal(x, decimals = 2) {
+      const value = Number(x);
+      return Number.isFinite(value) ? value.toFixed(decimals) : "–";
+    }
+
+    function formatDecimalLocale(x, decimals = 2) {
+      const value = Number(x);
+      return Number.isFinite(value)
+        ? value.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+        : "–";
+    }
+
     function pointOnSegment(px, py, ax, ay, bx, by, tolerance = 1e-6) {
       const cross = (px - ax) * (by - ay) - (py - ay) * (bx - ax);
       if (Math.abs(cross) > tolerance * Math.max(1, Math.abs(bx - ax), Math.abs(by - ay))) return false;
@@ -1183,7 +1195,7 @@
     function formatFuelVolumeAndMass(liters, density) {
       const safeLiters = Math.max(0, Number(liters) || 0);
       const safeDensity = Math.max(0, Number(density) || 0);
-      return `${round(safeLiters, 1)} L / ${round(safeLiters * safeDensity, 1)} kg`;
+      return `${round(safeLiters, 1)} L / ${formatDecimal(safeLiters * safeDensity)} kg`;
     }
 
     function wbPointOk(mass, cg) {
@@ -1414,9 +1426,9 @@
       const plannedFuelBurnL = Math.min(fuelL, plannedFuelBurnRawL);
       const landingFuelL = Math.max(0, fuelL - plannedFuelBurnL);
 
-      const fuelKg = round(fuelL * fuelDensity, 1);
-      const landingFuelKg = round(landingFuelL * fuelDensity, 1);
-      document.getElementById("fuelKg").value = fuelKg;
+      const fuelKg = fuelL * fuelDensity;
+      const landingFuelKg = landingFuelL * fuelDensity;
+      document.getElementById("fuelKg").value = formatDecimal(fuelKg);
       document.getElementById("landingFuel").value = formatFuelVolumeAndMass(landingFuelL, fuelDensity);
 
       const fuelWarn = document.getElementById("fuelWarn");
@@ -1475,16 +1487,16 @@
 
       const maxFuelByWeightL = fuelDensity > 0 ? Math.min(MAX_FUEL_L, Math.max(0, (MAX_MASS - massZF) / fuelDensity)) : 0;
       const maxFuelByWeightText = fuelDensity > 0
-        ? `${round(maxFuelByWeightL, 1)} L / ${round(maxFuelByWeightL * fuelDensity, 1)} kg`
+        ? `${round(maxFuelByWeightL, 1)} L / ${formatDecimal(maxFuelByWeightL * fuelDensity)} kg`
         : "Select fuel type";
       document.getElementById("maxFuelByWeight").value = maxFuelByWeightText;
 
-      document.getElementById("tow").textContent = round(massTO, 1);
-      document.getElementById("cg").textContent = isFinite(cgTO) ? round(cgTO, 0) : "–";
-      document.getElementById("lw").textContent = round(massLW, 1);
-      document.getElementById("cgArr").textContent = isFinite(cgLW) ? round(cgLW, 0) : "–";
-      document.getElementById("zfw").textContent = round(massZF, 1);
-      document.getElementById("cgZf").textContent = isFinite(cgZF) ? round(cgZF, 0) : "–";
+      document.getElementById("tow").textContent = formatDecimal(massTO);
+      document.getElementById("cg").textContent = formatDecimal(cgTO);
+      document.getElementById("lw").textContent = formatDecimal(massLW);
+      document.getElementById("cgArr").textContent = formatDecimal(cgLW);
+      document.getElementById("zfw").textContent = formatDecimal(massZF);
+      document.getElementById("cgZf").textContent = formatDecimal(cgZF);
 
       const wbStatusPill = document.getElementById("wbStatusPill");
 
@@ -1953,7 +1965,7 @@
       }
 
       const sumWbText = wbOk
-        ? `OK – TOW ${round(massTO, 1)} kg at ${round(cgTO, 0)} mm; landing ${round(massLW, 1)} kg at ${round(cgLW, 0)} mm after ${round(plannedFuelBurnL, 1)} L burn; zero fuel ${round(massZF, 1)} kg at ${round(cgZF, 0)} mm. Max fuel by 630 kg limit ${round(maxFuelByWeightL, 1)} L.`
+        ? `OK – TOW ${formatDecimal(massTO)} kg at ${formatDecimal(cgTO)} mm; landing ${formatDecimal(massLW)} kg at ${formatDecimal(cgLW)} mm after ${round(plannedFuelBurnL, 1)} L burn; zero fuel ${formatDecimal(massZF)} kg at ${formatDecimal(cgZF)} mm. Max fuel by 630 kg limit ${round(maxFuelByWeightL, 1)} L.`
         : `NOT OK – check take-off, landing and zero-fuel CG envelope, fuel (≤ ${MAX_FUEL_L} L usable) and baggage (≤ ${MAX_BAG_KG} kg).`;
       setSummaryLine("sumWb", sumWbText, wbOk);
 
@@ -2025,22 +2037,22 @@
           tr.classList.toggle("bad-value", rowBad);
           tr.innerHTML = `
       <td>${label}</td>
-      <td class="num">${round(mass, 1)}</td>
-      <td class="num">${round(arm, 0)}</td>
-      <td class="num">${Math.round(moment).toLocaleString()}</td>
+      <td class="num">${formatDecimal(mass)}</td>
+      <td class="num">${formatDecimal(arm)}</td>
+      <td class="num">${formatDecimalLocale(moment)}</td>
     `;
           tbody.appendChild(tr);
         });
 
-        document.getElementById("mtMassTO").textContent = round(massTO, 1);
-        document.getElementById("mtMomTO").textContent = Math.round(momTO).toLocaleString();
-        document.getElementById("mtMassLW").textContent = round(massLW, 1);
-        document.getElementById("mtMomLW").textContent = Math.round(momLW).toLocaleString();
-        document.getElementById("mtMassZF").textContent = round(massZF, 1);
-        document.getElementById("mtMomZF").textContent = Math.round(momZF).toLocaleString();
-        document.getElementById("mtArmTO").textContent = isFinite(cgTO) ? round(cgTO, 0) : "–";
-        document.getElementById("mtArmLW").textContent = isFinite(cgLW) ? round(cgLW, 0) : "–";
-        document.getElementById("mtArmZF").textContent = isFinite(cgZF) ? round(cgZF, 0) : "–";
+        document.getElementById("mtMassTO").textContent = formatDecimal(massTO);
+        document.getElementById("mtMomTO").textContent = formatDecimalLocale(momTO);
+        document.getElementById("mtMassLW").textContent = formatDecimal(massLW);
+        document.getElementById("mtMomLW").textContent = formatDecimalLocale(momLW);
+        document.getElementById("mtMassZF").textContent = formatDecimal(massZF);
+        document.getElementById("mtMomZF").textContent = formatDecimalLocale(momZF);
+        document.getElementById("mtArmTO").textContent = formatDecimal(cgTO);
+        document.getElementById("mtArmLW").textContent = formatDecimal(cgLW);
+        document.getElementById("mtArmZF").textContent = formatDecimal(cgZF);
         document.getElementById("mtMassTO").closest("tr")?.classList.toggle("bad-value", !toPoint.ok);
         document.getElementById("mtMassLW").closest("tr")?.classList.toggle("bad-value", !landingPoint.ok);
         document.getElementById("mtMassZF").closest("tr")?.classList.toggle("bad-value", !zeroFuelPoint.ok);
