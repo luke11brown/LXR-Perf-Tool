@@ -5,7 +5,7 @@
     "upholsteryWeightKg": 3.7,
     "upholsteryArmMm": 1076,
     "pilotWeightKg": 90,
-    "passengerWeightKg": 85,
+    "passengerWeightKg": 62,
     "fuelLiters": 50,
     "flightDurationHours": "0100",
     "fuelConsumptionLph": 15
@@ -34,8 +34,7 @@
     {
       "id": "seat_1090",
       "label": "1090 mm",
-      "armMm": 1090,
-      "default": true
+      "armMm": 1090
     },
     {
       "id": "seat_1100",
@@ -60,7 +59,8 @@
     {
       "id": "seat_1140",
       "label": "1140 mm",
-      "armMm": 1140
+      "armMm": 1140,
+      "default": true
     },
     {
       "id": "seat_1150",
