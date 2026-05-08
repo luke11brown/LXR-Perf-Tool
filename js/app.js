@@ -88,6 +88,7 @@
     const METAR_STALE_MINUTES = 90;
     const METAR_FETCH_TIMEOUT_MS = 12000;
     const TAF_ADVISORY_HOURS = 6;
+    const EMY_AVIATION_URL = "https://emy.gr/en/aviation";
 
     async function loadRunwayPresets() {
       try {
@@ -2409,6 +2410,34 @@
       <div class="footer">This PDF is a snapshot of the app data. It is not an AFM replacement.</div>
     </section>
   </div>
+
+  <div class="a5-spread">
+    <section class="a5-panel">
+      <div class="panel-header">
+        <h1>EMY Winds Aloft</h1>
+        <div class="report-meta">
+          <div>Generated ${escHtml(now.toLocaleString())}</div>
+          <div>Weather panel 1/2</div>
+        </div>
+      </div>
+      <p class="weather-panel-note">Use the official EMY/HNMS aviation page for current chart issue and validity times.</p>
+      ${renderEmyChartLinkForExport("wind")}
+      <div class="footer">Source: EMY/HNMS aviation charts.</div>
+    </section>
+
+    <section class="a5-panel">
+      <div class="panel-header">
+        <h1>EMY SIGWX</h1>
+        <div class="report-meta">
+          <div>Generated ${escHtml(now.toLocaleString())}</div>
+          <div>Weather panel 2/2</div>
+        </div>
+      </div>
+      <p class="weather-panel-note">Use the official EMY/HNMS aviation page for current chart issue and validity times.</p>
+      ${renderEmyChartLinkForExport("sigwx")}
+      <div class="footer">Source: EMY/HNMS aviation charts.</div>
+    </section>
+  </div>
 </body>
 </html>`;
 
@@ -2570,5 +2599,6 @@
       updateWeatherMinimaControls();
       updateRunwayEditState();
       calculateAll();
+      refreshEmyCharts();
       window.addEventListener("resize", calculateAll);
     });
