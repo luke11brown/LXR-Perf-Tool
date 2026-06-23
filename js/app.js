@@ -714,20 +714,31 @@
       return { raw: taf, groups, issuedAt, validFrom: baseWindow.start, validTo: baseWindow.end };
     }
 
-    async function fetchTafForStation(station) {
-      const noaaUrl = `https://tgftp.nws.noaa.gov/data/forecasts/taf/stations/${encodeURIComponent(station)}.TXT`;
+    async function fetchNoaaStationText(path, station, label) {
+      const normalizedStation = station.trim().toUpperCase();
+      const noaaUrl = `https://tgftp.nws.noaa.gov/data/${path}/stations/${encodeURIComponent(normalizedStation)}.TXT`;
       const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(noaaUrl)}`;
-      let response;
-      try {
-        response = await fetchWithTimeout(proxyUrl);
-      } catch (err) {
-        response = await fetchWithTimeout(noaaUrl);
+      let lastError = null;
+
+      for (const [sourceLabel, url] of [["NOAA proxy", proxyUrl], ["NOAA", noaaUrl]]) {
+        try {
+          const response = await fetchWithTimeout(url);
+          if (response.ok) return response.text();
+          lastError = new Error(`${sourceLabel} returned ${response.status}`);
+        } catch (err) {
+          lastError = err;
+        }
       }
-      if (!response.ok) throw new Error(`NOAA returned ${response.status}`);
-      const text = await response.text();
+
+      throw new Error(`Could not fetch ${label} from NOAA${lastError ? ` (${lastError.message})` : ""}`);
+    }
+
+    async function fetchTafForStation(station) {
+      const normalizedStation = station.trim().toUpperCase();
+      const text = await fetchNoaaStationText("forecasts/taf", normalizedStation, "TAF");
       const lines = text.trim().split(/\r?\n/).filter(Boolean);
       const rawTaf = lines.slice(1).join(" ") || lines[0] || "";
-      if (!rawTaf.includes(station)) throw new Error("No TAF found for station");
+      if (!rawTaf.includes(normalizedStation)) throw new Error("No TAF found for station");
       return parseTaf(rawTaf);
     }
 
@@ -742,20 +753,11 @@
     }
 
     async function fetchMetarForStation(station) {
-      const noaaUrl = `https://tgftp.nws.noaa.gov/data/observations/metar/stations/${encodeURIComponent(station)}.TXT`;
-      const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(noaaUrl)}`;
-      let response;
-      try {
-        response = await fetchWithTimeout(proxyUrl);
-      } catch (err) {
-        response = await fetchWithTimeout(noaaUrl);
-      }
-      if (!response.ok) throw new Error(`NOAA returned ${response.status}`);
-
-      const text = await response.text();
+      const normalizedStation = station.trim().toUpperCase();
+      const text = await fetchNoaaStationText("observations/metar", normalizedStation, "METAR");
       const lines = text.trim().split(/\r?\n/).filter(Boolean);
       const rawMetar = lines[lines.length - 1] || "";
-      if (!rawMetar.includes(station)) throw new Error("No recent METAR found for station");
+      if (!rawMetar.includes(normalizedStation)) throw new Error("No recent METAR found for station");
       return parseMetar(rawMetar, lines[0]);
     }
 
