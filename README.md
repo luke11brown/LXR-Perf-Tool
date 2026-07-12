@@ -148,11 +148,17 @@ static file server, or use a GitHub Pages deployment. Keep paths relative, such
 as `./css/main.css`, `./js/app.js`, and `./data/*.json`, so it works from a
 GitHub Pages project URL.
 
-The METAR/TAF fetch buttons read current station text from NOAA/NWS AviationWeather
-API endpoints first, then the legacy NOAA text files as a fallback. Because GitHub
-Pages runs in the browser and NOAA endpoints may not send suitable CORS headers,
-the app falls back across multiple public CORS proxies when direct requests are
-blocked or a proxy returns a non-OK response.
+The METAR/TAF fetch buttons read current station text from the NOAA/NWS
+AviationWeather Data API using the documented `/api/data/metar` and
+`/api/data/taf` endpoints. The app tries the combined METAR+TAF query first,
+then raw and JSON product queries. AviationWeather documents that CORS is not
+permitted for API endpoints, so no-key public CORS proxy fallbacks are started
+immediately rather than waiting behind direct browser requests. Successful
+reports are cached in the browser for five minutes per station/product so
+repeated checks avoid another network round trip. If browser-side fetching is
+blocked by CORS, provider availability, or public proxy failures, use the Paste
+METAR/Paste TAF buttons to import raw reports from any trusted briefing source
+without needing a hosted backend.
 
 ## Development Notes
 
