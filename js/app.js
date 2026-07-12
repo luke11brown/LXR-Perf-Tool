@@ -756,8 +756,20 @@
       return [
         { label: `AllOrigins ${label}`, url: `https://api.allorigins.win/raw?url=${encodedUrl}`, delayMs, parseText },
         { label: `CodeTabs ${label}`, url: `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`, delayMs, parseText },
-        { label: `CorsProxy.io ${label}`, url: `https://corsproxy.io/?url=${encodedUrl}`, delayMs, parseText },
+        { label: `CorsProxy.io ${label}`, url: `https://corsproxy.io/?${encodedUrl}`, delayMs, parseText },
       ];
+    }
+
+    function noaaCycleSources(product, station) {
+      const now = new Date();
+      const cyclePath = product === "taf" ? "forecasts/taf" : "observations/metar";
+      const currentHour = now.getUTCHours();
+      const hours = [currentHour, (currentHour + 23) % 24];
+      return hours.map(hour => {
+        const hourText = String(hour).padStart(2, "0");
+        const url = `https://tgftp.nws.noaa.gov/data/${cyclePath}/cycles/${hourText}Z.TXT`;
+        return rawTextSource(`NOAA ${hourText}Z cycle`, url, WEATHER_PROXY_STAGGER_MS, text => extractLatestTac(text, product, station));
+      });
     }
 
     function noaaFetchSources(product, station) {
@@ -765,14 +777,18 @@
       const jsonParams = new URLSearchParams({ ids: station, format: "json" });
       const aviationWeatherRawUrl = `https://aviationweather.gov/api/data/${product}?${rawParams.toString()}`;
       const aviationWeatherJsonUrl = `https://aviationweather.gov/api/data/${product}?${jsonParams.toString()}`;
-      const metNorwayUrl = `https://api.met.no/weatherapi/tafmetar/1.0/${product}.txt?icao=${encodeURIComponent(station)}`;
+      const metNorwayPathUrl = `https://api.met.no/weatherapi/tafmetar/1.0/${product}.txt?icao=${encodeURIComponent(station)}`;
+      const metNorwayQuery = new URLSearchParams({ icao: station, content_type: "text/plain", content: product });
+      const metNorwayQueryUrl = `https://api.met.no/weatherapi/tafmetar/1.0/?${metNorwayQuery.toString()}`;
       const legacyPath = product === "taf" ? "forecasts/taf" : "observations/metar";
       const legacyNoaaUrl = `https://tgftp.nws.noaa.gov/data/${legacyPath}/stations/${encodeURIComponent(station)}.TXT`;
       const directSources = [
         rawTextSource("AviationWeather raw", aviationWeatherRawUrl),
         jsonSource("AviationWeather JSON", aviationWeatherJsonUrl, product),
-        rawTextSource("MET Norway tafmetar", metNorwayUrl, 0, text => extractLatestTac(text, product, station)),
+        rawTextSource("MET Norway path", metNorwayPathUrl, 0, text => extractLatestTac(text, product, station)),
+        rawTextSource("MET Norway query", metNorwayQueryUrl, 0, text => extractLatestTac(text, product, station)),
         rawTextSource("NOAA text", legacyNoaaUrl),
+        ...noaaCycleSources(product, station),
       ];
       return directSources.flatMap(source => [
         source,
@@ -927,6 +943,47 @@
         status.textContent = `Could not fetch ${stationLabel} METAR: ${err.message}`;
       } finally {
         button.disabled = false;
+      }
+    }
+
+    function pasteAndApplyMetar(target) {
+      const isArrival = target === "arrival";
+      const status = document.getElementById(isArrival ? "arrivalMetarStatus" : "metarStatus");
+      const rawMetar = window.prompt("Paste the raw METAR report:");
+      if (!rawMetar || !rawMetar.trim()) return;
+      try {
+        const metar = parseMetar(rawMetar);
+        if (isArrival) arrivalMetar = metar;
+        else departureMetar = metar;
+        applyMetarToFields(metar, target);
+        if (!isArrival && arrivalUsesDepartureRunway) copyDepartureWeatherToArrival();
+        calculateAll();
+        status.textContent = `Pasted METAR applied. ${metar.raw}`;
+      } catch (err) {
+        status.textContent = `Could not parse pasted METAR: ${err.message}`;
+      }
+    }
+
+    function pasteAndAssessTaf(target) {
+      const isArrival = target === "arrival";
+      const status = document.getElementById(isArrival ? "arrivalTafStatus" : "tafStatus");
+      const rawTaf = window.prompt("Paste the raw TAF report:");
+      if (!rawTaf || !rawTaf.trim()) return;
+      try {
+        const taf = parseTaf(rawTaf);
+        if (isArrival) arrivalTaf = taf;
+        else departureTaf = taf;
+        calculateAll();
+        const validityText = taf.validFrom && taf.validTo
+          ? `valid ${formatUtcDayHm(taf.validFrom)}/${formatUtcDayHm(taf.validTo)}`
+          : "validity unknown";
+        const issuedText = taf.issuedAt ? `issued ${formatUtcHm(taf.issuedAt)}, ` : "";
+        status.textContent = `Pasted TAF applied (${issuedText}${validityText}). ${taf.raw}`;
+      } catch (err) {
+        if (isArrival) arrivalTaf = null;
+        else departureTaf = null;
+        calculateAll();
+        status.textContent = `Could not parse pasted TAF: ${err.message}`;
       }
     }
 
@@ -2583,8 +2640,12 @@
       document.getElementById("exportPdfBtn").addEventListener("click", exportReportToPdf);
       document.getElementById("fetchMetarBtn").addEventListener("click", () => fetchAndApplyMetar("departure"));
       document.getElementById("fetchTafBtn").addEventListener("click", () => fetchAndAssessTaf("departure"));
+      document.getElementById("pasteMetarBtn").addEventListener("click", () => pasteAndApplyMetar("departure"));
+      document.getElementById("pasteTafBtn").addEventListener("click", () => pasteAndAssessTaf("departure"));
       document.getElementById("fetchArrivalMetarBtn").addEventListener("click", () => fetchAndApplyMetar("arrival"));
       document.getElementById("fetchArrivalTafBtn").addEventListener("click", () => fetchAndAssessTaf("arrival"));
+      document.getElementById("pasteArrivalMetarBtn").addEventListener("click", () => pasteAndApplyMetar("arrival"));
+      document.getElementById("pasteArrivalTafBtn").addEventListener("click", () => pasteAndAssessTaf("arrival"));
       document.getElementById("flightDurationH")?.addEventListener("blur", () => {
         normalizeDurationField("flightDurationH");
         calculateAll();
