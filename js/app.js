@@ -86,7 +86,9 @@
     let departureTaf = null;
     let arrivalTaf = null;
     const METAR_STALE_MINUTES = 90;
-    const METAR_FETCH_TIMEOUT_MS = 12000;
+    const WEATHER_FETCH_TIMEOUT_MS = 15000;
+    const WEATHER_PROXY_STAGGER_MS = 1200;
+    const WEATHER_CACHE_TTL_MS = 5 * 60 * 1000;
     const TAF_ADVISORY_HOURS = 6;
 
     async function loadRunwayPresets() {
@@ -714,35 +716,136 @@
       return { raw: taf, groups, issuedAt, validFrom: baseWindow.start, validTo: baseWindow.end };
     }
 
-    function noaaFetchUrls(product, station) {
-      const params = new URLSearchParams({ ids: station, format: "raw" });
-      const aviationWeatherUrl = `https://aviationweather.gov/api/data/${product}?${params.toString()}`;
+    const weatherFetchCache = new Map();
+
+    function extractRawWeatherFromJson(text, product) {
+      const data = JSON.parse(text);
+      const reports = Array.isArray(data) ? data : [data];
+      const rawKeys = product === "taf"
+        ? ["rawTAF", "rawTaf", "raw_text", "rawText", "raw"]
+        : ["rawOb", "rawMETAR", "rawMetar", "raw_text", "rawText", "raw"];
+      for (const report of reports) {
+        for (const key of rawKeys) {
+          if (typeof report?.[key] === "string" && report[key].trim()) return report[key].trim();
+        }
+      }
+      throw new Error("JSON response did not include raw weather text");
+    }
+
+    function rawTextSource(label, url, delayMs = 0) {
+      return { label, url, delayMs, parseText: text => text };
+    }
+
+    function jsonSource(label, url, product, delayMs = 0) {
+      return { label, url, delayMs, parseText: text => extractRawWeatherFromJson(text, product) };
+    }
+
+    function proxiedSources(label, url, parseText, delayMs) {
+      const encodedUrl = encodeURIComponent(url);
+      return [
+        { label: `AllOrigins ${label}`, url: `https://api.allorigins.win/raw?url=${encodedUrl}`, delayMs, parseText },
+        { label: `CodeTabs ${label}`, url: `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`, delayMs, parseText },
+        { label: `CorsProxy.io ${label}`, url: `https://corsproxy.io/?url=${encodedUrl}`, delayMs, parseText },
+      ];
+    }
+
+    function noaaFetchSources(product, station) {
+      const rawParams = new URLSearchParams({ ids: station, format: "raw" });
+      const jsonParams = new URLSearchParams({ ids: station, format: "json" });
+      const aviationWeatherRawUrl = `https://aviationweather.gov/api/data/${product}?${rawParams.toString()}`;
+      const aviationWeatherJsonUrl = `https://aviationweather.gov/api/data/${product}?${jsonParams.toString()}`;
       const legacyPath = product === "taf" ? "forecasts/taf" : "observations/metar";
       const legacyNoaaUrl = `https://tgftp.nws.noaa.gov/data/${legacyPath}/stations/${encodeURIComponent(station)}.TXT`;
-      const proxiedUrls = [aviationWeatherUrl, legacyNoaaUrl].flatMap(url => [
-        ["NOAA", url],
-        ["AllOrigins NOAA proxy", `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`],
-        ["CodeTabs NOAA proxy", `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`],
+      const directSources = [
+        rawTextSource("AviationWeather raw", aviationWeatherRawUrl),
+        jsonSource("AviationWeather JSON", aviationWeatherJsonUrl, product),
+        rawTextSource("NOAA text", legacyNoaaUrl),
+      ];
+      return directSources.flatMap(source => [
+        source,
+        ...proxiedSources(source.label, source.url, source.parseText, WEATHER_PROXY_STAGGER_MS),
       ]);
-      return proxiedUrls;
+    }
+
+    function isAbortError(err) {
+      return err?.name === "AbortError" || /abort/i.test(err?.message || "");
+    }
+
+    function sourceErrorMessage(sourceLabel, err) {
+      if (!err) return `${sourceLabel} failed`;
+      const message = err.message || String(err);
+      return message.includes(sourceLabel) ? message : `${sourceLabel}: ${message}`;
+    }
+
+    async function fetchFirstSuccessfulSource(sources, timeoutMs, label) {
+      const controller = new AbortController();
+      let timedOut = false;
+      const timeout = window.setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, timeoutMs);
+      const errors = [];
+      let pending = sources.length;
+      let settled = false;
+
+      try {
+        return await new Promise((resolve, reject) => {
+          const rejectIfDone = () => {
+            if (!settled && pending === 0) {
+              settled = true;
+              window.clearTimeout(timeout);
+              reject(new Error(timedOut ? `${label} request timed out after ${Math.round(timeoutMs / 1000)} seconds` : (errors[errors.length - 1] || `${label} request failed`)));
+            }
+          };
+
+          sources.forEach(({ label: sourceLabel, url, delayMs = 0 }) => {
+            window.setTimeout(() => {
+              if (settled) {
+                pending -= 1;
+                rejectIfDone();
+                return;
+              }
+
+              fetch(url, { cache: "no-store", signal: controller.signal })
+                .then(response => {
+                  if (response.ok) return response.text();
+                  throw new Error(response.status === 204
+                    ? `${sourceLabel} returned no ${label} data`
+                    : `${sourceLabel} returned ${response.status}`);
+                })
+                .then(text => parseText(text))
+                .then(text => {
+                  if (!String(text || "").trim()) throw new Error(`${sourceLabel} returned empty ${label} data`);
+                  if (!settled) {
+                    settled = true;
+                    window.clearTimeout(timeout);
+                    resolve(text);
+                  }
+                })
+                .catch(err => {
+                  if (!settled && !(timedOut && isAbortError(err))) errors.push(sourceErrorMessage(sourceLabel, err));
+                })
+                .finally(() => {
+                  pending -= 1;
+                  rejectIfDone();
+                });
+            }, delayMs);
+          });
+        });
+      } finally {
+        window.clearTimeout(timeout);
+      }
     }
 
     async function fetchNoaaStationText(product, station, label) {
       const normalizedStation = station.trim().toUpperCase();
-      let lastError = null;
+      const cacheKey = `${product}:${normalizedStation}`;
+      const cached = weatherFetchCache.get(cacheKey);
+      if (cached && Date.now() - cached.fetchedAt < WEATHER_CACHE_TTL_MS) return cached.text;
 
-      for (const [sourceLabel, url] of noaaFetchUrls(product, normalizedStation)) {
-        try {
-          const response = await fetchWithTimeout(url);
-          if (response.ok) return response.text();
-          if (response.status === 204) throw new Error(`${sourceLabel} returned no ${label} data`);
-          lastError = new Error(`${sourceLabel} returned ${response.status}`);
-        } catch (err) {
-          lastError = err;
-        }
-      }
-
-      throw new Error(`Could not fetch ${label} from NOAA${lastError ? ` (${lastError.message})` : ""}`);
+      const text = await fetchFirstSuccessfulSource(noaaFetchSources(product, normalizedStation), WEATHER_FETCH_TIMEOUT_MS, label);
+      weatherFetchCache.set(cacheKey, { text, fetchedAt: Date.now() });
+      return text;
     }
 
     async function fetchTafForStation(station) {
@@ -752,16 +855,6 @@
       const rawTaf = lines.slice(1).join(" ") || lines[0] || "";
       if (!rawTaf.includes(normalizedStation)) throw new Error("No TAF found for station");
       return parseTaf(rawTaf);
-    }
-
-    async function fetchWithTimeout(url) {
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), METAR_FETCH_TIMEOUT_MS);
-      try {
-        return await fetch(url, { cache: "no-store", signal: controller.signal });
-      } finally {
-        window.clearTimeout(timeout);
-      }
     }
 
     async function fetchMetarForStation(station) {
@@ -808,7 +901,7 @@
       button.disabled = true;
       status.textContent = `Fetching ${stationLabel} METAR from NOAA...`;
       try {
-      const metar = await fetchMetarForStation(station);
+        const metar = await fetchMetarForStation(station);
         if (isArrival) arrivalMetar = metar;
         else departureMetar = metar;
         applyMetarToFields(metar, target);
