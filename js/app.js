@@ -718,19 +718,53 @@
 
     const weatherFetchCache = new Map();
 
+    function extractRawWeatherFromJson(text, product) {
+      const data = JSON.parse(text);
+      const reports = Array.isArray(data) ? data : [data];
+      const rawKeys = product === "taf"
+        ? ["rawTAF", "rawTaf", "raw_text", "rawText", "raw"]
+        : ["rawOb", "rawMETAR", "rawMetar", "raw_text", "rawText", "raw"];
+      for (const report of reports) {
+        for (const key of rawKeys) {
+          if (typeof report?.[key] === "string" && report[key].trim()) return report[key].trim();
+        }
+      }
+      throw new Error("JSON response did not include raw weather text");
+    }
+
+    function rawTextSource(label, url, delayMs = 0) {
+      return { label, url, delayMs, parseText: text => text };
+    }
+
+    function jsonSource(label, url, product, delayMs = 0) {
+      return { label, url, delayMs, parseText: text => extractRawWeatherFromJson(text, product) };
+    }
+
+    function proxiedSources(label, url, parseText, delayMs) {
+      const encodedUrl = encodeURIComponent(url);
+      return [
+        { label: `AllOrigins ${label}`, url: `https://api.allorigins.win/raw?url=${encodedUrl}`, delayMs, parseText },
+        { label: `CodeTabs ${label}`, url: `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`, delayMs, parseText },
+        { label: `CorsProxy.io ${label}`, url: `https://corsproxy.io/?url=${encodedUrl}`, delayMs, parseText },
+      ];
+    }
+
     function noaaFetchSources(product, station) {
-      const params = new URLSearchParams({ ids: station, format: "raw" });
-      const aviationWeatherUrl = `https://aviationweather.gov/api/data/${product}?${params.toString()}`;
+      const rawParams = new URLSearchParams({ ids: station, format: "raw" });
+      const jsonParams = new URLSearchParams({ ids: station, format: "json" });
+      const aviationWeatherRawUrl = `https://aviationweather.gov/api/data/${product}?${rawParams.toString()}`;
+      const aviationWeatherJsonUrl = `https://aviationweather.gov/api/data/${product}?${jsonParams.toString()}`;
       const legacyPath = product === "taf" ? "forecasts/taf" : "observations/metar";
       const legacyNoaaUrl = `https://tgftp.nws.noaa.gov/data/${legacyPath}/stations/${encodeURIComponent(station)}.TXT`;
-      return [
-        { label: "AviationWeather", url: aviationWeatherUrl, delayMs: 0 },
-        { label: "NOAA text", url: legacyNoaaUrl, delayMs: 0 },
-        { label: "AllOrigins AviationWeather proxy", url: `https://api.allorigins.win/raw?url=${encodeURIComponent(aviationWeatherUrl)}`, delayMs: WEATHER_PROXY_STAGGER_MS },
-        { label: "CodeTabs AviationWeather proxy", url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(aviationWeatherUrl)}`, delayMs: WEATHER_PROXY_STAGGER_MS },
-        { label: "AllOrigins NOAA text proxy", url: `https://api.allorigins.win/raw?url=${encodeURIComponent(legacyNoaaUrl)}`, delayMs: WEATHER_PROXY_STAGGER_MS },
-        { label: "CodeTabs NOAA text proxy", url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(legacyNoaaUrl)}`, delayMs: WEATHER_PROXY_STAGGER_MS },
+      const directSources = [
+        rawTextSource("AviationWeather raw", aviationWeatherRawUrl),
+        jsonSource("AviationWeather JSON", aviationWeatherJsonUrl, product),
+        rawTextSource("NOAA text", legacyNoaaUrl),
       ];
+      return directSources.flatMap(source => [
+        source,
+        ...proxiedSources(source.label, source.url, source.parseText, WEATHER_PROXY_STAGGER_MS),
+      ]);
     }
 
     function isAbortError(err) {
@@ -779,6 +813,7 @@
                     ? `${sourceLabel} returned no ${label} data`
                     : `${sourceLabel} returned ${response.status}`);
                 })
+                .then(text => parseText(text))
                 .then(text => {
                   if (!String(text || "").trim()) throw new Error(`${sourceLabel} returned empty ${label} data`);
                   if (!settled) {
