@@ -149,10 +149,11 @@ as `./css/main.css`, `./js/app.js`, and `./data/*.json`, so it works from a
 GitHub Pages project URL.
 
 The METAR/TAF fetch buttons read current station text from NOAA/NWS AviationWeather
-API endpoints first, then the legacy NOAA text files as a fallback. Because GitHub
-Pages runs in the browser and NOAA endpoints may not send suitable CORS headers,
-the app falls back across multiple public CORS proxies when direct requests are
-blocked or a proxy returns a non-OK response.
+API endpoints and legacy NOAA text files. Direct NOAA sources are tried in
+parallel first, then public CORS proxy fallbacks are tried in parallel if direct
+browser requests are blocked or unavailable. Successful reports are cached in the
+browser for five minutes per station/product so repeated checks avoid another
+network round trip.
 
 ## Development Notes
 
