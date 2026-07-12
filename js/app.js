@@ -87,7 +87,7 @@
     let arrivalTaf = null;
     const METAR_STALE_MINUTES = 90;
     const WEATHER_FETCH_TIMEOUT_MS = 15000;
-    const WEATHER_PROXY_STAGGER_MS = 1200;
+    const WEATHER_PROXY_STAGGER_MS = 0;
     const WEATHER_CACHE_TTL_MS = 5 * 60 * 1000;
     const TAF_ADVISORY_HOURS = 6;
 
@@ -739,7 +739,9 @@
         .split(/\r?\n/)
         .map(line => line.trim().replace(/\s+/g, " "))
         .filter(line => line.includes(normalizedStation));
-      const productLines = candidates.filter(line => line.startsWith(normalizedProduct));
+      const productLines = normalizedProduct === "METAR"
+        ? candidates.filter(line => !line.startsWith("TAF"))
+        : candidates.filter(line => line.startsWith(normalizedProduct));
       return (productLines[productLines.length - 1] || candidates[candidates.length - 1] || "").trim();
     }
 
@@ -756,39 +758,20 @@
       return [
         { label: `AllOrigins ${label}`, url: `https://api.allorigins.win/raw?url=${encodedUrl}`, delayMs, parseText },
         { label: `CodeTabs ${label}`, url: `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`, delayMs, parseText },
-        { label: `CorsProxy.io ${label}`, url: `https://corsproxy.io/?${encodedUrl}`, delayMs, parseText },
       ];
     }
 
-    function noaaCycleSources(product, station) {
-      const now = new Date();
-      const cyclePath = product === "taf" ? "forecasts/taf" : "observations/metar";
-      const currentHour = now.getUTCHours();
-      const hours = [currentHour, (currentHour + 23) % 24];
-      return hours.map(hour => {
-        const hourText = String(hour).padStart(2, "0");
-        const url = `https://tgftp.nws.noaa.gov/data/${cyclePath}/cycles/${hourText}Z.TXT`;
-        return rawTextSource(`NOAA ${hourText}Z cycle`, url, WEATHER_PROXY_STAGGER_MS, text => extractLatestTac(text, product, station));
-      });
-    }
-
     function noaaFetchSources(product, station) {
-      const rawParams = new URLSearchParams({ ids: station, format: "raw" });
-      const jsonParams = new URLSearchParams({ ids: station, format: "json" });
-      const aviationWeatherRawUrl = `https://aviationweather.gov/api/data/${product}?${rawParams.toString()}`;
-      const aviationWeatherJsonUrl = `https://aviationweather.gov/api/data/${product}?${jsonParams.toString()}`;
-      const metNorwayPathUrl = `https://api.met.no/weatherapi/tafmetar/1.0/${product}.txt?icao=${encodeURIComponent(station)}`;
-      const metNorwayQuery = new URLSearchParams({ icao: station, content_type: "text/plain", content: product });
-      const metNorwayQueryUrl = `https://api.met.no/weatherapi/tafmetar/1.0/?${metNorwayQuery.toString()}`;
-      const legacyPath = product === "taf" ? "forecasts/taf" : "observations/metar";
-      const legacyNoaaUrl = `https://tgftp.nws.noaa.gov/data/${legacyPath}/stations/${encodeURIComponent(station)}.TXT`;
+      const combinedParams = new URLSearchParams({ ids: station, hours: "0", sep: "true", taf: "true" });
+      const rawParams = new URLSearchParams({ ids: station, hours: "0", format: "raw" });
+      const jsonParams = new URLSearchParams({ ids: station, hours: "0", format: "json" });
+      const combinedUrl = `https://aviationweather.gov/api/data/metar?${combinedParams.toString()}`;
+      const rawUrl = `https://aviationweather.gov/api/data/${product}?${rawParams.toString()}`;
+      const jsonUrl = `https://aviationweather.gov/api/data/${product}?${jsonParams.toString()}`;
       const directSources = [
-        rawTextSource("AviationWeather raw", aviationWeatherRawUrl),
-        jsonSource("AviationWeather JSON", aviationWeatherJsonUrl, product),
-        rawTextSource("MET Norway path", metNorwayPathUrl, 0, text => extractLatestTac(text, product, station)),
-        rawTextSource("MET Norway query", metNorwayQueryUrl, 0, text => extractLatestTac(text, product, station)),
-        rawTextSource("NOAA text", legacyNoaaUrl),
-        ...noaaCycleSources(product, station),
+        rawTextSource("AviationWeather combined", combinedUrl, 0, text => extractLatestTac(text, product, station)),
+        rawTextSource("AviationWeather raw", rawUrl),
+        jsonSource("AviationWeather JSON", jsonUrl, product),
       ];
       return directSources.flatMap(source => [
         source,
