@@ -86,7 +86,9 @@
     let departureTaf = null;
     let arrivalTaf = null;
     const METAR_STALE_MINUTES = 90;
-    const METAR_FETCH_TIMEOUT_MS = 12000;
+    const WEATHER_FETCH_TIMEOUT_MS = 15000;
+    const WEATHER_PROXY_STAGGER_MS = 1200;
+    const WEATHER_CACHE_TTL_MS = 5 * 60 * 1000;
     const TAF_ADVISORY_HOURS = 6;
 
     async function loadRunwayPresets() {
@@ -714,35 +716,165 @@
       return { raw: taf, groups, issuedAt, validFrom: baseWindow.start, validTo: baseWindow.end };
     }
 
-    function noaaFetchUrls(product, station) {
-      const params = new URLSearchParams({ ids: station, format: "raw" });
-      const aviationWeatherUrl = `https://aviationweather.gov/api/data/${product}?${params.toString()}`;
+    const weatherFetchCache = new Map();
+
+    function extractRawWeatherFromJson(text, product) {
+      const data = JSON.parse(text);
+      const reports = Array.isArray(data) ? data : [data];
+      const rawKeys = product === "taf"
+        ? ["rawTAF", "rawTaf", "raw_text", "rawText", "raw"]
+        : ["rawOb", "rawMETAR", "rawMetar", "raw_text", "rawText", "raw"];
+      for (const report of reports) {
+        for (const key of rawKeys) {
+          if (typeof report?.[key] === "string" && report[key].trim()) return report[key].trim();
+        }
+      }
+      throw new Error("JSON response did not include raw weather text");
+    }
+
+    function extractLatestTac(text, product, station) {
+      const normalizedProduct = product.toUpperCase();
+      const normalizedStation = station.toUpperCase();
+      const candidates = String(text || "")
+        .split(/\r?\n/)
+        .map(line => line.trim().replace(/\s+/g, " "))
+        .filter(line => line.includes(normalizedStation));
+      const productLines = candidates.filter(line => line.startsWith(normalizedProduct));
+      return (productLines[productLines.length - 1] || candidates[candidates.length - 1] || "").trim();
+    }
+
+    function rawTextSource(label, url, delayMs = 0, parseText = text => text) {
+      return { label, url, delayMs, parseText };
+    }
+
+    function jsonSource(label, url, product, delayMs = 0) {
+      return { label, url, delayMs, parseText: text => extractRawWeatherFromJson(text, product) };
+    }
+
+    function proxiedSources(label, url, parseText, delayMs) {
+      const encodedUrl = encodeURIComponent(url);
+      return [
+        { label: `AllOrigins ${label}`, url: `https://api.allorigins.win/raw?url=${encodedUrl}`, delayMs, parseText },
+        { label: `CodeTabs ${label}`, url: `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`, delayMs, parseText },
+        { label: `CorsProxy.io ${label}`, url: `https://corsproxy.io/?${encodedUrl}`, delayMs, parseText },
+      ];
+    }
+
+    function noaaCycleSources(product, station) {
+      const now = new Date();
+      const cyclePath = product === "taf" ? "forecasts/taf" : "observations/metar";
+      const currentHour = now.getUTCHours();
+      const hours = [currentHour, (currentHour + 23) % 24];
+      return hours.map(hour => {
+        const hourText = String(hour).padStart(2, "0");
+        const url = `https://tgftp.nws.noaa.gov/data/${cyclePath}/cycles/${hourText}Z.TXT`;
+        return rawTextSource(`NOAA ${hourText}Z cycle`, url, WEATHER_PROXY_STAGGER_MS, text => extractLatestTac(text, product, station));
+      });
+    }
+
+    function noaaFetchSources(product, station) {
+      const rawParams = new URLSearchParams({ ids: station, format: "raw" });
+      const jsonParams = new URLSearchParams({ ids: station, format: "json" });
+      const aviationWeatherRawUrl = `https://aviationweather.gov/api/data/${product}?${rawParams.toString()}`;
+      const aviationWeatherJsonUrl = `https://aviationweather.gov/api/data/${product}?${jsonParams.toString()}`;
+      const metNorwayPathUrl = `https://api.met.no/weatherapi/tafmetar/1.0/${product}.txt?icao=${encodeURIComponent(station)}`;
+      const metNorwayQuery = new URLSearchParams({ icao: station, content_type: "text/plain", content: product });
+      const metNorwayQueryUrl = `https://api.met.no/weatherapi/tafmetar/1.0/?${metNorwayQuery.toString()}`;
       const legacyPath = product === "taf" ? "forecasts/taf" : "observations/metar";
       const legacyNoaaUrl = `https://tgftp.nws.noaa.gov/data/${legacyPath}/stations/${encodeURIComponent(station)}.TXT`;
-      const proxiedUrls = [aviationWeatherUrl, legacyNoaaUrl].flatMap(url => [
-        ["NOAA", url],
-        ["AllOrigins NOAA proxy", `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`],
-        ["CodeTabs NOAA proxy", `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`],
+      const directSources = [
+        rawTextSource("AviationWeather raw", aviationWeatherRawUrl),
+        jsonSource("AviationWeather JSON", aviationWeatherJsonUrl, product),
+        rawTextSource("MET Norway path", metNorwayPathUrl, 0, text => extractLatestTac(text, product, station)),
+        rawTextSource("MET Norway query", metNorwayQueryUrl, 0, text => extractLatestTac(text, product, station)),
+        rawTextSource("NOAA text", legacyNoaaUrl),
+        ...noaaCycleSources(product, station),
+      ];
+      return directSources.flatMap(source => [
+        source,
+        ...proxiedSources(source.label, source.url, source.parseText, WEATHER_PROXY_STAGGER_MS),
       ]);
-      return proxiedUrls;
+    }
+
+    function isAbortError(err) {
+      return err?.name === "AbortError" || /abort/i.test(err?.message || "");
+    }
+
+    function sourceErrorMessage(sourceLabel, err) {
+      if (!err) return `${sourceLabel} failed`;
+      const message = err.message || String(err);
+      return message.includes(sourceLabel) ? message : `${sourceLabel}: ${message}`;
+    }
+
+    async function fetchFirstSuccessfulSource(sources, timeoutMs, label) {
+      const controller = new AbortController();
+      let timedOut = false;
+      const timeout = window.setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, timeoutMs);
+      const errors = [];
+      let pending = sources.length;
+      let settled = false;
+
+      try {
+        return await new Promise((resolve, reject) => {
+          const rejectIfDone = () => {
+            if (!settled && pending === 0) {
+              settled = true;
+              window.clearTimeout(timeout);
+              reject(new Error(timedOut ? `${label} request timed out after ${Math.round(timeoutMs / 1000)} seconds` : (errors[errors.length - 1] || `${label} request failed`)));
+            }
+          };
+
+          sources.forEach(({ label: sourceLabel, url, delayMs = 0 }) => {
+            window.setTimeout(() => {
+              if (settled) {
+                pending -= 1;
+                rejectIfDone();
+                return;
+              }
+
+              fetch(url, { cache: "no-store", signal: controller.signal })
+                .then(response => {
+                  if (response.ok) return response.text();
+                  throw new Error(response.status === 204
+                    ? `${sourceLabel} returned no ${label} data`
+                    : `${sourceLabel} returned ${response.status}`);
+                })
+                .then(text => parseText(text))
+                .then(text => {
+                  if (!String(text || "").trim()) throw new Error(`${sourceLabel} returned empty ${label} data`);
+                  if (!settled) {
+                    settled = true;
+                    window.clearTimeout(timeout);
+                    resolve(text);
+                  }
+                })
+                .catch(err => {
+                  if (!settled && !(timedOut && isAbortError(err))) errors.push(sourceErrorMessage(sourceLabel, err));
+                })
+                .finally(() => {
+                  pending -= 1;
+                  rejectIfDone();
+                });
+            }, delayMs);
+          });
+        });
+      } finally {
+        window.clearTimeout(timeout);
+      }
     }
 
     async function fetchNoaaStationText(product, station, label) {
       const normalizedStation = station.trim().toUpperCase();
-      let lastError = null;
+      const cacheKey = `${product}:${normalizedStation}`;
+      const cached = weatherFetchCache.get(cacheKey);
+      if (cached && Date.now() - cached.fetchedAt < WEATHER_CACHE_TTL_MS) return cached.text;
 
-      for (const [sourceLabel, url] of noaaFetchUrls(product, normalizedStation)) {
-        try {
-          const response = await fetchWithTimeout(url);
-          if (response.ok) return response.text();
-          if (response.status === 204) throw new Error(`${sourceLabel} returned no ${label} data`);
-          lastError = new Error(`${sourceLabel} returned ${response.status}`);
-        } catch (err) {
-          lastError = err;
-        }
-      }
-
-      throw new Error(`Could not fetch ${label} from NOAA${lastError ? ` (${lastError.message})` : ""}`);
+      const text = await fetchFirstSuccessfulSource(noaaFetchSources(product, normalizedStation), WEATHER_FETCH_TIMEOUT_MS, label);
+      weatherFetchCache.set(cacheKey, { text, fetchedAt: Date.now() });
+      return text;
     }
 
     async function fetchTafForStation(station) {
@@ -752,16 +884,6 @@
       const rawTaf = lines.slice(1).join(" ") || lines[0] || "";
       if (!rawTaf.includes(normalizedStation)) throw new Error("No TAF found for station");
       return parseTaf(rawTaf);
-    }
-
-    async function fetchWithTimeout(url) {
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), METAR_FETCH_TIMEOUT_MS);
-      try {
-        return await fetch(url, { cache: "no-store", signal: controller.signal });
-      } finally {
-        window.clearTimeout(timeout);
-      }
     }
 
     async function fetchMetarForStation(station) {
@@ -808,7 +930,7 @@
       button.disabled = true;
       status.textContent = `Fetching ${stationLabel} METAR from NOAA...`;
       try {
-      const metar = await fetchMetarForStation(station);
+        const metar = await fetchMetarForStation(station);
         if (isArrival) arrivalMetar = metar;
         else departureMetar = metar;
         applyMetarToFields(metar, target);
@@ -821,6 +943,47 @@
         status.textContent = `Could not fetch ${stationLabel} METAR: ${err.message}`;
       } finally {
         button.disabled = false;
+      }
+    }
+
+    function pasteAndApplyMetar(target) {
+      const isArrival = target === "arrival";
+      const status = document.getElementById(isArrival ? "arrivalMetarStatus" : "metarStatus");
+      const rawMetar = window.prompt("Paste the raw METAR report:");
+      if (!rawMetar || !rawMetar.trim()) return;
+      try {
+        const metar = parseMetar(rawMetar);
+        if (isArrival) arrivalMetar = metar;
+        else departureMetar = metar;
+        applyMetarToFields(metar, target);
+        if (!isArrival && arrivalUsesDepartureRunway) copyDepartureWeatherToArrival();
+        calculateAll();
+        status.textContent = `Pasted METAR applied. ${metar.raw}`;
+      } catch (err) {
+        status.textContent = `Could not parse pasted METAR: ${err.message}`;
+      }
+    }
+
+    function pasteAndAssessTaf(target) {
+      const isArrival = target === "arrival";
+      const status = document.getElementById(isArrival ? "arrivalTafStatus" : "tafStatus");
+      const rawTaf = window.prompt("Paste the raw TAF report:");
+      if (!rawTaf || !rawTaf.trim()) return;
+      try {
+        const taf = parseTaf(rawTaf);
+        if (isArrival) arrivalTaf = taf;
+        else departureTaf = taf;
+        calculateAll();
+        const validityText = taf.validFrom && taf.validTo
+          ? `valid ${formatUtcDayHm(taf.validFrom)}/${formatUtcDayHm(taf.validTo)}`
+          : "validity unknown";
+        const issuedText = taf.issuedAt ? `issued ${formatUtcHm(taf.issuedAt)}, ` : "";
+        status.textContent = `Pasted TAF applied (${issuedText}${validityText}). ${taf.raw}`;
+      } catch (err) {
+        if (isArrival) arrivalTaf = null;
+        else departureTaf = null;
+        calculateAll();
+        status.textContent = `Could not parse pasted TAF: ${err.message}`;
       }
     }
 
@@ -2477,8 +2640,12 @@
       document.getElementById("exportPdfBtn").addEventListener("click", exportReportToPdf);
       document.getElementById("fetchMetarBtn").addEventListener("click", () => fetchAndApplyMetar("departure"));
       document.getElementById("fetchTafBtn").addEventListener("click", () => fetchAndAssessTaf("departure"));
+      document.getElementById("pasteMetarBtn").addEventListener("click", () => pasteAndApplyMetar("departure"));
+      document.getElementById("pasteTafBtn").addEventListener("click", () => pasteAndAssessTaf("departure"));
       document.getElementById("fetchArrivalMetarBtn").addEventListener("click", () => fetchAndApplyMetar("arrival"));
       document.getElementById("fetchArrivalTafBtn").addEventListener("click", () => fetchAndAssessTaf("arrival"));
+      document.getElementById("pasteArrivalMetarBtn").addEventListener("click", () => pasteAndApplyMetar("arrival"));
+      document.getElementById("pasteArrivalTafBtn").addEventListener("click", () => pasteAndAssessTaf("arrival"));
       document.getElementById("flightDurationH")?.addEventListener("blur", () => {
         normalizeDurationField("flightDurationH");
         calculateAll();
