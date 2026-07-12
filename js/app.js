@@ -732,8 +732,19 @@
       throw new Error("JSON response did not include raw weather text");
     }
 
-    function rawTextSource(label, url, delayMs = 0) {
-      return { label, url, delayMs, parseText: text => text };
+    function extractLatestTac(text, product, station) {
+      const normalizedProduct = product.toUpperCase();
+      const normalizedStation = station.toUpperCase();
+      const candidates = String(text || "")
+        .split(/\r?\n/)
+        .map(line => line.trim().replace(/\s+/g, " "))
+        .filter(line => line.includes(normalizedStation));
+      const productLines = candidates.filter(line => line.startsWith(normalizedProduct));
+      return (productLines[productLines.length - 1] || candidates[candidates.length - 1] || "").trim();
+    }
+
+    function rawTextSource(label, url, delayMs = 0, parseText = text => text) {
+      return { label, url, delayMs, parseText };
     }
 
     function jsonSource(label, url, product, delayMs = 0) {
@@ -754,11 +765,13 @@
       const jsonParams = new URLSearchParams({ ids: station, format: "json" });
       const aviationWeatherRawUrl = `https://aviationweather.gov/api/data/${product}?${rawParams.toString()}`;
       const aviationWeatherJsonUrl = `https://aviationweather.gov/api/data/${product}?${jsonParams.toString()}`;
+      const metNorwayUrl = `https://api.met.no/weatherapi/tafmetar/1.0/${product}.txt?icao=${encodeURIComponent(station)}`;
       const legacyPath = product === "taf" ? "forecasts/taf" : "observations/metar";
       const legacyNoaaUrl = `https://tgftp.nws.noaa.gov/data/${legacyPath}/stations/${encodeURIComponent(station)}.TXT`;
       const directSources = [
         rawTextSource("AviationWeather raw", aviationWeatherRawUrl),
         jsonSource("AviationWeather JSON", aviationWeatherJsonUrl, product),
+        rawTextSource("MET Norway tafmetar", metNorwayUrl, 0, text => extractLatestTac(text, product, station)),
         rawTextSource("NOAA text", legacyNoaaUrl),
       ];
       return directSources.flatMap(source => [
