@@ -91,6 +91,7 @@
     const WEATHER_CACHE_TTL_MS = 5 * 60 * 1000;
     const TAF_ADVISORY_HOURS = 6;
     let weatherSnapshotPromise = null;
+    let weatherSnapshotLoadedAt = 0;
 
     async function loadRunwayPresets() {
       try {
@@ -549,11 +550,24 @@
       return Number(value.startsWith("M") ? `-${value.slice(1)}` : value);
     }
 
-    function parseMetarTimestamp(line) {
+    function parseMetarTimestamp(line, reference = new Date()) {
       const match = String(line || "").match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
-      if (!match) return null;
-      const [, year, month, day, hour, minute] = match;
-      return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)));
+      if (match) {
+        const [, year, month, day, hour, minute] = match;
+        return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)));
+      }
+      const tacMatch = String(line || "").match(/\b(\d{2})(\d{2})(\d{2})Z\b/);
+      if (!tacMatch) return null;
+      const candidates = [-1, 0, 1].map(monthOffset => new Date(Date.UTC(
+        reference.getUTCFullYear(),
+        reference.getUTCMonth() + monthOffset,
+        Number(tacMatch[1]),
+        Number(tacMatch[2]),
+        Number(tacMatch[3])
+      )));
+      return candidates.reduce((nearest, candidate) =>
+        Math.abs(candidate - reference) < Math.abs(nearest - reference) ? candidate : nearest
+      );
     }
 
     function getMetarAgeMinutes(observedAt) {
@@ -625,7 +639,7 @@
 
       return {
         raw: metar,
-        observedAt: parseMetarTimestamp(observedLine),
+        observedAt: parseMetarTimestamp(observedLine || metar),
         windDir: wind ? wind[1] : null,
         windSpeed,
         visibilityM: vis,
@@ -720,8 +734,11 @@
     const weatherFetchCache = new Map();
 
     function loadWeatherSnapshot() {
-      if (!weatherSnapshotPromise) {
-        weatherSnapshotPromise = loadJson("./data/weather.json", "weather snapshot")
+      const now = Date.now();
+      if (!weatherSnapshotPromise || now - weatherSnapshotLoadedAt >= WEATHER_CACHE_TTL_MS) {
+        weatherSnapshotLoadedAt = now;
+        const cacheVersion = Math.floor(now / WEATHER_CACHE_TTL_MS);
+        weatherSnapshotPromise = loadJson(`./data/weather.json?v=${cacheVersion}`, "weather snapshot")
           .catch(err => {
             console.warn("Could not load weather snapshot:", err);
             return { generatedAt: null, stations: {} };
@@ -913,6 +930,17 @@
       if (metar.windSpeed !== null) document.getElementById(ids.windSpd).value = metar.windSpeed;
     }
 
+    function setWeatherButtonMode(button, product, mode) {
+      button.dataset.weatherMode = mode;
+      button.textContent = `${mode === "paste" ? "Paste" : "Fetch"} ${product}`;
+    }
+
+    function resetWeatherButtonModes(target) {
+      const isArrival = target === "arrival";
+      setWeatherButtonMode(document.getElementById(isArrival ? "fetchArrivalMetarBtn" : "fetchMetarBtn"), "METAR", "fetch");
+      setWeatherButtonMode(document.getElementById(isArrival ? "fetchArrivalTafBtn" : "fetchTafBtn"), "TAF", "fetch");
+    }
+
     async function fetchAndApplyMetar(target) {
       const isArrival = target === "arrival";
       const status = document.getElementById(isArrival ? "arrivalMetarStatus" : "metarStatus");
@@ -946,8 +974,10 @@
         const ageMinutes = getMetarAgeMinutes(metar.observedAt);
         const staleText = ageMinutes !== null && ageMinutes > METAR_STALE_MINUTES ? " STALE - verify before use." : "";
         status.textContent = `${stationLabel} METAR applied (${formatMetarAge(ageMinutes)}).${staleText} ${metar.raw}`;
+        setWeatherButtonMode(button, "METAR", "fetch");
       } catch (err) {
-        status.textContent = `Could not fetch ${stationLabel} METAR: ${err.message}`;
+        status.textContent = `Could not fetch ${stationLabel} METAR: ${err.message}. Paste a raw METAR instead.`;
+        setWeatherButtonMode(button, "METAR", "paste");
       } finally {
         button.disabled = false;
       }
@@ -956,6 +986,7 @@
     function pasteAndApplyMetar(target) {
       const isArrival = target === "arrival";
       const status = document.getElementById(isArrival ? "arrivalMetarStatus" : "metarStatus");
+      const button = document.getElementById(isArrival ? "fetchArrivalMetarBtn" : "fetchMetarBtn");
       const rawMetar = window.prompt("Paste the raw METAR report:");
       if (!rawMetar || !rawMetar.trim()) return;
       try {
@@ -966,6 +997,7 @@
         if (!isArrival && arrivalUsesDepartureRunway) copyDepartureWeatherToArrival();
         calculateAll();
         status.textContent = `Pasted METAR applied. ${metar.raw}`;
+        setWeatherButtonMode(button, "METAR", "fetch");
       } catch (err) {
         status.textContent = `Could not parse pasted METAR: ${err.message}`;
       }
@@ -974,6 +1006,7 @@
     function pasteAndAssessTaf(target) {
       const isArrival = target === "arrival";
       const status = document.getElementById(isArrival ? "arrivalTafStatus" : "tafStatus");
+      const button = document.getElementById(isArrival ? "fetchArrivalTafBtn" : "fetchTafBtn");
       const rawTaf = window.prompt("Paste the raw TAF report:");
       if (!rawTaf || !rawTaf.trim()) return;
       try {
@@ -986,6 +1019,7 @@
           : "validity unknown";
         const issuedText = taf.issuedAt ? `issued ${formatUtcHm(taf.issuedAt)}, ` : "";
         status.textContent = `Pasted TAF applied (${issuedText}${validityText}). ${taf.raw}`;
+        setWeatherButtonMode(button, "TAF", "fetch");
       } catch (err) {
         if (isArrival) arrivalTaf = null;
         else departureTaf = null;
@@ -1026,11 +1060,13 @@
         const issuedText = taf.issuedAt ? `issued ${formatUtcHm(taf.issuedAt)}, ` : "";
         const cautionText = expired ? " EXPIRED - do not use for current planning." : "";
         status.textContent = `${stationLabel} TAF applied (${issuedText}${validityText}).${cautionText} ${taf.raw}`;
+        setWeatherButtonMode(button, "TAF", "fetch");
       } catch (err) {
         if (isArrival) arrivalTaf = null;
         else departureTaf = null;
         calculateAll();
-        status.textContent = `Could not fetch ${stationLabel} TAF: ${err.message}`;
+        status.textContent = `Could not fetch ${stationLabel} TAF: ${err.message}. Paste a raw TAF instead.`;
+        setWeatherButtonMode(button, "TAF", "paste");
       } finally {
         button.disabled = false;
       }
@@ -2645,14 +2681,14 @@
 
       document.getElementById("calcBtn").addEventListener("click", calculateAll);
       document.getElementById("exportPdfBtn").addEventListener("click", exportReportToPdf);
-      document.getElementById("fetchMetarBtn").addEventListener("click", () => fetchAndApplyMetar("departure"));
-      document.getElementById("fetchTafBtn").addEventListener("click", () => fetchAndAssessTaf("departure"));
-      document.getElementById("pasteMetarBtn").addEventListener("click", () => pasteAndApplyMetar("departure"));
-      document.getElementById("pasteTafBtn").addEventListener("click", () => pasteAndAssessTaf("departure"));
-      document.getElementById("fetchArrivalMetarBtn").addEventListener("click", () => fetchAndApplyMetar("arrival"));
-      document.getElementById("fetchArrivalTafBtn").addEventListener("click", () => fetchAndAssessTaf("arrival"));
-      document.getElementById("pasteArrivalMetarBtn").addEventListener("click", () => pasteAndApplyMetar("arrival"));
-      document.getElementById("pasteArrivalTafBtn").addEventListener("click", () => pasteAndAssessTaf("arrival"));
+      document.getElementById("fetchMetarBtn").addEventListener("click", event =>
+        event.currentTarget.dataset.weatherMode === "paste" ? pasteAndApplyMetar("departure") : fetchAndApplyMetar("departure"));
+      document.getElementById("fetchTafBtn").addEventListener("click", event =>
+        event.currentTarget.dataset.weatherMode === "paste" ? pasteAndAssessTaf("departure") : fetchAndAssessTaf("departure"));
+      document.getElementById("fetchArrivalMetarBtn").addEventListener("click", event =>
+        event.currentTarget.dataset.weatherMode === "paste" ? pasteAndApplyMetar("arrival") : fetchAndApplyMetar("arrival"));
+      document.getElementById("fetchArrivalTafBtn").addEventListener("click", event =>
+        event.currentTarget.dataset.weatherMode === "paste" ? pasteAndAssessTaf("arrival") : fetchAndAssessTaf("arrival"));
       document.getElementById("flightDurationH")?.addEventListener("blur", () => {
         normalizeDurationField("flightDurationH");
         calculateAll();
@@ -2684,6 +2720,7 @@
       const savedRunwaySelect = document.getElementById("savedRunwaySelect");
 
       savedRunwaySelect.addEventListener("change", () => {
+        resetWeatherButtonModes("departure");
         const selectedId = savedRunwaySelect.value;
         if (selectedId === "none") {
           activeRunwayLabel = null;
@@ -2712,6 +2749,7 @@
       const arrivalRunwaySelect = document.getElementById("arrivalRunwaySelect");
 
       arrivalRunwaySelect.addEventListener("change", () => {
+        resetWeatherButtonModes("arrival");
         const selectedId = arrivalRunwaySelect.value;
         if (selectedId === "none") {
           arrivalUsesDepartureRunway = true;

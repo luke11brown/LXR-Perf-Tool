@@ -36,10 +36,30 @@ function rawReport(report, product) {
 
 export function reportsByStation(reports, product, fetchedAt) {
   const result = {};
+  const reportTimes = {};
   for (const report of Array.isArray(reports) ? reports : []) {
     const station = stationId(report);
     const raw = rawReport(report, product);
-    if (station && raw) result[station] = { raw, fetchedAt };
+    if (!station || !raw) continue;
+    const match = raw.match(/\b(\d{2})(\d{2})(\d{2})Z\b/);
+    const reference = new Date(fetchedAt);
+    const reportTime = match
+      ? [-1, 0, 1]
+        .map(monthOffset => Date.UTC(
+          reference.getUTCFullYear(),
+          reference.getUTCMonth() + monthOffset,
+          Number(match[1]),
+          Number(match[2]),
+          Number(match[3])
+        ))
+        .reduce((nearest, candidate) =>
+          Math.abs(candidate - reference.getTime()) < Math.abs(nearest - reference.getTime()) ? candidate : nearest
+        )
+      : 0;
+    if (!(station in result) || reportTime >= reportTimes[station]) {
+      result[station] = { raw, fetchedAt };
+      reportTimes[station] = reportTime;
+    }
   }
   return result;
 }

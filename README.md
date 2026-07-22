@@ -109,6 +109,10 @@ uses the selected arrival surface/weather condition.
 
 ### Weather helpers
 
+The Weather tab links to the official EMY/HNMS aviation chart page and the UK
+Met Office surface pressure analysis and forecast charts for wider synoptic
+context.
+
 METAR and TAF parsing is intentionally limited to fields useful for quick
 cross-checks: wind, visibility, cloud ceiling, temperature, QNH, and forecast
 groups where parseable. The app checks parsed values against the selected OM-C
@@ -155,13 +159,18 @@ to `data/weather.json`, preserving an existing product when its update times out
 or returns no report. The browser reads this same-origin snapshot first, avoiding
 CORS and public proxy availability during normal use. The existing direct and
 no-key proxy requests are used only when the repository snapshot has no report
-for the requested station/product.
+for the requested station/product. When AviationWeather returns multiple reports
+for a station, the updater selects the report with the newest TAC timestamp rather
+than relying on response order. The browser reloads the snapshot every five
+minutes so an open page picks up later workflow commits.
 
-Successful browser reads are cached for five minutes. If both the repository
-snapshot and live browser fallback are unavailable, use the Paste METAR/Paste
-TAF buttons to import raw reports from any trusted briefing source without
-needing a hosted backend. Scheduled workflows can be delayed under GitHub load,
-so always review the displayed METAR age and TAF validity before use.
+Successful browser reads are cached for five minutes. Each product normally has
+one Fetch button. Only if both the repository snapshot and live browser fallback
+fail does that button change to Paste, allowing a raw report from a trusted
+briefing source to be imported without needing a hosted backend. After a pasted
+or fetched report is applied, the button changes back to Fetch. Scheduled
+workflows can be delayed under GitHub load, so always review the displayed METAR
+age and TAF validity before use.
 
 ## Development Notes
 

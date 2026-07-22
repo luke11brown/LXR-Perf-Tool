@@ -22,6 +22,14 @@ test("reportsByStation extracts AviationWeather raw products", () => {
   });
 });
 
+test("reportsByStation keeps the newest METAR when the API returns newest first", () => {
+  const reports = reportsByStation([
+    { icaoId: "LGKV", rawOb: "LGKV 221250Z 19008KT 9999 FEW025 30/21 Q1008" },
+    { icaoId: "LGKV", rawOb: "LGKV 221120Z 19008KT 9999 FEW025 30/21 Q1008" },
+  ], "metar", "2026-07-22T13:00:00.000Z");
+  assert.match(reports.LGKV.raw, /221250Z/);
+});
+
 test("mergeWeather preserves an available report when another product times out", () => {
   const previous = {
     stations: {
