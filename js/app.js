@@ -90,6 +90,7 @@
     const WEATHER_PROXY_STAGGER_MS = 0;
     const WEATHER_CACHE_TTL_MS = 5 * 60 * 1000;
     const TAF_ADVISORY_HOURS = 6;
+    let weatherSnapshotPromise = null;
 
     async function loadRunwayPresets() {
       try {
@@ -718,6 +719,23 @@
 
     const weatherFetchCache = new Map();
 
+    function loadWeatherSnapshot() {
+      if (!weatherSnapshotPromise) {
+        weatherSnapshotPromise = loadJson("./data/weather.json", "weather snapshot")
+          .catch(err => {
+            console.warn("Could not load weather snapshot:", err);
+            return { generatedAt: null, stations: {} };
+          });
+      }
+      return weatherSnapshotPromise;
+    }
+
+    async function weatherSnapshotText(product, station) {
+      const snapshot = await loadWeatherSnapshot();
+      const report = snapshot?.stations?.[station]?.[product];
+      return typeof report?.raw === "string" && report.raw.trim() ? report.raw.trim() : "";
+    }
+
     function extractRawWeatherFromJson(text, product) {
       const data = JSON.parse(text);
       const reports = Array.isArray(data) ? data : [data];
@@ -854,6 +872,12 @@
       const cacheKey = `${product}:${normalizedStation}`;
       const cached = weatherFetchCache.get(cacheKey);
       if (cached && Date.now() - cached.fetchedAt < WEATHER_CACHE_TTL_MS) return cached.text;
+
+      const snapshotText = await weatherSnapshotText(product, normalizedStation);
+      if (snapshotText) {
+        weatherFetchCache.set(cacheKey, { text: snapshotText, fetchedAt: Date.now() });
+        return snapshotText;
+      }
 
       const text = await fetchFirstSuccessfulSource(noaaFetchSources(product, normalizedStation), WEATHER_FETCH_TIMEOUT_MS, label);
       weatherFetchCache.set(cacheKey, { text, fetchedAt: Date.now() });

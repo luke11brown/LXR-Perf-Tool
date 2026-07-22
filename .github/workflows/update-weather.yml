@@ -1,0 +1,37 @@
+name: Update weather snapshot
+
+on:
+  schedule:
+    - cron: "0,30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-weather-snapshot
+  cancel-in-progress: false
+
+jobs:
+  update-weather:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download METAR and TAF reports
+        run: node scripts/update-weather.mjs
+      - name: Commit updated snapshot
+        run: |
+          if git diff --quiet -- data/weather.json; then
+            echo "Weather snapshot is unchanged"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/weather.json
+          git commit -m "Update weather snapshot"
+          git push
