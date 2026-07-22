@@ -148,17 +148,20 @@ static file server, or use a GitHub Pages deployment. Keep paths relative, such
 as `./css/main.css`, `./js/app.js`, and `./data/*.json`, so it works from a
 GitHub Pages project URL.
 
-The METAR/TAF fetch buttons read current station text from the NOAA/NWS
-AviationWeather Data API using the documented `/api/data/metar` and
-`/api/data/taf` endpoints. The app tries the combined METAR+TAF query first,
-then raw and JSON product queries. AviationWeather documents that CORS is not
-permitted for API endpoints, so no-key public CORS proxy fallbacks are started
-immediately rather than waiting behind direct browser requests. Successful
-reports are cached in the browser for five minutes per station/product so
-repeated checks avoid another network round trip. If browser-side fetching is
-blocked by CORS, provider availability, or public proxy failures, use the Paste
-METAR/Paste TAF buttons to import raw reports from any trusted briefing source
-without needing a hosted backend.
+The scheduled `update-weather.yml` GitHub Actions workflow downloads METAR and
+TAF reports from the documented NOAA/NWS AviationWeather `/api/data/metar` and
+`/api/data/taf` endpoints every hour and half-hour. It commits the latest reports
+to `data/weather.json`, preserving an existing product when its update times out
+or returns no report. The browser reads this same-origin snapshot first, avoiding
+CORS and public proxy availability during normal use. The existing direct and
+no-key proxy requests are used only when the repository snapshot has no report
+for the requested station/product.
+
+Successful browser reads are cached for five minutes. If both the repository
+snapshot and live browser fallback are unavailable, use the Paste METAR/Paste
+TAF buttons to import raw reports from any trusted briefing source without
+needing a hosted backend. Scheduled workflows can be delayed under GitHub load,
+so always review the displayed METAR age and TAF validity before use.
 
 ## Development Notes
 
