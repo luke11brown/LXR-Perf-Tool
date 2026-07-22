@@ -22,16 +22,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Restore previous snapshot
+        run: |
+          git fetch origin weather-data:refs/remotes/origin/weather-data || true
+          if git show origin/weather-data:data/weather.json > /tmp/previous-weather.json 2>/dev/null; then
+            cp /tmp/previous-weather.json data/weather.json
+          fi
       - name: Download METAR and TAF reports
         run: node scripts/update-weather.mjs
-      - name: Commit updated snapshot
+      - name: Publish snapshot to weather-data branch
         run: |
-          if git diff --quiet -- data/weather.json; then
-            echo "Weather snapshot is unchanged"
-            exit 0
-          fi
+          cp data/weather.json /tmp/weather.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan weather-data-publish
+          git reset --hard
+          git rm -rf . 2>/dev/null || true
+          mkdir -p data
+          cp /tmp/weather.json data/weather.json
           git add data/weather.json
           git commit -m "Update weather snapshot"
-          git push
+          git push --force origin HEAD:weather-data

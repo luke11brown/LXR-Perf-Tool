@@ -733,12 +733,36 @@
 
     const weatherFetchCache = new Map();
 
+    function githubWeatherSnapshotUrl() {
+      const match = window.location.hostname.match(/^([^.]+)\.github\.io$/i);
+      if (!match) return "";
+      const owner = match[1];
+      const project = window.location.pathname.split("/").filter(Boolean)[0] || `${owner}.github.io`;
+      return `https://raw.githubusercontent.com/${owner}/${project}/weather-data/data/weather.json`;
+    }
+
+    async function fetchWeatherSnapshot(cacheVersion) {
+      const githubUrl = githubWeatherSnapshotUrl();
+      const urls = [githubUrl ? `${githubUrl}?v=${cacheVersion}` : "", `./data/weather.json?v=${cacheVersion}`].filter(Boolean);
+      let lastError = null;
+      for (const url of urls) {
+        try {
+          const response = await fetch(url, { cache: "no-store" });
+          if (!response.ok) throw new Error(`weather snapshot fetch failed: ${response.status}`);
+          return await response.json();
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      throw lastError || new Error("No weather snapshot URL is available");
+    }
+
     function loadWeatherSnapshot() {
       const now = Date.now();
       if (!weatherSnapshotPromise || now - weatherSnapshotLoadedAt >= WEATHER_CACHE_TTL_MS) {
         weatherSnapshotLoadedAt = now;
         const cacheVersion = Math.floor(now / WEATHER_CACHE_TTL_MS);
-        weatherSnapshotPromise = loadJson(`./data/weather.json?v=${cacheVersion}`, "weather snapshot")
+        weatherSnapshotPromise = fetchWeatherSnapshot(cacheVersion)
           .catch(err => {
             console.warn("Could not load weather snapshot:", err);
             return { generatedAt: null, stations: {} };

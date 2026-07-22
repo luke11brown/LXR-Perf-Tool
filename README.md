@@ -154,15 +154,18 @@ GitHub Pages project URL.
 
 The scheduled `update-weather.yml` GitHub Actions workflow downloads METAR and
 TAF reports from the documented NOAA/NWS AviationWeather `/api/data/metar` and
-`/api/data/taf` endpoints every hour and half-hour. It commits the latest reports
-to `data/weather.json`, preserving an existing product when its update times out
-or returns no report. The browser reads this same-origin snapshot first, avoiding
-CORS and public proxy availability during normal use. The existing direct and
-no-key proxy requests are used only when the repository snapshot has no report
-for the requested station/product. When AviationWeather returns multiple reports
-for a station, the updater selects the report with the newest TAC timestamp rather
-than relying on response order. The browser reloads the snapshot every five
-minutes so an open page picks up later workflow commits.
+`/api/data/taf` endpoints every hour and half-hour. It force-publishes only
+`data/weather.json` to a dedicated `weather-data` branch, preserving an existing
+product when its update times out or returns no report. Keeping these automated
+commits off the Pages source branch prevents each weather refresh from triggering
+a new site deployment.
+
+On GitHub Pages, the browser reads the `weather-data` branch snapshot through
+`raw.githubusercontent.com`, then falls back to the bundled snapshot and existing
+live requests if necessary. When AviationWeather returns multiple reports for a
+station, the updater selects the report with the newest TAC timestamp rather than
+relying on response order. The browser reloads the snapshot every five minutes so
+an open page picks up later workflow updates.
 
 Successful browser reads are cached for five minutes. Each product normally has
 one Fetch button. Only if both the repository snapshot and live browser fallback

@@ -64,13 +64,17 @@ export function reportsByStation(reports, product, fetchedAt) {
   return result;
 }
 
-async function fetchProduct(product, stations) {
+export function productUrl(product, stations) {
   const params = new URLSearchParams({ ids: stations.join(","), format: "json" });
-  if (product === "metar") params.set("hours", "2");
+  if (product === "metar") params.set("hours", "0");
+  return `${API_BASE}/${product}?${params}`;
+}
+
+async function fetchProduct(product, stations) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(`${API_BASE}/${product}?${params}`, {
+    const response = await fetch(productUrl(product, stations), {
       headers: {
         Accept: "application/json",
         "User-Agent": "LXR-Perf-Tool GitHub Actions weather cache",

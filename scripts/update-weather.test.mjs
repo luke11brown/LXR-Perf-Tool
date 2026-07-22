@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { mergeWeather, reportsByStation, stationIdsFromRunways } from "./update-weather.mjs";
+import { mergeWeather, productUrl, reportsByStation, stationIdsFromRunways } from "./update-weather.mjs";
 
 test("stationIdsFromRunways resolves proxies and removes duplicates", () => {
   assert.deepEqual(stationIdsFromRunways([
@@ -9,6 +9,14 @@ test("stationIdsFromRunways resolves proxies and removes duplicates", () => {
     { id: "LGKV_05" },
     { id: "LGAL_07" },
   ]), ["LGAL", "LGKV"]);
+});
+
+test("productUrl requests the latest METAR for all stations", () => {
+  const url = new URL(productUrl("metar", ["LGAL", "LGKV"]));
+  assert.equal(url.pathname, "/api/data/metar");
+  assert.equal(url.searchParams.get("ids"), "LGAL,LGKV");
+  assert.equal(url.searchParams.get("hours"), "0");
+  assert.equal(url.searchParams.get("format"), "json");
 });
 
 test("reportsByStation extracts AviationWeather raw products", () => {
