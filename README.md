@@ -109,6 +109,10 @@ uses the selected arrival surface/weather condition.
 
 ### Weather helpers
 
+The Weather tab links to the official EMY/HNMS aviation chart page and the UK
+Met Office surface pressure analysis and forecast charts for wider synoptic
+context.
+
 METAR and TAF parsing is intentionally limited to fields useful for quick
 cross-checks: wind, visibility, cloud ceiling, temperature, QNH, and forecast
 groups where parseable. The app checks parsed values against the selected OM-C
@@ -148,11 +152,32 @@ static file server, or use a GitHub Pages deployment. Keep paths relative, such
 as `./css/main.css`, `./js/app.js`, and `./data/*.json`, so it works from a
 GitHub Pages project URL.
 
-The METAR/TAF fetch buttons read current station text from NOAA/NWS AviationWeather
-API endpoints first, then the legacy NOAA text files as a fallback. Because GitHub
-Pages runs in the browser and NOAA endpoints may not send suitable CORS headers,
-the app falls back across multiple public CORS proxies when direct requests are
-blocked or a proxy returns a non-OK response.
+The scheduled `update-weather.yml` GitHub Actions workflow downloads METAR and
+TAF reports from the documented NOAA/NWS AviationWeather `/api/data/metar` and
+`/api/data/taf` endpoints every hour and half-hour. It force-publishes only
+`data/weather.json` to a dedicated `weather-data` branch, preserving an existing
+product when its update times out or returns no report. Keeping these automated
+commits off the Pages source branch prevents each weather refresh from triggering
+a new site deployment.
+
+On GitHub Pages, the browser reads the `weather-data` branch snapshot through
+`raw.githubusercontent.com`, then falls back to the bundled snapshot and existing
+live requests if necessary. When AviationWeather returns multiple reports for a
+station, the updater selects the report with the newest TAC timestamp rather than
+relying on response order. The browser reloads the snapshot every five minutes so
+an open page picks up later workflow updates.
+
+Successful browser reads are cached for five minutes. Each product normally has
+one Fetch button. Only if both the repository snapshot and live browser fallback
+fail does that button change to Paste, allowing a raw report from a trusted
+briefing source to be imported without needing a hosted backend. After a pasted
+or fetched report is applied, the button changes back to Fetch. Scheduled
+workflows can be delayed under GitHub load, so always review the displayed METAR
+age and TAF validity before use.
+
+The app also removes legacy standalone Paste controls during startup. The script
+URL in `index.html` is versioned when this interaction changes so GitHub Pages
+clients do not continue running a cached pre-toggle implementation.
 
 ## Development Notes
 
