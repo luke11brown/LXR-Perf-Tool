@@ -86,8 +86,12 @@
     let departureTaf = null;
     let arrivalTaf = null;
     const METAR_STALE_MINUTES = 90;
-    const METAR_FETCH_TIMEOUT_MS = 12000;
+    const WEATHER_FETCH_TIMEOUT_MS = 15000;
+    const WEATHER_PROXY_STAGGER_MS = 0;
+    const WEATHER_CACHE_TTL_MS = 5 * 60 * 1000;
     const TAF_ADVISORY_HOURS = 6;
+    let weatherSnapshotPromise = null;
+    let weatherSnapshotLoadedAt = 0;
 
     async function loadRunwayPresets() {
       try {
@@ -546,11 +550,24 @@
       return Number(value.startsWith("M") ? `-${value.slice(1)}` : value);
     }
 
-    function parseMetarTimestamp(line) {
+    function parseMetarTimestamp(line, reference = new Date()) {
       const match = String(line || "").match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
-      if (!match) return null;
-      const [, year, month, day, hour, minute] = match;
-      return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)));
+      if (match) {
+        const [, year, month, day, hour, minute] = match;
+        return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)));
+      }
+      const tacMatch = String(line || "").match(/\b(\d{2})(\d{2})(\d{2})Z\b/);
+      if (!tacMatch) return null;
+      const candidates = [-1, 0, 1].map(monthOffset => new Date(Date.UTC(
+        reference.getUTCFullYear(),
+        reference.getUTCMonth() + monthOffset,
+        Number(tacMatch[1]),
+        Number(tacMatch[2]),
+        Number(tacMatch[3])
+      )));
+      return candidates.reduce((nearest, candidate) =>
+        Math.abs(candidate - reference) < Math.abs(nearest - reference) ? candidate : nearest
+      );
     }
 
     function getMetarAgeMinutes(observedAt) {
@@ -622,7 +639,7 @@
 
       return {
         raw: metar,
-        observedAt: parseMetarTimestamp(observedLine),
+        observedAt: parseMetarTimestamp(observedLine || metar),
         windDir: wind ? wind[1] : null,
         windSpeed,
         visibilityM: vis,
@@ -714,35 +731,174 @@
       return { raw: taf, groups, issuedAt, validFrom: baseWindow.start, validTo: baseWindow.end };
     }
 
-    function noaaFetchUrls(product, station) {
-      const params = new URLSearchParams({ ids: station, format: "raw" });
-      const aviationWeatherUrl = `https://aviationweather.gov/api/data/${product}?${params.toString()}`;
-      const legacyPath = product === "taf" ? "forecasts/taf" : "observations/metar";
-      const legacyNoaaUrl = `https://tgftp.nws.noaa.gov/data/${legacyPath}/stations/${encodeURIComponent(station)}.TXT`;
-      const proxiedUrls = [aviationWeatherUrl, legacyNoaaUrl].flatMap(url => [
-        ["NOAA", url],
-        ["AllOrigins NOAA proxy", `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`],
-        ["CodeTabs NOAA proxy", `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`],
+    const weatherFetchCache = new Map();
+
+    function loadWeatherSnapshot() {
+      const now = Date.now();
+      if (!weatherSnapshotPromise || now - weatherSnapshotLoadedAt >= WEATHER_CACHE_TTL_MS) {
+        weatherSnapshotLoadedAt = now;
+        const cacheVersion = Math.floor(now / WEATHER_CACHE_TTL_MS);
+        weatherSnapshotPromise = loadJson(`./data/weather.json?v=${cacheVersion}`, "weather snapshot")
+          .catch(err => {
+            console.warn("Could not load weather snapshot:", err);
+            return { generatedAt: null, stations: {} };
+          });
+      }
+      return weatherSnapshotPromise;
+    }
+
+    async function weatherSnapshotText(product, station) {
+      const snapshot = await loadWeatherSnapshot();
+      const report = snapshot?.stations?.[station]?.[product];
+      return typeof report?.raw === "string" && report.raw.trim() ? report.raw.trim() : "";
+    }
+
+    function extractRawWeatherFromJson(text, product) {
+      const data = JSON.parse(text);
+      const reports = Array.isArray(data) ? data : [data];
+      const rawKeys = product === "taf"
+        ? ["rawTAF", "rawTaf", "raw_text", "rawText", "raw"]
+        : ["rawOb", "rawMETAR", "rawMetar", "raw_text", "rawText", "raw"];
+      for (const report of reports) {
+        for (const key of rawKeys) {
+          if (typeof report?.[key] === "string" && report[key].trim()) return report[key].trim();
+        }
+      }
+      throw new Error("JSON response did not include raw weather text");
+    }
+
+    function extractLatestTac(text, product, station) {
+      const normalizedProduct = product.toUpperCase();
+      const normalizedStation = station.toUpperCase();
+      const candidates = String(text || "")
+        .split(/\r?\n/)
+        .map(line => line.trim().replace(/\s+/g, " "))
+        .filter(line => line.includes(normalizedStation));
+      const productLines = normalizedProduct === "METAR"
+        ? candidates.filter(line => !line.startsWith("TAF"))
+        : candidates.filter(line => line.startsWith(normalizedProduct));
+      return (productLines[productLines.length - 1] || candidates[candidates.length - 1] || "").trim();
+    }
+
+    function rawTextSource(label, url, delayMs = 0, parseText = text => text) {
+      return { label, url, delayMs, parseText };
+    }
+
+    function jsonSource(label, url, product, delayMs = 0) {
+      return { label, url, delayMs, parseText: text => extractRawWeatherFromJson(text, product) };
+    }
+
+    function proxiedSources(label, url, parseText, delayMs) {
+      const encodedUrl = encodeURIComponent(url);
+      return [
+        { label: `AllOrigins ${label}`, url: `https://api.allorigins.win/raw?url=${encodedUrl}`, delayMs, parseText },
+        { label: `CodeTabs ${label}`, url: `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`, delayMs, parseText },
+      ];
+    }
+
+    function noaaFetchSources(product, station) {
+      const combinedParams = new URLSearchParams({ ids: station, hours: "0", sep: "true", taf: "true" });
+      const rawParams = new URLSearchParams({ ids: station, hours: "0", format: "raw" });
+      const jsonParams = new URLSearchParams({ ids: station, hours: "0", format: "json" });
+      const combinedUrl = `https://aviationweather.gov/api/data/metar?${combinedParams.toString()}`;
+      const rawUrl = `https://aviationweather.gov/api/data/${product}?${rawParams.toString()}`;
+      const jsonUrl = `https://aviationweather.gov/api/data/${product}?${jsonParams.toString()}`;
+      const directSources = [
+        rawTextSource("AviationWeather combined", combinedUrl, 0, text => extractLatestTac(text, product, station)),
+        rawTextSource("AviationWeather raw", rawUrl),
+        jsonSource("AviationWeather JSON", jsonUrl, product),
+      ];
+      return directSources.flatMap(source => [
+        source,
+        ...proxiedSources(source.label, source.url, source.parseText, WEATHER_PROXY_STAGGER_MS),
       ]);
-      return proxiedUrls;
+    }
+
+    function isAbortError(err) {
+      return err?.name === "AbortError" || /abort/i.test(err?.message || "");
+    }
+
+    function sourceErrorMessage(sourceLabel, err) {
+      if (!err) return `${sourceLabel} failed`;
+      const message = err.message || String(err);
+      return message.includes(sourceLabel) ? message : `${sourceLabel}: ${message}`;
+    }
+
+    async function fetchFirstSuccessfulSource(sources, timeoutMs, label) {
+      const controller = new AbortController();
+      let timedOut = false;
+      const timeout = window.setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, timeoutMs);
+      const errors = [];
+      let pending = sources.length;
+      let settled = false;
+
+      try {
+        return await new Promise((resolve, reject) => {
+          const rejectIfDone = () => {
+            if (!settled && pending === 0) {
+              settled = true;
+              window.clearTimeout(timeout);
+              reject(new Error(timedOut ? `${label} request timed out after ${Math.round(timeoutMs / 1000)} seconds` : (errors[errors.length - 1] || `${label} request failed`)));
+            }
+          };
+
+          sources.forEach(({ label: sourceLabel, url, delayMs = 0 }) => {
+            window.setTimeout(() => {
+              if (settled) {
+                pending -= 1;
+                rejectIfDone();
+                return;
+              }
+
+              fetch(url, { cache: "no-store", signal: controller.signal })
+                .then(response => {
+                  if (response.ok) return response.text();
+                  throw new Error(response.status === 204
+                    ? `${sourceLabel} returned no ${label} data`
+                    : `${sourceLabel} returned ${response.status}`);
+                })
+                .then(text => parseText(text))
+                .then(text => {
+                  if (!String(text || "").trim()) throw new Error(`${sourceLabel} returned empty ${label} data`);
+                  if (!settled) {
+                    settled = true;
+                    window.clearTimeout(timeout);
+                    resolve(text);
+                  }
+                })
+                .catch(err => {
+                  if (!settled && !(timedOut && isAbortError(err))) errors.push(sourceErrorMessage(sourceLabel, err));
+                })
+                .finally(() => {
+                  pending -= 1;
+                  rejectIfDone();
+                });
+            }, delayMs);
+          });
+        });
+      } finally {
+        window.clearTimeout(timeout);
+      }
     }
 
     async function fetchNoaaStationText(product, station, label) {
       const normalizedStation = station.trim().toUpperCase();
-      let lastError = null;
+      const cacheKey = `${product}:${normalizedStation}`;
+      const cached = weatherFetchCache.get(cacheKey);
+      if (cached && Date.now() - cached.fetchedAt < WEATHER_CACHE_TTL_MS) return cached.text;
 
-      for (const [sourceLabel, url] of noaaFetchUrls(product, normalizedStation)) {
-        try {
-          const response = await fetchWithTimeout(url);
-          if (response.ok) return response.text();
-          if (response.status === 204) throw new Error(`${sourceLabel} returned no ${label} data`);
-          lastError = new Error(`${sourceLabel} returned ${response.status}`);
-        } catch (err) {
-          lastError = err;
-        }
+      const snapshotText = await weatherSnapshotText(product, normalizedStation);
+      if (snapshotText) {
+        weatherFetchCache.set(cacheKey, { text: snapshotText, fetchedAt: Date.now() });
+        return snapshotText;
       }
 
-      throw new Error(`Could not fetch ${label} from NOAA${lastError ? ` (${lastError.message})` : ""}`);
+      const text = await fetchFirstSuccessfulSource(noaaFetchSources(product, normalizedStation), WEATHER_FETCH_TIMEOUT_MS, label);
+      weatherFetchCache.set(cacheKey, { text, fetchedAt: Date.now() });
+      return text;
     }
 
     async function fetchTafForStation(station) {
@@ -752,16 +908,6 @@
       const rawTaf = lines.slice(1).join(" ") || lines[0] || "";
       if (!rawTaf.includes(normalizedStation)) throw new Error("No TAF found for station");
       return parseTaf(rawTaf);
-    }
-
-    async function fetchWithTimeout(url) {
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), METAR_FETCH_TIMEOUT_MS);
-      try {
-        return await fetch(url, { cache: "no-store", signal: controller.signal });
-      } finally {
-        window.clearTimeout(timeout);
-      }
     }
 
     async function fetchMetarForStation(station) {
@@ -782,6 +928,17 @@
       if (metar.oat !== null) document.getElementById(ids.oat).value = metar.oat;
       if (metar.windDir) document.getElementById(ids.windDir).value = metar.windDir;
       if (metar.windSpeed !== null) document.getElementById(ids.windSpd).value = metar.windSpeed;
+    }
+
+    function setWeatherButtonMode(button, product, mode) {
+      button.dataset.weatherMode = mode;
+      button.textContent = `${mode === "paste" ? "Paste" : "Fetch"} ${product}`;
+    }
+
+    function resetWeatherButtonModes(target) {
+      const isArrival = target === "arrival";
+      setWeatherButtonMode(document.getElementById(isArrival ? "fetchArrivalMetarBtn" : "fetchMetarBtn"), "METAR", "fetch");
+      setWeatherButtonMode(document.getElementById(isArrival ? "fetchArrivalTafBtn" : "fetchTafBtn"), "TAF", "fetch");
     }
 
     async function fetchAndApplyMetar(target) {
@@ -808,7 +965,7 @@
       button.disabled = true;
       status.textContent = `Fetching ${stationLabel} METAR from NOAA...`;
       try {
-      const metar = await fetchMetarForStation(station);
+        const metar = await fetchMetarForStation(station);
         if (isArrival) arrivalMetar = metar;
         else departureMetar = metar;
         applyMetarToFields(metar, target);
@@ -817,10 +974,57 @@
         const ageMinutes = getMetarAgeMinutes(metar.observedAt);
         const staleText = ageMinutes !== null && ageMinutes > METAR_STALE_MINUTES ? " STALE - verify before use." : "";
         status.textContent = `${stationLabel} METAR applied (${formatMetarAge(ageMinutes)}).${staleText} ${metar.raw}`;
+        setWeatherButtonMode(button, "METAR", "fetch");
       } catch (err) {
-        status.textContent = `Could not fetch ${stationLabel} METAR: ${err.message}`;
+        status.textContent = `Could not fetch ${stationLabel} METAR: ${err.message}. Paste a raw METAR instead.`;
+        setWeatherButtonMode(button, "METAR", "paste");
       } finally {
         button.disabled = false;
+      }
+    }
+
+    function pasteAndApplyMetar(target) {
+      const isArrival = target === "arrival";
+      const status = document.getElementById(isArrival ? "arrivalMetarStatus" : "metarStatus");
+      const button = document.getElementById(isArrival ? "fetchArrivalMetarBtn" : "fetchMetarBtn");
+      const rawMetar = window.prompt("Paste the raw METAR report:");
+      if (!rawMetar || !rawMetar.trim()) return;
+      try {
+        const metar = parseMetar(rawMetar);
+        if (isArrival) arrivalMetar = metar;
+        else departureMetar = metar;
+        applyMetarToFields(metar, target);
+        if (!isArrival && arrivalUsesDepartureRunway) copyDepartureWeatherToArrival();
+        calculateAll();
+        status.textContent = `Pasted METAR applied. ${metar.raw}`;
+        setWeatherButtonMode(button, "METAR", "fetch");
+      } catch (err) {
+        status.textContent = `Could not parse pasted METAR: ${err.message}`;
+      }
+    }
+
+    function pasteAndAssessTaf(target) {
+      const isArrival = target === "arrival";
+      const status = document.getElementById(isArrival ? "arrivalTafStatus" : "tafStatus");
+      const button = document.getElementById(isArrival ? "fetchArrivalTafBtn" : "fetchTafBtn");
+      const rawTaf = window.prompt("Paste the raw TAF report:");
+      if (!rawTaf || !rawTaf.trim()) return;
+      try {
+        const taf = parseTaf(rawTaf);
+        if (isArrival) arrivalTaf = taf;
+        else departureTaf = taf;
+        calculateAll();
+        const validityText = taf.validFrom && taf.validTo
+          ? `valid ${formatUtcDayHm(taf.validFrom)}/${formatUtcDayHm(taf.validTo)}`
+          : "validity unknown";
+        const issuedText = taf.issuedAt ? `issued ${formatUtcHm(taf.issuedAt)}, ` : "";
+        status.textContent = `Pasted TAF applied (${issuedText}${validityText}). ${taf.raw}`;
+        setWeatherButtonMode(button, "TAF", "fetch");
+      } catch (err) {
+        if (isArrival) arrivalTaf = null;
+        else departureTaf = null;
+        calculateAll();
+        status.textContent = `Could not parse pasted TAF: ${err.message}`;
       }
     }
 
@@ -856,11 +1060,13 @@
         const issuedText = taf.issuedAt ? `issued ${formatUtcHm(taf.issuedAt)}, ` : "";
         const cautionText = expired ? " EXPIRED - do not use for current planning." : "";
         status.textContent = `${stationLabel} TAF applied (${issuedText}${validityText}).${cautionText} ${taf.raw}`;
+        setWeatherButtonMode(button, "TAF", "fetch");
       } catch (err) {
         if (isArrival) arrivalTaf = null;
         else departureTaf = null;
         calculateAll();
-        status.textContent = `Could not fetch ${stationLabel} TAF: ${err.message}`;
+        status.textContent = `Could not fetch ${stationLabel} TAF: ${err.message}. Paste a raw TAF instead.`;
+        setWeatherButtonMode(button, "TAF", "paste");
       } finally {
         button.disabled = false;
       }
@@ -2475,10 +2681,14 @@
 
       document.getElementById("calcBtn").addEventListener("click", calculateAll);
       document.getElementById("exportPdfBtn").addEventListener("click", exportReportToPdf);
-      document.getElementById("fetchMetarBtn").addEventListener("click", () => fetchAndApplyMetar("departure"));
-      document.getElementById("fetchTafBtn").addEventListener("click", () => fetchAndAssessTaf("departure"));
-      document.getElementById("fetchArrivalMetarBtn").addEventListener("click", () => fetchAndApplyMetar("arrival"));
-      document.getElementById("fetchArrivalTafBtn").addEventListener("click", () => fetchAndAssessTaf("arrival"));
+      document.getElementById("fetchMetarBtn").addEventListener("click", event =>
+        event.currentTarget.dataset.weatherMode === "paste" ? pasteAndApplyMetar("departure") : fetchAndApplyMetar("departure"));
+      document.getElementById("fetchTafBtn").addEventListener("click", event =>
+        event.currentTarget.dataset.weatherMode === "paste" ? pasteAndAssessTaf("departure") : fetchAndAssessTaf("departure"));
+      document.getElementById("fetchArrivalMetarBtn").addEventListener("click", event =>
+        event.currentTarget.dataset.weatherMode === "paste" ? pasteAndApplyMetar("arrival") : fetchAndApplyMetar("arrival"));
+      document.getElementById("fetchArrivalTafBtn").addEventListener("click", event =>
+        event.currentTarget.dataset.weatherMode === "paste" ? pasteAndAssessTaf("arrival") : fetchAndAssessTaf("arrival"));
       document.getElementById("flightDurationH")?.addEventListener("blur", () => {
         normalizeDurationField("flightDurationH");
         calculateAll();
@@ -2510,6 +2720,7 @@
       const savedRunwaySelect = document.getElementById("savedRunwaySelect");
 
       savedRunwaySelect.addEventListener("change", () => {
+        resetWeatherButtonModes("departure");
         const selectedId = savedRunwaySelect.value;
         if (selectedId === "none") {
           activeRunwayLabel = null;
@@ -2538,6 +2749,7 @@
       const arrivalRunwaySelect = document.getElementById("arrivalRunwaySelect");
 
       arrivalRunwaySelect.addEventListener("change", () => {
+        resetWeatherButtonModes("arrival");
         const selectedId = arrivalRunwaySelect.value;
         if (selectedId === "none") {
           arrivalUsesDepartureRunway = true;
