@@ -1,4 +1,47 @@
 {
-  "generatedAt": null,
-  "stations": {}
+  "generatedAt": "2026-07-22T13:19:41.449Z",
+  "stations": {
+    "LGKV": {
+      "taf": {
+        "raw": "TAF LGKV 221100Z 2212/2312 VRB03KT 9999 FEW030 SCT080 PROB40 TEMPO 2212/2218 4000 TSRA FEW018CB SCT025 BKN080 PROB30 TEMPO 2218/2222 5000 SHRA FEW020TCU SCT080",
+        "fetchedAt": "2026-07-22T13:19:21.446Z"
+      }
+    },
+    "LGTS": {
+      "taf": {
+        "raw": "TAF LGTS 221100Z 2212/2312 VRB03KT 9999 FEW030 PROB30 TEMPO 2212/2215 4000 TSRA FEW018CB SCT025 BECMG 2214/2216 34015KT TEMPO 2216/2306 34015G28KT",
+        "fetchedAt": "2026-07-22T13:19:21.446Z"
+      }
+    },
+    "LGAL": {
+      "taf": {
+        "raw": "TAF LGAL 221100Z 2212/2221 25013KT 9999 SCT030 PROB30 TEMPO 2212/2221 4000 TSRA FEW018CB SCT025 BECMG 2215/2217 06013KT",
+        "fetchedAt": "2026-07-22T13:19:21.446Z"
+      }
+    },
+    "LGHI": {
+      "taf": {
+        "raw": "TAF LGHI 221100Z 2212/2221 24012KT 9999 FEW025",
+        "fetchedAt": "2026-07-22T13:19:21.446Z"
+      }
+    },
+    "LGLM": {
+      "taf": {
+        "raw": "TAF LGLM 221100Z 2212/2221 03010KT 9999 FEW020 BECMG 2219/2221 03015G25KT",
+        "fetchedAt": "2026-07-22T13:19:21.446Z"
+      }
+    },
+    "LGMT": {
+      "taf": {
+        "raw": "TAF LGMT 221100Z 2212/2221 22012KT 9999 FEW025",
+        "fetchedAt": "2026-07-22T13:19:21.446Z"
+      }
+    },
+    "LGSK": {
+      "taf": {
+        "raw": "TAF LGSK 221100Z 2212/2221 VRB05KT 9999 FEW025 PROB30 TEMPO 2215/2221 3000 TSRA FEW018CB SCT025 BKN060 BECMG 2216/2218 34015KT TEMPO 2218/2221 34015G25KT",
+        "fetchedAt": "2026-07-22T13:19:21.446Z"
+      }
+    }
+  }
 }
