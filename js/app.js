@@ -92,6 +92,7 @@
     const TAF_ADVISORY_HOURS = 6;
     let weatherSnapshotPromise = null;
     let weatherSnapshotLoadedAt = 0;
+    const weatherRequestGeneration = { departure: 0, arrival: 0 };
 
     async function loadRunwayPresets() {
       try {
@@ -961,8 +962,13 @@
 
     function resetWeatherButtonModes(target) {
       const isArrival = target === "arrival";
-      setWeatherButtonMode(document.getElementById(isArrival ? "fetchArrivalMetarBtn" : "fetchMetarBtn"), "METAR", "fetch");
-      setWeatherButtonMode(document.getElementById(isArrival ? "fetchArrivalTafBtn" : "fetchTafBtn"), "TAF", "fetch");
+      weatherRequestGeneration[target] += 1;
+      const metarButton = document.getElementById(isArrival ? "fetchArrivalMetarBtn" : "fetchMetarBtn");
+      const tafButton = document.getElementById(isArrival ? "fetchArrivalTafBtn" : "fetchTafBtn");
+      metarButton.disabled = false;
+      tafButton.disabled = false;
+      setWeatherButtonMode(metarButton, "METAR", "fetch");
+      setWeatherButtonMode(tafButton, "TAF", "fetch");
     }
 
     function initializeWeatherButtons() {
@@ -974,6 +980,7 @@
 
     async function fetchAndApplyMetar(target) {
       const isArrival = target === "arrival";
+      const requestGeneration = weatherRequestGeneration[target];
       const status = document.getElementById(isArrival ? "arrivalMetarStatus" : "metarStatus");
       const button = document.getElementById(isArrival ? "fetchArrivalMetarBtn" : "fetchMetarBtn");
       const runway = isArrival ? getSelectedRunway("arrivalRunwaySelect") : getSelectedRunway("savedRunwaySelect");
@@ -997,6 +1004,7 @@
       status.textContent = `Fetching ${stationLabel} METAR from NOAA...`;
       try {
         const metar = await fetchMetarForStation(station);
+        if (requestGeneration !== weatherRequestGeneration[target]) return;
         if (isArrival) arrivalMetar = metar;
         else departureMetar = metar;
         applyMetarToFields(metar, target);
@@ -1007,10 +1015,11 @@
         status.textContent = `${stationLabel} METAR applied (${formatMetarAge(ageMinutes)}).${staleText} ${metar.raw}`;
         setWeatherButtonMode(button, "METAR", "fetch");
       } catch (err) {
+        if (requestGeneration !== weatherRequestGeneration[target]) return;
         status.textContent = `Could not fetch ${stationLabel} METAR: ${err.message}. Paste a raw METAR instead.`;
         setWeatherButtonMode(button, "METAR", "paste");
       } finally {
-        button.disabled = false;
+        if (requestGeneration === weatherRequestGeneration[target]) button.disabled = false;
       }
     }
 
@@ -1061,6 +1070,7 @@
 
     async function fetchAndAssessTaf(target) {
       const isArrival = target === "arrival";
+      const requestGeneration = weatherRequestGeneration[target];
       const status = document.getElementById(isArrival ? "arrivalTafStatus" : "tafStatus");
       const button = document.getElementById(isArrival ? "fetchArrivalTafBtn" : "fetchTafBtn");
       const runway = isArrival
@@ -1081,6 +1091,7 @@
       status.textContent = `Fetching ${stationLabel} TAF from NOAA...`;
       try {
         const taf = await fetchTafForStation(station);
+        if (requestGeneration !== weatherRequestGeneration[target]) return;
         if (isArrival) arrivalTaf = taf;
         else departureTaf = taf;
         calculateAll();
@@ -1093,13 +1104,14 @@
         status.textContent = `${stationLabel} TAF applied (${issuedText}${validityText}).${cautionText} ${taf.raw}`;
         setWeatherButtonMode(button, "TAF", "fetch");
       } catch (err) {
+        if (requestGeneration !== weatherRequestGeneration[target]) return;
         if (isArrival) arrivalTaf = null;
         else departureTaf = null;
         calculateAll();
         status.textContent = `Could not fetch ${stationLabel} TAF: ${err.message}. Paste a raw TAF instead.`;
         setWeatherButtonMode(button, "TAF", "paste");
       } finally {
-        button.disabled = false;
+        if (requestGeneration === weatherRequestGeneration[target]) button.disabled = false;
       }
     }
 
