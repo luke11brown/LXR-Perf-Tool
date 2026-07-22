@@ -2,7 +2,7 @@ name: Update weather snapshot
 
 on:
   schedule:
-    - cron: "0,30 * * * *"
+    - cron: "27,57 * * * *"
   workflow_dispatch:
 
 permissions:
