@@ -175,6 +175,10 @@ or fetched report is applied, the button changes back to Fetch. Scheduled
 workflows can be delayed under GitHub load, so always review the displayed METAR
 age and TAF validity before use.
 
+The app also removes legacy standalone Paste controls during startup. The script
+URL in `index.html` is versioned when this interaction changes so GitHub Pages
+clients do not continue running a cached pre-toggle implementation.
+
 ## Development Notes
 
 - Keep aviation data changes in JSON where possible rather than hard-coding

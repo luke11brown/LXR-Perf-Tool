@@ -965,6 +965,13 @@
       setWeatherButtonMode(document.getElementById(isArrival ? "fetchArrivalTafBtn" : "fetchTafBtn"), "TAF", "fetch");
     }
 
+    function initializeWeatherButtons() {
+      ["pasteMetarBtn", "pasteTafBtn", "pasteArrivalMetarBtn", "pasteArrivalTafBtn"]
+        .forEach(id => document.getElementById(id)?.remove());
+      resetWeatherButtonModes("departure");
+      resetWeatherButtonModes("arrival");
+    }
+
     async function fetchAndApplyMetar(target) {
       const isArrival = target === "arrival";
       const status = document.getElementById(isArrival ? "arrivalMetarStatus" : "metarStatus");
@@ -2698,6 +2705,7 @@
       }
 
       buildCGChart();
+      initializeWeatherButtons();
       initTabs();
       populateAircraftSelect();
       populateFuelTypeSelect();
