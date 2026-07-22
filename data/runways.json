@@ -256,5 +256,49 @@
     "lda": 1442,
     "heading": 190,
     "surface": "hard_dry"
+  },
+    {
+    "id": "LGKA_12",
+    "label": "LGKA 12",
+    "elev": 2166,
+    "tora": 2698,
+    "toda": 2698,
+    "asda": 2698,
+    "lda": 2516,
+    "heading": 125,
+    "surface": "hard_dry"
+  },
+    {
+    "id": "LGKA_30",
+    "label": "LGKA 30",
+    "elev": 2119,
+    "tora": 2698,
+    "toda": 2698,
+    "asda": 2698,
+    "lda": 1442,
+    "heading": 305,
+    "surface": "hard_dry"
+  },
+    {
+    "id": "LGKZ_14",
+    "label": "LGKZ 14",
+    "elev": 2050,
+    "tora": 1822,
+    "toda": 1822,
+    "asda": 1822,
+    "lda": 1641,
+    "heading": 143,
+    "surface": "hard_dry"
+  },
+    {
+    "id": "LGKZ_32",
+    "label": "LGKZ 32",
+    "elev": 1968,
+    "tora": 1822,
+    "toda": 1822,
+    "asda": 1822,
+    "lda": 1641,
+    "heading": 323,
+    "surface": "hard_dry"
   }
 ]
