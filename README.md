@@ -179,6 +179,51 @@ The app also removes legacy standalone Paste controls during startup. The script
 URL in `index.html` is versioned when this interaction changes so GitHub Pages
 clients do not continue running a cached pre-toggle implementation.
 
+### Reliable free weather scheduling
+
+GitHub documents scheduled workflows as best-effort: runs can be delayed during
+high load and some queued jobs can be dropped. Changing the minute in the cron
+expression can reduce contention, but cannot make a GitHub-hosted schedule
+reliable. The recommended free setup is therefore to keep the existing schedule
+as a fallback and have [cron-job.org](https://cron-job.org/) call this workflow's
+[`workflow_dispatch` endpoint](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event)
+at minutes 25, 29, 55, and 59. The paired attempts on either side of each
+half-hour boundary help catch Aviation Weather API data that is published later
+than expected. In the cron-job.org job form, enter each part in its own field—do
+not paste the whole HTTP example into **Request body**:
+
+- **URL:**
+  `https://api.github.com/repos/luke11brown/LXR-Perf-Tool/actions/workflows/update-weather.yml/dispatches`
+- **Request method:** `POST`
+- **Request body:** `{"ref":"main","inputs":{"source":"cron-job.org"}}`
+- **Headers:** add the following four key/value rows:
+
+  | Key | Value |
+  | --- | --- |
+  | `Authorization` | `Bearer YOUR_FINE_GRAINED_TOKEN` |
+  | `Accept` | `application/vnd.github+json` |
+  | `X-GitHub-Api-Version` | `2022-11-28` |
+  | `Content-Type` | `application/json` |
+
+The token goes in the **Value** column of the `Authorization` row, after the
+word `Bearer` and one space. For example, if GitHub displays a token beginning
+with `github_pat_`, the row is `Authorization` / `Bearer github_pat_...`. The
+request body must contain only the one-line JSON value above—no URL, header
+lines, or `POST` prefix.
+
+Create a fine-grained token restricted to this repository with only **Actions:
+Read and write**, store it in cron-job.org's `Authorization` header value, and
+replace `main` if the repository's default branch has another name. Configure
+retries for non-2xx responses. A successful dispatch returns HTTP 204; the
+workflow run name then identifies `cron-job.org` as its source. Do not put the
+token in this repository, a query string, or the request body.
+
+This approach remains free for the current public-repository workflow, uses the
+same tested updater and publishing path, and avoids depending on GitHub's cron
+queue for the primary trigger. It does not make aviation weather authoritative:
+continue to check the displayed report age and verify operational weather from
+an approved source.
+
 ## Development Notes
 
 - Keep aviation data changes in JSON where possible rather than hard-coding

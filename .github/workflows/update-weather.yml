@@ -1,9 +1,15 @@
 name: Update weather snapshot
+run-name: Update weather snapshot (${{ inputs.source || github.event_name }})
 
 on:
   schedule:
     - cron: "28,58 * * * *"
   workflow_dispatch:
+    inputs:
+      source:
+        description: Scheduler or operator starting this update
+        required: false
+        default: manual
 
 permissions:
   contents: write
