@@ -187,8 +187,10 @@ expression can reduce contention, but cannot make a GitHub-hosted schedule
 reliable. The recommended free setup is therefore to keep the existing schedule
 as a fallback and have [cron-job.org](https://cron-job.org/) call this workflow's
 [`workflow_dispatch` endpoint](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event)
-at minutes 28 and 58. In the cron-job.org job form, enter each part in its own
-field—do not paste the whole HTTP example into **Request body**:
+at minutes 25, 29, 55, and 59. The paired attempts on either side of each
+half-hour boundary help catch Aviation Weather API data that is published later
+than expected. In the cron-job.org job form, enter each part in its own field—do
+not paste the whole HTTP example into **Request body**:
 
 - **URL:**
   `https://api.github.com/repos/luke11brown/LXR-Perf-Tool/actions/workflows/update-weather.yml/dispatches`
