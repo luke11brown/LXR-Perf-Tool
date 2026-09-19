@@ -1,0 +1,81 @@
+{
+  "generatedAt": "2026-09-19T16:29:22.028Z",
+  "stations": {
+    "LGLM": {
+      "metar": {
+        "raw": "METAR LGLM 191620Z VRB03KT CAVOK 23/15 Q1020",
+        "fetchedAt": "2026-09-19T16:29:21.359Z"
+      },
+      "taf": {
+        "raw": "TAF LGLM 191400Z 1915/1924 03010KT 9999 FEW020",
+        "fetchedAt": "2026-09-19T16:29:21.359Z"
+      }
+    },
+    "LGTS": {
+      "metar": {
+        "raw": "METAR LGTS 191620Z 17008KT 9999 FEW020 26/18 Q1020 NOSIG",
+        "fetchedAt": "2026-09-19T16:29:21.359Z"
+      },
+      "taf": {
+        "raw": "TAF LGTS 191100Z 1912/2012 17013KT 9999 FEW030 BECMG 1918/1920 VRB03KT",
+        "fetchedAt": "2026-09-19T16:29:21.359Z"
+      }
+    },
+    "LGAL": {
+      "metar": {
+        "raw": "METAR LGAL 191620Z 24005KT CAVOK 24/17 Q1019",
+        "fetchedAt": "2026-09-19T16:29:21.359Z"
+      },
+      "taf": {
+        "raw": "TAF LGAL 191400Z 1915/1924 07013KT 9999 FEW030",
+        "fetchedAt": "2026-09-19T16:29:21.359Z"
+      }
+    },
+    "LGKV": {
+      "metar": {
+        "raw": "METAR LGKV 191620Z 18002KT 9999 FEW025 24/18 Q1020",
+        "fetchedAt": "2026-09-19T16:29:21.359Z"
+      },
+      "taf": {
+        "raw": "TAF LGKV 191100Z 1912/2012 VRB03KT 9999 FEW030 TEMPO 1912/1916 FEW025 SCT080 BECMG 2009/2011 FEW025 SCT080",
+        "fetchedAt": "2026-09-19T16:29:21.359Z"
+      }
+    },
+    "LGMT": {
+      "metar": {
+        "raw": "METAR LGMT 191620Z 30004KT 260V340 9999 FEW030 26/11 Q1018",
+        "fetchedAt": "2026-09-19T16:29:21.359Z"
+      },
+      "taf": {
+        "raw": "TAF LGMT 191400Z 1915/1924 34015KT CAVOK TEMPO 1915/1924 34015G25KT",
+        "fetchedAt": "2026-09-19T16:29:21.359Z"
+      }
+    },
+    "LGSK": {
+      "metar": {
+        "raw": "METAR LGSK 191620Z VRB02KT CAVOK 25/19 Q1019",
+        "fetchedAt": "2026-09-19T16:29:21.359Z"
+      },
+      "taf": {
+        "raw": "TAF LGSK 191400Z 1915/1924 05006KT 9999 FEW020",
+        "fetchedAt": "2026-09-19T16:29:21.359Z"
+      }
+    },
+    "LGHI": {
+      "metar": {
+        "raw": "METAR LGHI 191550Z 01007KT CAVOK 25/15 Q1017",
+        "fetchedAt": "2026-09-19T16:29:21.359Z"
+      },
+      "taf": {
+        "raw": "TAF LGHI 191400Z 1915/1924 01015KT CAVOK TEMPO 1915/1924 01015G25KT",
+        "fetchedAt": "2026-09-19T16:29:21.359Z"
+      }
+    },
+    "LGKZ": {
+      "metar": {
+        "raw": "METAR LGKZ 191550Z 12006KT 9999 FEW025 SCT080 26/08 Q1022",
+        "fetchedAt": "2026-09-19T16:29:21.359Z"
+      }
+    }
+  }
+}
