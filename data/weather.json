@@ -1,0 +1,81 @@
+{
+  "generatedAt": "2026-10-24T13:07:47.830Z",
+  "stations": {
+    "LGLM": {
+      "metar": {
+        "raw": "METAR LGLM 241250Z 03010KT 9999 FEW020 19/13 Q1016",
+        "fetchedAt": "2026-10-24T13:07:46.819Z"
+      },
+      "taf": {
+        "raw": "TAF LGLM 241100Z 2412/2421 03010KT 9999 FEW015",
+        "fetchedAt": "2026-10-24T13:07:46.819Z"
+      }
+    },
+    "LGTS": {
+      "metar": {
+        "raw": "METAR LGTS 241250Z 31004KT 9999 SCT025 21/15 Q1016 NOSIG",
+        "fetchedAt": "2026-10-24T13:07:46.819Z"
+      },
+      "taf": {
+        "raw": "TAF LGTS 241100Z 2412/2512 VRB03KT 9999 SCT020 PROB30 TEMPO 2412/2415 5000 RA SCT005 BECMG 2500/2502 SCT020 BKN050",
+        "fetchedAt": "2026-10-24T13:07:46.819Z"
+      }
+    },
+    "LGAL": {
+      "metar": {
+        "raw": "METAR LGAL 241250Z 11007KT 9999 FEW020 21/12 Q1016",
+        "fetchedAt": "2026-10-24T13:07:46.819Z"
+      },
+      "taf": {
+        "raw": "TAF LGAL 241100Z 2412/2421 04008KT 9999 FEW025",
+        "fetchedAt": "2026-10-24T13:07:46.819Z"
+      }
+    },
+    "LGKV": {
+      "metar": {
+        "raw": "METAR LGKV 241250Z 13008KT 9999 FEW018 21/11 Q1016",
+        "fetchedAt": "2026-10-24T13:07:46.819Z"
+      },
+      "taf": {
+        "raw": "TAF LGKV 241100Z 2412/2512 VRB03KT 9999 SCT020 BECMG 2500/2502 SCT020 SCT070",
+        "fetchedAt": "2026-10-24T13:07:46.819Z"
+      }
+    },
+    "LGMT": {
+      "metar": {
+        "raw": "METAR LGMT 241250Z 32006KT 9999 FEW025 22/14 Q1016",
+        "fetchedAt": "2026-10-24T13:07:46.819Z"
+      },
+      "taf": {
+        "raw": "TAF LGMT 241100Z 2412/2421 VRB03KT 9999 FEW030",
+        "fetchedAt": "2026-10-24T13:07:46.819Z"
+      }
+    },
+    "LGSK": {
+      "metar": {
+        "raw": "METAR LGSK 241250Z 04006KT 9999 FEW015 SCT025 21/17 Q1016",
+        "fetchedAt": "2026-10-24T13:07:46.819Z"
+      },
+      "taf": {
+        "raw": "TAF LGSK 241100Z 2412/2421 06008KT 9999 FEW020",
+        "fetchedAt": "2026-10-24T13:07:46.819Z"
+      }
+    },
+    "LGHI": {
+      "metar": {
+        "raw": "METAR LGHI 241250Z /////KT 9999 FEW035 21/16 Q1015",
+        "fetchedAt": "2026-10-24T13:07:46.819Z"
+      },
+      "taf": {
+        "raw": "TAF LGHI 241100Z 2412/2421 VRB03KT 9999 FEW030",
+        "fetchedAt": "2026-10-24T13:07:46.819Z"
+      }
+    },
+    "LGKZ": {
+      "metar": {
+        "raw": "METAR LGKZ 241250Z AUTO 16004KT 070V180 //// // ////// 20/06 Q1017 RE//",
+        "fetchedAt": "2026-10-24T13:07:46.819Z"
+      }
+    }
+  }
+}
