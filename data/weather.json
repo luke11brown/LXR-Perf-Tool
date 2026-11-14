@@ -1,0 +1,81 @@
+{
+  "generatedAt": "2026-11-14T22:29:30.612Z",
+  "stations": {
+    "LGLM": {
+      "metar": {
+        "raw": "METAR LGLM 142220Z 05015G25KT 9999 FEW018TCU BKN020 12/10 Q1024",
+        "fetchedAt": "2026-11-14T22:29:21.129Z"
+      },
+      "taf": {
+        "raw": "TAF LGLM 142000Z 1421/1506 05015G25KT 9999 BKN020",
+        "fetchedAt": "2026-11-14T22:29:21.129Z"
+      }
+    },
+    "LGTS": {
+      "metar": {
+        "raw": "METAR LGTS 142220Z 18004KT 9999 SCT025 13/08 Q1024 NOSIG",
+        "fetchedAt": "2026-11-14T22:29:21.129Z"
+      },
+      "taf": {
+        "raw": "TAF LGTS 141700Z 1418/1518 34015KT 9999 FEW015 BKN025 TEMPO 1418/1420 34015G25KT PROB30 TEMPO 1420/1509 5000 RA BECMG 1500/1502 VRB03KT",
+        "fetchedAt": "2026-11-14T22:29:21.129Z"
+      }
+    },
+    "LGAL": {
+      "metar": {
+        "raw": "METAR LGAL 142220Z 04014KT 9999 FEW015 BKN025 08/05 Q1026",
+        "fetchedAt": "2026-11-14T22:29:21.129Z"
+      },
+      "taf": {
+        "raw": "TAF LGAL 142000Z 1421/1506 05018KT 9999 FEW015 BKN025 TEMPO 1421/1506 05018G28KT",
+        "fetchedAt": "2026-11-14T22:29:21.129Z"
+      }
+    },
+    "LGKV": {
+      "metar": {
+        "raw": "METAR LGKV 142150Z 10013KT 9999 SCT030 BKN080 13/08 Q1025",
+        "fetchedAt": "2026-11-14T22:29:21.129Z"
+      },
+      "taf": {
+        "raw": "TAF LGKV 141700Z 1418/1518 07015KT 9999 SCT025 BKN080 PROB40 TEMPO 1418/1424 07015G25KT 5000 RA FEW010 BKN025 BKN080",
+        "fetchedAt": "2026-11-14T22:29:21.129Z"
+      }
+    },
+    "LGMT": {
+      "metar": {
+        "raw": "METAR LGMT 142150Z 17005KT 9999 FEW018TCU SCT025 19/16 Q1021",
+        "fetchedAt": "2026-11-14T22:29:21.129Z"
+      },
+      "taf": {
+        "raw": "TAF LGMT 142000Z 1421/1506 18010KT 9999 FEW012 SCT025 PROB40 TEMPO 1421/1506 5000 RA FEW010 BKN020 PROB30 TEMPO 1421/1424 3000 TSRA FEW008 FEW018CB BKN020 BECMG 1500/1502 05013KT",
+        "fetchedAt": "2026-11-14T22:29:21.129Z"
+      }
+    },
+    "LGSK": {
+      "metar": {
+        "raw": "METAR LGSK 131250Z 20012G22KT 9999 FEW020 23/15 Q1009",
+        "fetchedAt": "2026-11-14T22:29:21.129Z"
+      },
+      "taf": {
+        "raw": "TAF LGSK 142000Z 1421/1506 05016KT 9999 FEW010 SCT020 PROB30 TEMPO 1421/1506 5000 RA FEW010 FEW018TCU BKN020",
+        "fetchedAt": "2026-11-14T22:29:21.129Z"
+      }
+    },
+    "LGHI": {
+      "metar": {
+        "raw": "METAR LGHI 141950Z /////KT 8000 FEW020 SCT030 19/18 Q1021",
+        "fetchedAt": "2026-11-14T22:29:21.129Z"
+      },
+      "taf": {
+        "raw": "TAF LGHI 142000Z 1421/1506 18010KT 9999 FEW015 SCT025 PROB30 TEMPO 1421/1506 5000 RA FEW012 BKN020 BECMG 1502/1504 01013KT",
+        "fetchedAt": "2026-11-14T22:29:21.129Z"
+      }
+    },
+    "LGKZ": {
+      "metar": {
+        "raw": "METAR LGKZ 142220Z AUTO 34009KT 290V360 //// // ////// 09/06 Q1024 RE//",
+        "fetchedAt": "2026-11-14T22:29:21.129Z"
+      }
+    }
+  }
+}
